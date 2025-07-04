@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
 
 // Validation schemas
@@ -27,9 +28,10 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -97,20 +99,15 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is admin
-    const { data: currentEmployee } = await supabase
-      .from('employees')
-      .select('position')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!currentEmployee?.position?.toLowerCase().includes('admin')) {
+    // For demo purposes, allow admin access
+    if (user.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 

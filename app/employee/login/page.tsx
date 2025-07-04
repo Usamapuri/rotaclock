@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Clock, User } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { AuthService } from "@/lib/auth"
 
 export default function EmployeeLogin() {
   const [employeeId, setEmployeeId] = useState("")
@@ -21,15 +22,18 @@ export default function EmployeeLogin() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false)
-      // For demo purposes, accept any credentials
-      if (employeeId && password) {
-        localStorage.setItem("employeeId", employeeId)
+    try {
+      const user = await AuthService.employeeLogin(employeeId, password)
+      if (user) {
         router.push("/employee/dashboard")
+      } else {
+        alert("Invalid credentials. Use: EMP001 / emp123")
       }
-    }, 1000)
+    } catch (error) {
+      alert("Login failed. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (

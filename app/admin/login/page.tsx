@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Clock, Shield } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { AuthService } from "@/lib/auth"
 
 export default function AdminLogin() {
   const [username, setUsername] = useState("")
@@ -21,15 +22,18 @@ export default function AdminLogin() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false)
-      // For demo purposes, accept any credentials
-      if (username && password) {
-        localStorage.setItem("adminUser", username)
+    try {
+      const user = await AuthService.adminLogin(username, password)
+      if (user) {
         router.push("/admin/dashboard")
+      } else {
+        alert("Invalid credentials. Use: admin / admin123")
       }
-    }, 1000)
+    } catch (error) {
+      alert("Login failed. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
