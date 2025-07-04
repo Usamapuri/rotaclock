@@ -108,15 +108,17 @@ INSERT INTO company_holidays (
     id,
     name,
     date,
-    is_recurring,
+    type,
+    description,
+    is_active,
     created_at,
     updated_at
 ) VALUES 
-    (gen_random_uuid(), 'New Year''s Day', '2024-01-01', true, NOW(), NOW()),
-    (gen_random_uuid(), 'Independence Day', '2024-07-04', true, NOW(), NOW()),
-    (gen_random_uuid(), 'Christmas Day', '2024-12-25', true, NOW(), NOW()),
-    (gen_random_uuid(), 'Thanksgiving', '2024-11-28', true, NOW(), NOW()),
-    (gen_random_uuid(), 'Memorial Day', '2024-05-27', true, NOW(), NOW());
+    (gen_random_uuid(), 'New Year''s Day', '2024-01-01', 'holiday', 'New Year celebration', true, NOW(), NOW()),
+    (gen_random_uuid(), 'Independence Day', '2024-07-04', 'holiday', 'Independence Day celebration', true, NOW(), NOW()),
+    (gen_random_uuid(), 'Christmas Day', '2024-12-25', 'holiday', 'Christmas celebration', true, NOW(), NOW()),
+    (gen_random_uuid(), 'Thanksgiving', '2024-11-28', 'holiday', 'Thanksgiving celebration', true, NOW(), NOW()),
+    (gen_random_uuid(), 'Memorial Day', '2024-05-27', 'holiday', 'Memorial Day observance', true, NOW(), NOW());
 
 -- Display summary
 SELECT 'Demo data inserted successfully!' as message;
