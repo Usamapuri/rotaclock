@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
 
 // Validation schema for updates
@@ -28,9 +29,10 @@ export async function GET(
   try {
     const supabase = createServerSupabaseClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -55,15 +57,9 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch employee' }, { status: 500 })
     }
 
-    // Check if user can access this employee data
-    const { data: currentEmployee } = await supabase
-      .from('employees')
-      .select('id, position')
-      .eq('user_id', user.id)
-      .single()
-
-    const isAdmin = currentEmployee?.position?.toLowerCase().includes('admin')
-    const isOwnData = currentEmployee?.id === id
+    // For demo purposes, allow admin access to all employee data
+    const isAdmin = user.role === 'admin'
+    const isOwnData = false // Simplified for demo
 
     if (!isAdmin && !isOwnData) {
       return NextResponse.json({ error: 'Forbidden: Access denied' }, { status: 403 })
@@ -88,23 +84,18 @@ export async function PATCH(
   try {
     const supabase = createServerSupabaseClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = params
 
-    // Check if user is admin or updating their own data
-    const { data: currentEmployee } = await supabase
-      .from('employees')
-      .select('id, position')
-      .eq('user_id', user.id)
-      .single()
-
-    const isAdmin = currentEmployee?.position?.toLowerCase().includes('admin')
-    const isOwnData = currentEmployee?.id === id
+    // For demo purposes, allow admin access
+    const isAdmin = user.role === 'admin'
+    const isOwnData = false // Simplified for demo
 
     if (!isAdmin && !isOwnData) {
       return NextResponse.json({ error: 'Forbidden: Access denied' }, { status: 403 })
@@ -197,22 +188,17 @@ export async function DELETE(
   try {
     const supabase = createServerSupabaseClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = params
 
-    // Check if user is admin
-    const { data: currentEmployee } = await supabase
-      .from('employees')
-      .select('position')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!currentEmployee?.position?.toLowerCase().includes('admin')) {
+    // For demo purposes, allow admin access
+    if (user.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 

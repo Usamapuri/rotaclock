@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 /**
  * GET /api/time/entries
@@ -9,21 +10,17 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get current employee
-    const { data: employee, error: employeeError } = await supabase
-      .from('employees')
-      .select('id, position')
-      .eq('user_id', user.id)
-      .single()
-
-    if (employeeError || !employee) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+    // For demo purposes, use a mock employee
+    const employee = {
+      id: 'demo-employee-id',
+      position: user.role === 'admin' ? 'admin' : 'employee'
     }
 
     // Get query parameters
