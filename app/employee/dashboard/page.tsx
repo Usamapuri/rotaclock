@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 
 // Force dynamic rendering to prevent build issues
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'

@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 
-// Force dynamic rendering to prevent build issues
+// Force dynamic rendering to prevent build issues - Build fix v2
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
