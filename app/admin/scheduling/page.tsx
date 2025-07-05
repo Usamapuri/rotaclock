@@ -130,10 +130,17 @@ export default function AdminScheduling() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [shifts, setShifts] = useState<Shift[]>([])
   const [shiftAssignments, setShiftAssignments] = useState<ShiftAssignment[]>([])
+  const [employees, setEmployees] = useState<any[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [showAddShift, setShowAddShift] = useState(false)
   const [showAssignShift, setShowAssignShift] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [assignmentFormData, setAssignmentFormData] = useState({
+    shift_id: '',
+    employee_id: '',
+    date: new Date().toISOString().split('T')[0],
+    notes: ''
+  })
   const [shiftFormData, setShiftFormData] = useState({
     name: '',
     description: '',
@@ -289,44 +296,35 @@ export default function AdminScheduling() {
       const shiftsData = await shiftsResponse.json()
       setShifts(shiftsData.shifts || [])
 
-      // For now, keep mock assignments until we implement the assignment API
-      const mockAssignments: ShiftAssignment[] = [
-        {
-          id: '1',
-          shift_id: '2',
-          shift_name: 'Day Shift',
-          employee_id: 'EMP001',
-          employee_name: 'John Doe',
-          date: '2024-01-15',
-          start_time: '09:00:00',
-          end_time: '17:00:00',
-          status: 'scheduled'
-        },
-        {
-          id: '2',
-          shift_id: '2',
-          shift_name: 'Day Shift',
-          employee_id: 'EMP002',
-          employee_name: 'Jane Smith',
-          date: '2024-01-15',
-          start_time: '09:00:00',
-          end_time: '17:00:00',
-          status: 'scheduled'
-        },
-        {
-          id: '3',
-          shift_id: '3',
-          shift_name: 'Evening Shift',
-          employee_id: 'EMP003',
-          employee_name: 'Mike Johnson',
-          date: '2024-01-15',
-          start_time: '14:00:00',
-          end_time: '22:00:00',
-          status: 'in-progress'
-        }
-      ]
+      // Fetch shift assignments from API
+      const assignmentsResponse = await fetch('/api/shifts/assignments')
+      if (!assignmentsResponse.ok) {
+        throw new Error('Failed to fetch shift assignments')
+      }
+      const assignmentsData = await assignmentsResponse.json()
+      
+      // Transform the API response to match our interface
+      const transformedAssignments: ShiftAssignment[] = assignmentsData.assignments.map((assignment: any) => ({
+        id: assignment.id,
+        shift_id: assignment.shift_id,
+        shift_name: assignment.shift?.name || 'Unknown Shift',
+        employee_id: assignment.employee_id,
+        employee_name: assignment.employee ? `${assignment.employee.first_name} ${assignment.employee.last_name}` : 'Unknown Employee',
+        date: assignment.date,
+        start_time: assignment.start_time,
+        end_time: assignment.end_time,
+        status: assignment.status
+      }))
+      
+      setShiftAssignments(transformedAssignments)
 
-      setShiftAssignments(mockAssignments)
+      // Fetch employees for assignment form
+      const employeesResponse = await fetch('/api/employees?is_active=true')
+      if (!employeesResponse.ok) {
+        throw new Error('Failed to fetch employees')
+      }
+      const employeesData = await employeesResponse.json()
+      setEmployees(employeesData.data || [])
     } catch (error) {
       console.error('Error loading scheduling data:', error)
       toast.error('Failed to load scheduling data')
@@ -469,6 +467,74 @@ export default function AdminScheduling() {
       ...prev,
       [field]: value
     }))
+  }
+
+  const handleAssignmentInputChange = (field: string, value: string) => {
+    setAssignmentFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handleAssignmentFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!assignmentFormData.shift_id || !assignmentFormData.employee_id || !assignmentFormData.date) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/shifts/assignments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee_id: assignmentFormData.employee_id,
+          shift_id: assignmentFormData.shift_id,
+          date: assignmentFormData.date,
+          notes: assignmentFormData.notes || undefined,
+          status: 'assigned'
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to assign shift')
+      }
+
+      const { assignment } = await response.json()
+      
+      // Add the new assignment to the local state
+      const newAssignment: ShiftAssignment = {
+        id: assignment.id,
+        shift_id: assignment.shift_id,
+        shift_name: assignment.shift?.name || 'Unknown Shift',
+        employee_id: assignment.employee_id,
+        employee_name: assignment.employee ? `${assignment.employee.first_name} ${assignment.employee.last_name}` : 'Unknown Employee',
+        date: assignment.date,
+        start_time: assignment.start_time,
+        end_time: assignment.end_time,
+        status: assignment.status
+      }
+      
+      setShiftAssignments([...shiftAssignments, newAssignment])
+      setShowAssignShift(false)
+      
+      // Reset form
+      setAssignmentFormData({
+        shift_id: '',
+        employee_id: '',
+        date: new Date().toISOString().split('T')[0],
+        notes: ''
+      })
+      
+      toast.success('Shift assigned successfully!')
+    } catch (error) {
+      console.error('Error assigning shift:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to assign shift')
+    }
   }
 
   return (
@@ -1089,10 +1155,16 @@ export default function AdminScheduling() {
               <CardDescription>Assign an employee to a shift</CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4">
+              <form onSubmit={handleAssignmentFormSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="shift_id">Shift</Label>
-                  <select id="shift_id" className="w-full p-2 border rounded-md" required>
+                  <select 
+                    id="shift_id" 
+                    className="w-full p-2 border rounded-md" 
+                    value={assignmentFormData.shift_id}
+                    onChange={(e) => handleAssignmentInputChange('shift_id', e.target.value)}
+                    required
+                  >
                     <option value="">Select Shift</option>
                     {shifts.filter(s => s.is_active).map(shift => (
                       <option key={shift.id} value={shift.id}>
@@ -1103,16 +1175,40 @@ export default function AdminScheduling() {
                 </div>
                 <div>
                   <Label htmlFor="employee_id">Employee</Label>
-                  <select id="employee_id" className="w-full p-2 border rounded-md" required>
+                  <select 
+                    id="employee_id" 
+                    className="w-full p-2 border rounded-md" 
+                    value={assignmentFormData.employee_id}
+                    onChange={(e) => handleAssignmentInputChange('employee_id', e.target.value)}
+                    required
+                  >
                     <option value="">Select Employee</option>
-                    <option value="EMP001">John Doe - Engineering</option>
-                    <option value="EMP002">Jane Smith - Marketing</option>
-                    <option value="EMP003">Mike Johnson - Sales</option>
+                    {employees.map(employee => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.first_name} {employee.last_name} - {employee.department || 'No Department'}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <Label htmlFor="assignment_date">Date</Label>
-                  <Input id="assignment_date" type="date" required />
+                  <Input 
+                    id="assignment_date" 
+                    type="date" 
+                    value={assignmentFormData.date}
+                    onChange={(e) => handleAssignmentInputChange('date', e.target.value)}
+                    required 
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="assignment_notes">Notes (Optional)</Label>
+                  <Input 
+                    id="assignment_notes" 
+                    type="text"
+                    placeholder="Add any notes about this assignment"
+                    value={assignmentFormData.notes}
+                    onChange={(e) => handleAssignmentInputChange('notes', e.target.value)}
+                  />
                 </div>
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1">
