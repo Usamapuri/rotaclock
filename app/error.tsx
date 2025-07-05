@@ -1,12 +1,5 @@
 'use client'
 
-// Force dynamic rendering to prevent build issues
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-export const fetchCache = 'force-no-store'
-export const preferredRegion = 'auto'
-export const runtime = 'nodejs'
-
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
