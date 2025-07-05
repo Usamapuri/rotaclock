@@ -382,11 +382,19 @@ export default function EmployeeDashboard() {
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button variant="outline" className="w-full justify-start">
+                <Button 
+                  onClick={() => router.push('/employee/scheduling')}
+                  variant="outline" 
+                  className="w-full justify-start"
+                >
                   <Calendar className="h-4 w-4 mr-2" />
                   View Schedule
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button 
+                  onClick={() => router.push('/employee/profile')}
+                  variant="outline" 
+                  className="w-full justify-start"
+                >
                   <User className="h-4 w-4 mr-2" />
                   Update Profile
                 </Button>

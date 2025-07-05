@@ -111,6 +111,8 @@ export function CameraVerification({
       if (success) {
         setVerificationStatus('success')
         toast.success('Identity verified successfully!')
+        // Stop camera before completing
+        stopCamera()
         setTimeout(() => {
           onVerificationComplete(true, capturedImage)
         }, 1000)
@@ -178,7 +180,10 @@ export function CameraVerification({
                 >
                   {isCapturing ? 'Capturing...' : 'Capture Photo'}
                 </Button>
-                <Button onClick={onCancel} variant="outline">
+                <Button onClick={() => {
+                  stopCamera()
+                  onCancel()
+                }} variant="outline">
                   Cancel
                 </Button>
               </div>
@@ -234,7 +239,10 @@ export function CameraVerification({
                     <Button onClick={retakePhoto} className="flex-1">
                       Try Again
                     </Button>
-                    <Button onClick={onCancel} variant="outline">
+                    <Button onClick={() => {
+                      stopCamera()
+                      onCancel()
+                    }} variant="outline">
                       Cancel
                     </Button>
                   </>

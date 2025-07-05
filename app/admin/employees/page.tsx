@@ -51,6 +51,15 @@ export default function EmployeeManagement() {
   const [isLoading, setIsLoading] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    department: '',
+    position: '',
+    hire_date: '',
+    hourly_rate: ''
+  })
   
   const router = useRouter()
 
@@ -207,6 +216,48 @@ export default function EmployeeManagement() {
     } catch (error) {
       toast.error('Failed to deactivate employee')
     }
+  }
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.first_name || !formData.last_name || !formData.email || 
+        !formData.department || !formData.position || !formData.hire_date || !formData.hourly_rate) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    const newEmployee: Omit<Employee, 'id'> = {
+      employee_id: `EMP${String(employees.length + 1).padStart(3, '0')}`,
+      first_name: formData.first_name,
+      last_name: formData.last_name,
+      email: formData.email,
+      department: formData.department,
+      position: formData.position,
+      hire_date: formData.hire_date,
+      hourly_rate: parseFloat(formData.hourly_rate),
+      is_active: true
+    }
+
+    await handleAddEmployee(newEmployee)
+    
+    // Reset form
+    setFormData({
+      first_name: '',
+      last_name: '',
+      email: '',
+      department: '',
+      position: '',
+      hire_date: '',
+      hourly_rate: ''
+    })
+  }
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
   const departments = [...new Set(employees.map(emp => emp.department))]
@@ -445,25 +496,47 @@ export default function EmployeeManagement() {
               <CardDescription>Enter employee information</CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4">
+              <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="first_name">First Name</Label>
-                    <Input id="first_name" required />
+                    <Input 
+                      id="first_name" 
+                      value={formData.first_name}
+                      onChange={(e) => handleInputChange('first_name', e.target.value)}
+                      required 
+                    />
                   </div>
                   <div>
                     <Label htmlFor="last_name">Last Name</Label>
-                    <Input id="last_name" required />
+                    <Input 
+                      id="last_name" 
+                      value={formData.last_name}
+                      onChange={(e) => handleInputChange('last_name', e.target.value)}
+                      required 
+                    />
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" required />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    required 
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="department">Department</Label>
-                    <select id="department" className="w-full p-2 border rounded-md" required>
+                    <select 
+                      id="department" 
+                      className="w-full p-2 border rounded-md" 
+                      value={formData.department}
+                      onChange={(e) => handleInputChange('department', e.target.value)}
+                      required
+                    >
                       <option value="">Select Department</option>
                       <option value="Engineering">Engineering</option>
                       <option value="Marketing">Marketing</option>
@@ -473,17 +546,35 @@ export default function EmployeeManagement() {
                   </div>
                   <div>
                     <Label htmlFor="position">Position</Label>
-                    <Input id="position" required />
+                    <Input 
+                      id="position" 
+                      value={formData.position}
+                      onChange={(e) => handleInputChange('position', e.target.value)}
+                      required 
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="hire_date">Hire Date</Label>
-                    <Input id="hire_date" type="date" required />
+                    <Input 
+                      id="hire_date" 
+                      type="date" 
+                      value={formData.hire_date}
+                      onChange={(e) => handleInputChange('hire_date', e.target.value)}
+                      required 
+                    />
                   </div>
                   <div>
                     <Label htmlFor="hourly_rate">Hourly Rate</Label>
-                    <Input id="hourly_rate" type="number" step="0.01" required />
+                    <Input 
+                      id="hourly_rate" 
+                      type="number" 
+                      step="0.01" 
+                      value={formData.hourly_rate}
+                      onChange={(e) => handleInputChange('hourly_rate', e.target.value)}
+                      required 
+                    />
                   </div>
                 </div>
                 <div className="flex gap-2">

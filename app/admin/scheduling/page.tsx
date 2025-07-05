@@ -137,6 +137,15 @@ export default function AdminScheduling() {
   const [showAddShift, setShowAddShift] = useState(false)
   const [showAssignShift, setShowAssignShift] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [shiftFormData, setShiftFormData] = useState({
+    name: '',
+    description: '',
+    start_time: '',
+    end_time: '',
+    department: '',
+    required_staff: '',
+    hourly_rate: ''
+  })
   const router = useRouter()
 
   // Sample data
@@ -443,6 +452,52 @@ export default function AdminScheduling() {
       minute: '2-digit',
       hour12: true
     })
+  }
+
+  const handleShiftFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!shiftFormData.name || !shiftFormData.description || !shiftFormData.start_time || 
+        !shiftFormData.end_time || !shiftFormData.department || !shiftFormData.required_staff || !shiftFormData.hourly_rate) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    const newShift: Shift = {
+      id: Date.now().toString(),
+      name: shiftFormData.name,
+      description: shiftFormData.description,
+      start_time: shiftFormData.start_time,
+      end_time: shiftFormData.end_time,
+      department: shiftFormData.department,
+      required_staff: parseInt(shiftFormData.required_staff),
+      hourly_rate: parseFloat(shiftFormData.hourly_rate),
+      color: '#3b82f6', // Default blue color
+      is_active: true
+    }
+
+    setShifts([...shifts, newShift])
+    setShowAddShift(false)
+    
+    // Reset form
+    setShiftFormData({
+      name: '',
+      description: '',
+      start_time: '',
+      end_time: '',
+      department: '',
+      required_staff: '',
+      hourly_rate: ''
+    })
+    
+    toast.success('Shift created successfully!')
+  }
+
+  const handleShiftInputChange = (field: string, value: string) => {
+    setShiftFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
   return (
@@ -954,29 +1009,57 @@ export default function AdminScheduling() {
               <CardDescription>Create a new shift template</CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4">
+              <form onSubmit={handleShiftFormSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="shift_name">Shift Name</Label>
-                  <Input id="shift_name" required />
+                  <Input 
+                    id="shift_name" 
+                    value={shiftFormData.name}
+                    onChange={(e) => handleShiftInputChange('name', e.target.value)}
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="description">Description</Label>
-                  <Input id="description" required />
+                  <Input 
+                    id="description" 
+                    value={shiftFormData.description}
+                    onChange={(e) => handleShiftInputChange('description', e.target.value)}
+                    required 
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="start_time">Start Time</Label>
-                    <Input id="start_time" type="time" required />
+                    <Input 
+                      id="start_time" 
+                      type="time" 
+                      value={shiftFormData.start_time}
+                      onChange={(e) => handleShiftInputChange('start_time', e.target.value)}
+                      required 
+                    />
                   </div>
                   <div>
                     <Label htmlFor="end_time">End Time</Label>
-                    <Input id="end_time" type="time" required />
+                    <Input 
+                      id="end_time" 
+                      type="time" 
+                      value={shiftFormData.end_time}
+                      onChange={(e) => handleShiftInputChange('end_time', e.target.value)}
+                      required 
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="department">Department</Label>
-                    <select id="department" className="w-full p-2 border rounded-md" required>
+                    <select 
+                      id="department" 
+                      className="w-full p-2 border rounded-md" 
+                      value={shiftFormData.department}
+                      onChange={(e) => handleShiftInputChange('department', e.target.value)}
+                      required
+                    >
                       <option value="">Select Department</option>
                       <option value="All">All Departments</option>
                       <option value="Engineering">Engineering</option>
@@ -987,12 +1070,26 @@ export default function AdminScheduling() {
                   </div>
                   <div>
                     <Label htmlFor="required_staff">Required Staff</Label>
-                    <Input id="required_staff" type="number" min="1" required />
+                    <Input 
+                      id="required_staff" 
+                      type="number" 
+                      min="1" 
+                      value={shiftFormData.required_staff}
+                      onChange={(e) => handleShiftInputChange('required_staff', e.target.value)}
+                      required 
+                    />
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="hourly_rate">Hourly Rate</Label>
-                  <Input id="hourly_rate" type="number" step="0.01" required />
+                  <Input 
+                    id="hourly_rate" 
+                    type="number" 
+                    step="0.01" 
+                    value={shiftFormData.hourly_rate}
+                    onChange={(e) => handleShiftInputChange('hourly_rate', e.target.value)}
+                    required 
+                  />
                 </div>
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1">
