@@ -117,45 +117,53 @@ export default function AdminDashboard() {
     try {
       // Load employees
       const employeesResponse = await fetch('/api/employees')
+      let employeesData: any[] = []
       if (employeesResponse.ok) {
-        const employeesData = await employeesResponse.json()
+        const json = await employeesResponse.json()
+        employeesData = json.data || json.employees || json || []
         setEmployees(employeesData)
       }
 
       // Load shifts
       const shiftsResponse = await fetch('/api/shifts')
+      let shiftsData: any[] = []
       if (shiftsResponse.ok) {
-        const shiftsData = await shiftsResponse.json()
+        const json = await shiftsResponse.json()
+        shiftsData = json.data || json.shifts || json || []
         setShifts(shiftsData)
       }
 
       // Load swap requests
       const swapResponse = await fetch('/api/onboarding/swap-requests')
+      let swapData: any[] = []
       if (swapResponse.ok) {
-        const swapData = await swapResponse.json()
+        const json = await swapResponse.json()
+        swapData = json.data || json.swapRequests || json || []
         setSwapRequests(swapData)
       }
 
       // Load leave requests
       const leaveResponse = await fetch('/api/onboarding/leave-requests')
+      let leaveData: any[] = []
       if (leaveResponse.ok) {
-        const leaveData = await leaveResponse.json()
+        const json = await leaveResponse.json()
+        leaveData = json.data || json.leaveRequests || json || []
         setLeaveRequests(leaveData)
       }
 
       // Calculate stats
-      const activeEmployees = employees.filter(emp => emp.is_active).length
-      const completedShifts = shifts.filter(shift => shift.status === 'completed').length
-      const pendingSwapRequests = swapRequests.filter(req => req.status === 'pending').length
-      const pendingLeaveRequests = leaveRequests.filter(req => req.status === 'pending').length
+      const activeEmployees = employeesData.filter(emp => emp.is_active).length
+      const completedShifts = shiftsData.filter(shift => shift.status === 'completed').length
+      const pendingSwapRequests = swapData.filter(req => req.status === 'pending').length
+      const pendingLeaveRequests = leaveData.filter(req => req.status === 'pending').length
 
       setStats({
-        totalEmployees: employees.length,
+        totalEmployees: employeesData.length,
         activeEmployees,
-        totalShifts: shifts.length,
+        totalShifts: shiftsData.length,
         completedShifts,
         weeklyHours: 168, // Mock total weekly hours
-        avgHoursPerEmployee: employees.length > 0 ? Math.round(168 / employees.length) : 0,
+        avgHoursPerEmployee: employeesData.length > 0 ? Math.round(168 / employeesData.length) : 0,
         pendingSwapRequests,
         pendingLeaveRequests
       })
