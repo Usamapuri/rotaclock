@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -44,7 +42,7 @@ interface Availability {
   updated_at: string
 }
 
-export default function EmployeeProfile() {
+export default function EmployeeProfilePage() {
   const [employeeId, setEmployeeId] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState("profile")
@@ -68,6 +66,7 @@ export default function EmployeeProfile() {
       fetchProfile(storedEmployeeId)
       fetchAvailability(storedEmployeeId)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   const fetchProfile = async (id: string) => {
@@ -85,7 +84,6 @@ export default function EmployeeProfile() {
         })
       }
     } catch (error) {
-      console.error("Error fetching profile:", error)
       toast({
         title: "Error",
         description: "Failed to load profile",
@@ -103,11 +101,9 @@ export default function EmployeeProfile() {
         const data = await response.json()
         setAvailability(data.availability || [])
         setTempAvailability(data.availability || [])
-      } else {
-        console.error("Failed to load availability")
       }
     } catch (error) {
-      console.error("Error fetching availability:", error)
+      // ignore
     }
   }
 
@@ -147,7 +143,6 @@ export default function EmployeeProfile() {
         })
       }
     } catch (error) {
-      console.error("Error saving profile:", error)
       toast({
         title: "Error",
         description: "Failed to update profile",
@@ -189,7 +184,6 @@ export default function EmployeeProfile() {
         })
       }
     } catch (error) {
-      console.error("Error saving availability:", error)
       toast({
         title: "Error",
         description: "Failed to update availability",
@@ -209,16 +203,7 @@ export default function EmployeeProfile() {
   }
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string
-        // Note: Profile picture upload would need to be implemented with file storage
-        console.log('Profile picture uploaded:', imageUrl)
-      }
-      reader.readAsDataURL(file)
-    }
+    // Not implemented
   }
 
   return (
@@ -262,17 +247,9 @@ export default function EmployeeProfile() {
               <div className="flex items-center space-x-6">
                 <div className="relative">
                   <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                    {tempProfile.profilePicture ? (
-                      <img
-                        src={tempProfile.profilePicture || "/placeholder.svg"}
-                        alt={tempProfile.name}
-                        className="w-24 h-24 object-cover"
-                      />
-                    ) : (
-                      <span className="text-3xl font-semibold text-gray-600">
-                        {tempProfile.name.charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                    <span className="text-3xl font-semibold text-gray-600">
+                      {profile ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase() : 'U'}
+                    </span>
                   </div>
                   {isEditing && (
                     <Button
@@ -326,11 +303,10 @@ export default function EmployeeProfile() {
 
         {/* Profile Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="availability">Availability</TabsTrigger>
             <TabsTrigger value="preferences">Preferences</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
           </TabsList>
 
           {/* Profile Tab */}
@@ -427,96 +403,89 @@ export default function EmployeeProfile() {
                 <CardDescription>Set your preferred working hours for each day of the week</CardDescription>
               </CardHeader>
               <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <span className="ml-2">Loading availability...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
-                      const dayAvailability = tempAvailability.find(avail => avail.day_of_week === day) || {
-                        day_of_week: day,
-                        start_time: '09:00',
-                        end_time: '17:00',
-                        is_available: false
-                      }
-                      
-                      return (
-                        <div key={day} className="flex items-center space-x-4 p-3 border rounded-lg">
-                          <div className="w-24">
-                            <p className="font-medium capitalize">{day}</p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              checked={dayAvailability.is_available}
-                              onCheckedChange={(checked) => {
-                                const updated = tempAvailability.map(avail => 
-                                  avail.day_of_week === day 
-                                    ? { ...avail, is_available: checked }
-                                    : avail
-                                )
-                                if (!updated.find(avail => avail.day_of_week === day)) {
-                                  updated.push({
-                                    id: '',
-                                    employee_id: profile?.id || '',
-                                    day_of_week: day,
-                                    start_time: '09:00',
-                                    end_time: '17:00',
-                                    is_available: checked,
-                                    created_at: '',
-                                    updated_at: ''
-                                  })
-                                }
-                                setTempAvailability(updated)
-                              }}
-                              disabled={!isEditing}
-                            />
-                            <span className="text-sm">Available</span>
-                          </div>
-                          {dayAvailability.is_available && (
-                            <>
-                              <div className="flex items-center space-x-2">
-                                <Label className="text-sm">From:</Label>
-                                <Input
-                                  type="time"
-                                  value={dayAvailability.start_time}
-                                  onChange={(e) => {
-                                    const updated = tempAvailability.map(avail => 
-                                      avail.day_of_week === day 
-                                        ? { ...avail, start_time: e.target.value }
-                                        : avail
-                                    )
-                                    setTempAvailability(updated)
-                                  }}
-                                  disabled={!isEditing}
-                                  className="w-32"
-                                />
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Label className="text-sm">To:</Label>
-                                <Input
-                                  type="time"
-                                  value={dayAvailability.end_time}
-                                  onChange={(e) => {
-                                    const updated = tempAvailability.map(avail => 
-                                      avail.day_of_week === day 
-                                        ? { ...avail, end_time: e.target.value }
-                                        : avail
-                                    )
-                                    setTempAvailability(updated)
-                                  }}
-                                  disabled={!isEditing}
-                                  className="w-32"
-                                />
-                              </div>
-                            </>
-                          )}
+                <div className="space-y-4">
+                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                    const dayAvailability = tempAvailability.find(avail => avail.day_of_week === day) || {
+                      day_of_week: day,
+                      start_time: '09:00',
+                      end_time: '17:00',
+                      is_available: false
+                    }
+                    
+                    return (
+                      <div key={day} className="flex items-center space-x-4 p-3 border rounded-lg">
+                        <div className="w-24">
+                          <p className="font-medium capitalize">{day}</p>
                         </div>
-                      )
-                    })}
-                  </div>
-                )}
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={dayAvailability.is_available}
+                            onCheckedChange={(checked) => {
+                              const updated = tempAvailability.map(avail => 
+                                avail.day_of_week === day 
+                                  ? { ...avail, is_available: checked }
+                                  : avail
+                              )
+                              if (!updated.find(avail => avail.day_of_week === day)) {
+                                updated.push({
+                                  id: '',
+                                  employee_id: profile?.id || '',
+                                  day_of_week: day,
+                                  start_time: '09:00',
+                                  end_time: '17:00',
+                                  is_available: checked,
+                                  created_at: '',
+                                  updated_at: ''
+                                })
+                              }
+                              setTempAvailability(updated)
+                            }}
+                            disabled={!isEditing}
+                          />
+                          <span className="text-sm">Available</span>
+                        </div>
+                        {dayAvailability.is_available && (
+                          <>
+                            <div className="flex items-center space-x-2">
+                              <Label className="text-sm">From:</Label>
+                              <Input
+                                type="time"
+                                value={dayAvailability.start_time}
+                                onChange={(e) => {
+                                  const updated = tempAvailability.map(avail => 
+                                    avail.day_of_week === day 
+                                      ? { ...avail, start_time: e.target.value }
+                                      : avail
+                                  )
+                                  setTempAvailability(updated)
+                                }}
+                                disabled={!isEditing}
+                                className="w-32"
+                              />
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Label className="text-sm">To:</Label>
+                              <Input
+                                type="time"
+                                value={dayAvailability.end_time}
+                                onChange={(e) => {
+                                  const updated = tempAvailability.map(avail => 
+                                    avail.day_of_week === day 
+                                      ? { ...avail, end_time: e.target.value }
+                                      : avail
+                                  )
+                                  setTempAvailability(updated)
+                                }}
+                                disabled={!isEditing}
+                                className="w-32"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -561,60 +530,10 @@ export default function EmployeeProfile() {
               </CardContent>
             </Card>
           </TabsContent>
-
-          {/* Security Tab */}
-          <TabsContent value="security" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Account Security</CardTitle>
-                <CardDescription>Manage your account security settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Change Password</p>
-                      <p className="text-sm text-gray-600">Update your account password</p>
-                    </div>
-                    <Button variant="outline">
-                      <Shield className="h-4 w-4 mr-2" />
-                      Change Password
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Two-Factor Authentication</p>
-                      <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
-                    </div>
-                    <Button variant="outline">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Setup 2FA
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Login History</p>
-                      <p className="text-sm text-gray-600">View your recent login activity</p>
-                    </div>
-                    <Button variant="outline">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      View History
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
           </>
         )}
       </div>
     </div>
-  )
+  );
 }
