@@ -1,44 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Clock,
-  Users,
-  LogOut,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  UserPlus,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Search,
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { 
+  Users, 
+  Plus, 
+  Search, 
+  Edit, 
+  Trash2, 
+  Eye, 
   ArrowLeft,
   Filter,
   Download
-} from "lucide-react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { AuthService } from "@/lib/auth"
-import { toast } from "sonner"
+} from 'lucide-react'
+import { AuthService } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 interface Employee {
   id: string
@@ -51,51 +32,6 @@ interface Employee {
   hire_date: string
   hourly_rate: number
   is_active: boolean
-}
-
-interface Shift {
-  id: string
-  name: string
-  description: string
-  startTime: string
-  endTime: string
-  department: string
-  requiredStaff: number
-  requiredSkills: string[]
-  color: string
-  hourlyRate?: number
-  isActive: boolean
-}
-
-interface ShiftAssignment {
-  id: string
-  employeeId: string
-  employeeName: string
-  shiftId: string
-  shiftName: string
-  date: string
-  startTime: string
-  endTime: string
-  status: "assigned" | "confirmed" | "completed" | "cancelled"
-  notes?: string
-}
-
-interface RescheduleRequest {
-  id: string
-  employeeId: string
-  employeeName: string
-  originalShift: {
-    id: string
-    date: string
-    shiftName: string
-    time: string
-  }
-  requestedDate: string
-  requestedTime: string
-  reason: string
-  status: "pending" | "approved" | "denied"
-  submittedAt: string
-  adminNotes?: string
 }
 
 export default function EmployeeManagement() {
@@ -266,616 +202,300 @@ export default function EmployeeManagement() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminUser")
-    router.push("/admin/login")
-  }
-
   const departments = [...new Set(employees.map(emp => emp.department))]
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <Link href="/admin/dashboard">
-                <div className="flex items-center">
-                  <Clock className="h-6 w-6 text-purple-600 mr-2" />
-                  <span className="text-xl font-bold text-gray-900">ShiftTracker Admin</span>
-                </div>
-              </Link>
-              <Badge variant="outline">Employee Management</Badge>
+              <Button 
+                onClick={() => router.push('/admin/dashboard')} 
+                variant="ghost" 
+                size="sm"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <div className="bg-purple-100 p-2 rounded-full">
+                <Users className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  Employee Management
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Manage employee profiles and information
+                </p>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {currentUser?.username}</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+              <Button onClick={() => setShowAddForm(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Employee
               </Button>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Stats */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        {/* Stats Overview */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Employees</p>
-                  <p className="text-2xl font-bold">{employees.filter((e) => e.is_active).length}</p>
-                </div>
-                <Users className="h-8 w-8 text-blue-500" />
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{employees.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {employees.filter((e) => e.is_active).length} active
+              </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Active Shifts</p>
-                  <p className="text-2xl font-bold">{shifts.filter((s) => s.isActive).length}</p>
-                </div>
-                <Calendar className="h-8 w-8 text-green-500" />
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{employees.filter((e) => e.is_active).length}</div>
+              <p className="text-xs text-muted-foreground">
+                {employees.filter((e) => !e.is_active).length} inactive
+              </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Pending Requests</p>
-                  <p className="text-2xl font-bold">
-                    {rescheduleRequests.filter((r) => r.status === "pending").length}
-                  </p>
-                </div>
-                <AlertTriangle className="h-8 w-8 text-yellow-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Assignments</p>
-                  <p className="text-2xl font-bold">{shiftAssignments.length}</p>
-                </div>
-                <Clock className="h-8 w-8 text-purple-500" />
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Departments</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{departments.length}</div>
+              <p className="text-xs text-muted-foreground">
+                Across all departments
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Content */}
-        <Tabs value="employees" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="employees">Employees</TabsTrigger>
-            <TabsTrigger value="shifts">Shifts</TabsTrigger>
-            <TabsTrigger value="assignments">Assignments</TabsTrigger>
-            <TabsTrigger value="requests">Reschedule Requests</TabsTrigger>
-          </TabsList>
-
-          {/* Employees Tab */}
-          <TabsContent value="employees" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Employee Management</h2>
-              <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Add Employee
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Add New Employee</DialogTitle>
-                    <DialogDescription>Enter employee information</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="first_name">First Name</Label>
-                        <Input id="first_name" required />
-                      </div>
-                      <div>
-                        <Label htmlFor="last_name">Last Name</Label>
-                        <Input id="last_name" required />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" required />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="department">Department</Label>
-                        <select id="department" className="w-full p-2 border rounded-md" required>
-                          <option value="">Select Department</option>
-                          {departments.map(dept => (
-                            <option key={dept} value={dept}>{dept}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <Label htmlFor="position">Position</Label>
-                        <Input id="position" required />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="hire_date">Hire Date</Label>
-                        <Input id="hire_date" type="date" required />
-                      </div>
-                      <div>
-                        <Label htmlFor="hourly_rate">Hourly Rate</Label>
-                        <Input id="hourly_rate" type="number" step="0.01" required />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="submit" className="flex-1">
-                        Add Employee
-                      </Button>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => setShowAddForm(false)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>All Employees</CardTitle>
-                <CardDescription>Manage employee profiles and information</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {filteredEmployees.map((employee) => (
-                    <div key={employee.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                          {employee.first_name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <h4 className="font-semibold">{employee.first_name} {employee.last_name}</h4>
-                          <p className="text-sm text-gray-600">
-                            {employee.position} • {employee.department}
-                          </p>
-                          <p className="text-sm text-gray-600">{employee.email}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="outline">${employee.hourly_rate}/hr</Badge>
-                            <Badge variant={employee.is_active ? "default" : "secondary"}>
-                              {employee.is_active ? "Active" : "Inactive"}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => setEditingEmployee(employee)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteEmployee(employee.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Shifts Tab */}
-          <TabsContent value="shifts" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Shift Management</h2>
-              <Dialog open={showAddShiftDialog} onOpenChange={setShowAddShiftDialog}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Shift
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Shift</DialogTitle>
-                    <DialogDescription>Define a new shift type with specific requirements.</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="shiftName">Shift Name</Label>
-                      <Input
-                        id="shiftName"
-                        value={newShift.name}
-                        onChange={(e) => setNewShift({ ...newShift, name: e.target.value })}
-                        placeholder="Morning Shift"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="description">Description</Label>
-                      <Textarea
-                        id="description"
-                        value={newShift.description}
-                        onChange={(e) => setNewShift({ ...newShift, description: e.target.value })}
-                        placeholder="Describe the shift responsibilities..."
-                      />
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="startTime">Start Time</Label>
-                        <Input
-                          id="startTime"
-                          type="time"
-                          value={newShift.startTime}
-                          onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="endTime">End Time</Label>
-                        <Input
-                          id="endTime"
-                          type="time"
-                          value={newShift.endTime}
-                          onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="shiftDepartment">Department</Label>
-                        <Select
-                          value={newShift.department}
-                          onValueChange={(value) => setNewShift({ ...newShift, department: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="All">All Departments</SelectItem>
-                            {departments.map((dept) => (
-                              <SelectItem key={dept} value={dept}>
-                                {dept}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="requiredStaff">Required Staff</Label>
-                        <Input
-                          id="requiredStaff"
-                          type="number"
-                          value={newShift.requiredStaff}
-                          onChange={(e) => setNewShift({ ...newShift, requiredStaff: Number.parseInt(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="shiftRate">Hourly Rate ($)</Label>
-                      <Input
-                        id="shiftRate"
-                        type="number"
-                        step="0.25"
-                        value={newShift.hourlyRate}
-                        onChange={(e) => setNewShift({ ...newShift, hourlyRate: Number.parseFloat(e.target.value) })}
-                      />
-                    </div>
-
-                    <div className="flex space-x-2">
-                      <Button onClick={handleAddShift}>Create Shift</Button>
-                      <Button variant="outline" onClick={() => setShowAddShiftDialog(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>All Shifts</CardTitle>
-                <CardDescription>Manage shift types and configurations</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {shifts.map((shift) => (
-                    <div key={shift.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: shift.color }} />
-                        <div>
-                          <h4 className="font-semibold">{shift.name}</h4>
-                          <p className="text-sm text-gray-600">{shift.description}</p>
-                          <p className="text-sm text-gray-600">
-                            {shift.startTime} - {shift.endTime} • {shift.department}
-                          </p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="outline">Staff: {shift.requiredStaff}</Badge>
-                            <Badge variant="outline">${shift.hourlyRate}/hr</Badge>
-                            <Badge variant={shift.isActive ? "default" : "secondary"}>
-                              {shift.isActive ? "Active" : "Inactive"}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Assignments Tab */}
-          <TabsContent value="assignments" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Shift Assignments</h2>
-              <Dialog open={showAssignShiftDialog} onOpenChange={setShowAssignShiftDialog}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Assign Shift
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Assign Shift to Employee</DialogTitle>
-                    <DialogDescription>Create a new shift assignment for an employee.</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="assignEmployee">Employee</Label>
-                      <Select
-                        value={assignShiftData.employeeId}
-                        onValueChange={(value) => setAssignShiftData({ ...assignShiftData, employeeId: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select employee" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredEmployees.map((employee) => (
-                            <SelectItem key={employee.id} value={employee.id}>
-                              {employee.first_name} {employee.last_name} - {employee.department}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="assignShift">Shift</Label>
-                      <Select
-                        value={assignShiftData.shiftId}
-                        onValueChange={(value) => setAssignShiftData({ ...assignShiftData, shiftId: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select shift" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {shifts
-                            .filter((s) => s.isActive)
-                            .map((shift) => (
-                              <SelectItem key={shift.id} value={shift.id}>
-                                {shift.name} ({shift.startTime} - {shift.endTime})
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="assignDate">Date</Label>
-                      <Input
-                        id="assignDate"
-                        type="date"
-                        value={assignShiftData.date}
-                        onChange={(e) => setAssignShiftData({ ...assignShiftData, date: e.target.value })}
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="assignNotes">Notes (Optional)</Label>
-                      <Textarea
-                        id="assignNotes"
-                        value={assignShiftData.notes}
-                        onChange={(e) => setAssignShiftData({ ...assignShiftData, notes: e.target.value })}
-                        placeholder="Any special instructions..."
-                      />
-                    </div>
-
-                    <div className="flex space-x-2">
-                      <Button onClick={handleAssignShift}>Assign Shift</Button>
-                      <Button variant="outline" onClick={() => setShowAssignShiftDialog(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Current Assignments</CardTitle>
-                <CardDescription>View and manage shift assignments</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {shiftAssignments.map((assignment) => (
-                    <div key={assignment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-semibold">{assignment.employeeName}</h4>
-                        <p className="text-sm text-gray-600">
-                          {assignment.shiftName} • {new Date(assignment.date).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {assignment.startTime} - {assignment.endTime}
-                        </p>
-                        {assignment.notes && <p className="text-sm text-gray-500 mt-1">{assignment.notes}</p>}
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <Badge variant={getStatusColor(assignment.status)}>{assignment.status}</Badge>
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Reschedule Requests Tab */}
-          <TabsContent value="requests" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Reschedule Requests</h2>
-              <Badge variant="secondary">
-                {rescheduleRequests.filter((r) => r.status === "pending").length} Pending
-              </Badge>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Employee Reschedule Requests</CardTitle>
-                <CardDescription>Review and approve or deny employee reschedule requests</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {rescheduleRequests.map((request) => (
-                    <div key={request.id} className="p-4 border rounded-lg">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="font-semibold">{request.employeeName}</h4>
-                          <p className="text-sm text-gray-600">
-                            Submitted: {new Date(request.submittedAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Badge variant={getStatusColor(request.status)}>{request.status}</Badge>
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4 mb-3">
-                        <div className="p-3 bg-red-50 rounded">
-                          <p className="text-sm font-medium text-red-900">Original Shift</p>
-                          <p className="text-sm text-red-700">
-                            {new Date(request.originalShift.date).toLocaleDateString()}
-                          </p>
-                          <p className="text-sm text-red-700">
-                            {request.originalShift.shiftName} • {request.originalShift.time}
-                          </p>
-                        </div>
-                        <div className="p-3 bg-green-50 rounded">
-                          <p className="text-sm font-medium text-green-900">Requested Change</p>
-                          <p className="text-sm text-green-700">
-                            {new Date(request.requestedDate).toLocaleDateString()}
-                          </p>
-                          <p className="text-sm text-green-700">{request.requestedTime}</p>
-                        </div>
-                      </div>
-
-                      <div className="mb-3">
-                        <p className="text-sm font-medium">Reason:</p>
-                        <p className="text-sm text-gray-600">{request.reason}</p>
-                      </div>
-
-                      {request.adminNotes && (
-                        <div className="mb-3 p-2 bg-gray-50 rounded">
-                          <p className="text-sm font-medium">Admin Notes:</p>
-                          <p className="text-sm text-gray-600">{request.adminNotes}</p>
-                        </div>
-                      )}
-
-                      {request.status === "pending" && (
-                        <div className="flex space-x-2">
-                          <Button size="sm" onClick={() => handleRescheduleRequest(request.id, "approve")}>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleRescheduleRequest(request.id, "deny", "Schedule conflict")}
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Deny
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        {/* Employee Detail Modal */}
-        {selectedEmployee && (
-          <Dialog open={!!selectedEmployee} onOpenChange={() => setEditingEmployee(null)}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Employee Details</DialogTitle>
-                <DialogDescription>Complete employee information and profile</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                    {selectedEmployee.first_name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold">{selectedEmployee.first_name} {selectedEmployee.last_name}</h3>
-                    <p className="text-gray-600">{selectedEmployee.position}</p>
-                    <p className="text-gray-600">{selectedEmployee.department}</p>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium">Email</p>
-                    <p className="text-sm text-gray-600">{selectedEmployee.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Hire Date</p>
-                    <p className="text-sm text-gray-600">{selectedEmployee.hire_date}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Hourly Rate</p>
-                    <p className="text-sm text-gray-600">${selectedEmployee.hourly_rate}/hr</p>
-                  </div>
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label htmlFor="search">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="search"
+                    placeholder="Search employees..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
-        )}
+              <div>
+                <Label htmlFor="department">Department</Label>
+                <select
+                  id="department"
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value="">All Departments</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <select
+                  id="status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value="">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <Button 
+                  onClick={() => {
+                    setSearchTerm('')
+                    setDepartmentFilter('')
+                    setStatusFilter('')
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Employee List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Employees ({filteredEmployees.length})
+            </CardTitle>
+            <CardDescription>
+              {employees.filter(emp => emp.is_active).length} active employees
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading employees...</p>
+              </div>
+            ) : filteredEmployees.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No employees found</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredEmployees.map((employee) => (
+                  <div key={employee.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-purple-100 p-2 rounded-full">
+                        <Users className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">
+                          {employee.first_name} {employee.last_name}
+                        </h4>
+                        <p className="text-sm text-gray-500">{employee.email}</p>
+                        <p className="text-sm text-gray-500">
+                          ID: {employee.employee_id} • {employee.position} • {employee.department}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="text-sm font-medium">${employee.hourly_rate}/hr</p>
+                        <Badge variant={employee.is_active ? "default" : "secondary"}>
+                          {employee.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setEditingEmployee(employee)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDeleteEmployee(employee.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Add Employee Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Add New Employee</CardTitle>
+              <CardDescription>Enter employee information</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="first_name">First Name</Label>
+                    <Input id="first_name" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="last_name">Last Name</Label>
+                    <Input id="last_name" required />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="department">Department</Label>
+                    <select id="department" className="w-full p-2 border rounded-md" required>
+                      <option value="">Select Department</option>
+                      <option value="Engineering">Engineering</option>
+                      <option value="Marketing">Marketing</option>
+                      <option value="Sales">Sales</option>
+                      <option value="HR">HR</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="position">Position</Label>
+                    <Input id="position" required />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="hire_date">Hire Date</Label>
+                    <Input id="hire_date" type="date" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="hourly_rate">Hourly Rate</Label>
+                    <Input id="hourly_rate" type="number" step="0.01" required />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="submit" className="flex-1">
+                    Add Employee
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowAddForm(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
