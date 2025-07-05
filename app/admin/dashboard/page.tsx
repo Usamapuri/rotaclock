@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   Users, 
   Clock, 
@@ -14,7 +15,10 @@ import {
   LogOut,
   UserPlus,
   Settings,
-  BarChart3
+  BarChart3,
+  AlertCircle,
+  CheckCircle,
+  XCircle
 } from 'lucide-react'
 import { AuthService } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -39,6 +43,33 @@ interface Shift {
   status: string
 }
 
+interface SwapRequest {
+  id: string
+  requester_id: string
+  requester_name: string
+  requested_shift_id: string
+  requested_shift_date: string
+  requested_shift_time: string
+  offered_shift_id: string
+  offered_shift_date: string
+  offered_shift_time: string
+  reason: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+}
+
+interface LeaveRequest {
+  id: string
+  employee_id: string
+  employee_name: string
+  leave_type: 'vacation' | 'sick' | 'personal' | 'bereavement' | 'other'
+  start_date: string
+  end_date: string
+  reason: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+}
+
 interface DashboardStats {
   totalEmployees: number
   activeEmployees: number
@@ -46,21 +77,28 @@ interface DashboardStats {
   completedShifts: number
   weeklyHours: number
   avgHoursPerEmployee: number
+  pendingSwapRequests: number
+  pendingLeaveRequests: number
 }
 
 export default function AdminDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [shifts, setShifts] = useState<Shift[]>([])
+  const [swapRequests, setSwapRequests] = useState<SwapRequest[]>([])
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([])
   const [stats, setStats] = useState<DashboardStats>({
     totalEmployees: 0,
     activeEmployees: 0,
     totalShifts: 0,
     completedShifts: 0,
     weeklyHours: 0,
-    avgHoursPerEmployee: 0
+    avgHoursPerEmployee: 0,
+    pendingSwapRequests: 0,
+    pendingLeaveRequests: 0
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(true)
   
   const router = useRouter()
 
@@ -75,81 +113,187 @@ export default function AdminDashboard() {
   }, [router])
 
   const loadDashboardData = async () => {
-    setIsLoading(true)
+    setIsLoadingData(true)
     try {
-      // Mock data for demo
-      const mockEmployees: Employee[] = [
-        {
-          id: '1',
-          employee_id: 'EMP001',
-          first_name: 'John',
-          last_name: 'Doe',
-          email: 'john.doe@company.com',
-          department: 'Engineering',
-          position: 'Software Engineer',
-          is_active: true
-        },
-        {
-          id: '2',
-          employee_id: 'EMP002',
-          first_name: 'Jane',
-          last_name: 'Smith',
-          email: 'jane.smith@company.com',
-          department: 'Marketing',
-          position: 'Marketing Manager',
-          is_active: true
-        },
-        {
-          id: '3',
-          employee_id: 'EMP003',
-          first_name: 'Mike',
-          last_name: 'Johnson',
-          email: 'mike.johnson@company.com',
-          department: 'Sales',
-          position: 'Sales Representative',
-          is_active: true
-        }
-      ]
+      // Load employees
+      const employeesResponse = await fetch('/api/employees')
+      if (employeesResponse.ok) {
+        const employeesData = await employeesResponse.json()
+        setEmployees(employeesData)
+      }
 
-      const mockShifts: Shift[] = [
-        {
-          id: '1',
-          name: 'Morning Shift',
-          start_time: '08:00:00',
-          end_time: '16:00:00',
-          status: 'scheduled'
-        },
-        {
-          id: '2',
-          name: 'Afternoon Shift',
-          start_time: '12:00:00',
-          end_time: '20:00:00',
-          status: 'in-progress'
-        },
-        {
-          id: '3',
-          name: 'Night Shift',
-          start_time: '20:00:00',
-          end_time: '04:00:00',
-          status: 'completed'
-        }
-      ]
+      // Load shifts
+      const shiftsResponse = await fetch('/api/shifts')
+      if (shiftsResponse.ok) {
+        const shiftsData = await shiftsResponse.json()
+        setShifts(shiftsData)
+      }
 
-      setEmployees(mockEmployees)
-      setShifts(mockShifts)
-      
+      // Load swap requests
+      const swapResponse = await fetch('/api/onboarding/swap-requests')
+      if (swapResponse.ok) {
+        const swapData = await swapResponse.json()
+        setSwapRequests(swapData)
+      }
+
+      // Load leave requests
+      const leaveResponse = await fetch('/api/onboarding/leave-requests')
+      if (leaveResponse.ok) {
+        const leaveData = await leaveResponse.json()
+        setLeaveRequests(leaveData)
+      }
+
       // Calculate stats
+      const activeEmployees = employees.filter(emp => emp.is_active).length
+      const completedShifts = shifts.filter(shift => shift.status === 'completed').length
+      const pendingSwapRequests = swapRequests.filter(req => req.status === 'pending').length
+      const pendingLeaveRequests = leaveRequests.filter(req => req.status === 'pending').length
+
       setStats({
-        totalEmployees: mockEmployees.length,
-        activeEmployees: mockEmployees.filter(emp => emp.is_active).length,
-        totalShifts: mockShifts.length,
-        completedShifts: mockShifts.filter(shift => shift.status === 'completed').length,
+        totalEmployees: employees.length,
+        activeEmployees,
+        totalShifts: shifts.length,
+        completedShifts,
         weeklyHours: 168, // Mock total weekly hours
-        avgHoursPerEmployee: 40
+        avgHoursPerEmployee: employees.length > 0 ? Math.round(168 / employees.length) : 0,
+        pendingSwapRequests,
+        pendingLeaveRequests
       })
     } catch (error) {
       console.error('Error loading dashboard data:', error)
       toast.error('Failed to load dashboard data')
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
+
+  const handleApproveSwapRequest = async (requestId: string) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/onboarding/swap-requests/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'approved',
+        }),
+      })
+
+      if (response.ok) {
+        setSwapRequests(prev => 
+          prev.map(req => 
+            req.id === requestId ? { ...req, status: 'approved' as const } : req
+          )
+        )
+        toast.success('Swap request approved!')
+        await loadDashboardData() // Refresh stats
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to approve request')
+      }
+    } catch (error) {
+      console.error('Error approving swap request:', error)
+      toast.error('Failed to approve request')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRejectSwapRequest = async (requestId: string) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/onboarding/swap-requests/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'rejected',
+        }),
+      })
+
+      if (response.ok) {
+        setSwapRequests(prev => 
+          prev.map(req => 
+            req.id === requestId ? { ...req, status: 'rejected' as const } : req
+          )
+        )
+        toast.success('Swap request rejected')
+        await loadDashboardData() // Refresh stats
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to reject request')
+      }
+    } catch (error) {
+      console.error('Error rejecting swap request:', error)
+      toast.error('Failed to reject request')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleApproveLeaveRequest = async (requestId: string) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/onboarding/leave-requests/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'approved',
+        }),
+      })
+
+      if (response.ok) {
+        setLeaveRequests(prev => 
+          prev.map(req => 
+            req.id === requestId ? { ...req, status: 'approved' as const } : req
+          )
+        )
+        toast.success('Leave request approved!')
+        await loadDashboardData() // Refresh stats
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to approve request')
+      }
+    } catch (error) {
+      console.error('Error approving leave request:', error)
+      toast.error('Failed to approve request')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRejectLeaveRequest = async (requestId: string) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/onboarding/leave-requests/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'rejected',
+        }),
+      })
+
+      if (response.ok) {
+        setLeaveRequests(prev => 
+          prev.map(req => 
+            req.id === requestId ? { ...req, status: 'rejected' as const } : req
+          )
+        )
+        toast.success('Leave request rejected')
+        await loadDashboardData() // Refresh stats
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to reject request')
+      }
+    } catch (error) {
+      console.error('Error rejecting leave request:', error)
+      toast.error('Failed to reject request')
     } finally {
       setIsLoading(false)
     }
@@ -168,9 +312,26 @@ export default function AdminDashboard() {
         return <Badge variant="default">In Progress</Badge>
       case 'completed':
         return <Badge variant="outline">Completed</Badge>
+      case 'pending':
+        return <Badge variant="secondary">Pending</Badge>
+      case 'approved':
+        return <Badge variant="default">Approved</Badge>
+      case 'rejected':
+        return <Badge variant="destructive">Rejected</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
+  }
+
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -210,165 +371,299 @@ export default function AdminDashboard() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalEmployees}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats.activeEmployees} active
-              </p>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Employees</p>
+                  <p className="text-2xl font-bold">{stats.totalEmployees}</p>
+                  <p className="text-xs text-gray-500">{stats.activeEmployees} active</p>
+                </div>
+                <Users className="h-8 w-8 text-blue-500" />
+              </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Shifts</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalShifts}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats.completedShifts} completed
-              </p>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Shifts</p>
+                  <p className="text-2xl font-bold">{stats.totalShifts}</p>
+                  <p className="text-xs text-gray-500">{stats.completedShifts} completed</p>
+                </div>
+                <Clock className="h-8 w-8 text-green-500" />
+              </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Weekly Hours</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.weeklyHours}h</div>
-              <p className="text-xs text-muted-foreground">
-                {stats.avgHoursPerEmployee}h avg per employee
-              </p>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Pending Requests</p>
+                  <p className="text-2xl font-bold">{stats.pendingSwapRequests + stats.pendingLeaveRequests}</p>
+                  <p className="text-xs text-gray-500">Swap: {stats.pendingSwapRequests} | Leave: {stats.pendingLeaveRequests}</p>
+                </div>
+                <AlertCircle className="h-8 w-8 text-orange-500" />
+              </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Productivity</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">94%</div>
-              <p className="text-xs text-muted-foreground">
-                +2.1% from last week
-              </p>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Weekly Hours</p>
+                  <p className="text-2xl font-bold">{stats.weeklyHours}h</p>
+                  <p className="text-xs text-gray-500">Avg: {stats.avgHoursPerEmployee}h/employee</p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-purple-500" />
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Employees */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Recent Employees</span>
-                <Button onClick={() => router.push('/admin/employees')} variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Employee
-                </Button>
-              </CardTitle>
-              <CardDescription>
-                Latest employee additions and updates
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {employees.slice(0, 5).map((employee) => (
-                  <div key={employee.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">
-                        {employee.first_name} {employee.last_name}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {employee.position} • {employee.department}
-                      </p>
-                    </div>
-                    <Badge variant={employee.is_active ? "default" : "secondary"}>
-                      {employee.is_active ? "Active" : "Inactive"}
-                    </Badge>
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="swap-requests">Swap Requests</TabsTrigger>
+            <TabsTrigger value="leave-requests">Leave Requests</TabsTrigger>
+            <TabsTrigger value="employees">Employees</TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recent Employees */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Employees</CardTitle>
+                  <CardDescription>Latest employee additions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {employees.slice(0, 5).map((employee) => (
+                      <div key={employee.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{employee.first_name} {employee.last_name}</p>
+                          <p className="text-sm text-gray-500">{employee.position}</p>
+                        </div>
+                        <Badge variant={employee.is_active ? "default" : "secondary"}>
+                          {employee.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          {/* Recent Shifts */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Recent Shifts</span>
-                <Button onClick={() => router.push('/admin/scheduling')} variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Schedule Shift
-                </Button>
-              </CardTitle>
-              <CardDescription>
-                Today's and upcoming shifts
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {shifts.slice(0, 5).map((shift) => (
-                  <div key={shift.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">{shift.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {shift.start_time} - {shift.end_time}
-                      </p>
-                    </div>
-                    {getStatusBadge(shift.status)}
+              {/* Recent Shifts */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Shifts</CardTitle>
+                  <CardDescription>Latest shift activities</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {shifts.slice(0, 5).map((shift) => (
+                      <div key={shift.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{shift.name}</p>
+                          <p className="text-sm text-gray-500">{shift.start_time} - {shift.end_time}</p>
+                        </div>
+                        {getStatusBadge(shift.status)}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
-        {/* Quick Actions */}
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>
-                Common administrative tasks
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button 
-                  onClick={() => router.push('/admin/employees')}
-                  className="h-20 flex flex-col items-center justify-center space-y-2"
-                  variant="outline"
-                >
-                  <UserPlus className="h-6 w-6" />
-                  <span>Manage Employees</span>
-                </Button>
-                <Button 
-                  onClick={() => router.push('/admin/scheduling')}
-                  className="h-20 flex flex-col items-center justify-center space-y-2"
-                  variant="outline"
-                >
-                  <Calendar className="h-6 w-6" />
-                  <span>Schedule Shifts</span>
-                </Button>
-                <Button 
-                  onClick={() => router.push('/admin/reports')}
-                  className="h-20 flex flex-col items-center justify-center space-y-2"
-                  variant="outline"
-                >
-                  <BarChart3 className="h-6 w-6" />
-                  <span>View Reports</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Swap Requests Tab */}
+          <TabsContent value="swap-requests" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Swap Requests</CardTitle>
+                <CardDescription>Review and approve shift swap requests</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {swapRequests.filter(req => req.status === 'pending').length > 0 ? (
+                  <div className="space-y-4">
+                    {swapRequests.filter(req => req.status === 'pending').map((request) => (
+                      <div key={request.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium">{request.requester_name}</span>
+                          </div>
+                          {getStatusBadge(request.status)}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                          <div className="bg-gray-50 p-3 rounded">
+                            <p className="text-sm font-medium text-gray-700">Offering</p>
+                            <p className="text-sm text-gray-600">{request.offered_shift_date}</p>
+                            <p className="text-sm text-gray-600">{request.offered_shift_time}</p>
+                          </div>
+                          <div className="flex items-center justify-center">
+                            <span className="text-gray-400">→</span>
+                          </div>
+                          <div className="bg-blue-50 p-3 rounded">
+                            <p className="text-sm font-medium text-blue-700">Requesting</p>
+                            <p className="text-sm text-blue-600">{request.requested_shift_date}</p>
+                            <p className="text-sm text-blue-600">{request.requested_shift_time}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-600">
+                            <strong>Reason:</strong> {request.reason}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500">
+                            Created: {new Date(request.created_at).toLocaleDateString()}
+                          </p>
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleApproveSwapRequest(request.id)}
+                              disabled={isLoading}
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleRejectSwapRequest(request.id)}
+                              disabled={isLoading}
+                            >
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No pending swap requests</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Leave Requests Tab */}
+          <TabsContent value="leave-requests" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Leave Requests</CardTitle>
+                <CardDescription>Review and approve leave requests</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {leaveRequests.filter(req => req.status === 'pending').length > 0 ? (
+                  <div className="space-y-4">
+                    {leaveRequests.filter(req => req.status === 'pending').map((request) => (
+                      <div key={request.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium">{request.employee_name}</span>
+                            <Badge variant="outline">{request.leave_type}</Badge>
+                          </div>
+                          {getStatusBadge(request.status)}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Start Date</p>
+                            <p className="text-sm text-gray-600">{new Date(request.start_date).toLocaleDateString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">End Date</p>
+                            <p className="text-sm text-gray-600">{new Date(request.end_date).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-600">
+                            <strong>Reason:</strong> {request.reason}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500">
+                            Created: {new Date(request.created_at).toLocaleDateString()}
+                          </p>
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleApproveLeaveRequest(request.id)}
+                              disabled={isLoading}
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleRejectLeaveRequest(request.id)}
+                              disabled={isLoading}
+                            >
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No pending leave requests</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Employees Tab */}
+          <TabsContent value="employees" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>All Employees</CardTitle>
+                <CardDescription>Manage employee information and status</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {employees.map((employee) => (
+                    <div key={employee.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{employee.first_name} {employee.last_name}</p>
+                        <p className="text-sm text-gray-500">{employee.email}</p>
+                        <p className="text-sm text-gray-500">{employee.position} • {employee.department}</p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant={employee.is_active ? "default" : "secondary"}>
+                          {employee.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        <Button size="sm" variant="outline">
+                          Edit
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

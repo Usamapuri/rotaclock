@@ -22,6 +22,9 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { SwapRequests } from "@/components/ui/swap-requests"
+import { LeaveRequests } from "@/components/ui/leave-requests"
+import { AuthService } from "@/lib/auth"
 
 interface Shift {
   id: string
@@ -64,6 +67,7 @@ interface Message {
 export default function EmployeeScheduling() {
   const [employeeId, setEmployeeId] = useState("")
   const [selectedWeek, setSelectedWeek] = useState(new Date())
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const router = useRouter()
 
   // Sample data
@@ -159,16 +163,17 @@ export default function EmployeeScheduling() {
   const [selectedShiftForSwap, setSelectedShiftForSwap] = useState<string | null>(null)
 
   useEffect(() => {
-    const storedEmployeeId = localStorage.getItem("employeeId")
-    if (!storedEmployeeId) {
+    const user = AuthService.getCurrentUser()
+    if (!user) {
       router.push("/employee/login")
     } else {
-      setEmployeeId(storedEmployeeId)
+      setCurrentUser(user)
+      setEmployeeId(user.id)
     }
   }, [router])
 
   const handleLogout = () => {
-    localStorage.removeItem("employeeId")
+    AuthService.logout()
     router.push("/employee/login")
   }
 
@@ -198,340 +203,255 @@ export default function EmployeeScheduling() {
     }
   }
 
-  const getMessageIcon = (type: string) => {
-    switch (type) {
-      case "schedule":
-        return <Calendar className="h-4 w-4 text-blue-500" />
-      case "announcement":
-        return <Bell className="h-4 w-4 text-yellow-500" />
-      case "personal":
-        return <MessageSquare className="h-4 w-4 text-green-500" />
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return <Badge variant="default">Confirmed</Badge>
+      case "scheduled":
+        return <Badge variant="secondary">Scheduled</Badge>
+      case "swap-requested":
+        return <Badge variant="destructive">Swap Requested</Badge>
+      case "completed":
+        return <Badge variant="outline">Completed</Badge>
       default:
-        return <MessageSquare className="h-4 w-4 text-gray-500" />
+        return <Badge variant="secondary">{status}</Badge>
     }
   }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })
+  }
+
+  const formatTime = (timeString: string) => {
+    return timeString
+  }
+
+  const unreadMessagesCount = messages.filter((msg) => !msg.read).length
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <Link href="/employee/dashboard">
-                <div className="flex items-center">
-                  <Clock className="h-6 w-6 text-blue-600 mr-2" />
-                  <span className="text-xl font-bold text-gray-900">ShiftTracker</span>
-                </div>
-              </Link>
-              <Badge variant="outline">My Schedule</Badge>
+              <div className="bg-blue-100 p-2 rounded-full">
+                <Calendar className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  Employee Scheduling
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Manage your shifts and requests
+                </p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Employee {employeeId}</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
+              <Button variant="outline" size="sm">
+                <Bell className="h-4 w-4 mr-2" />
+                Notifications
+                {unreadMessagesCount > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {unreadMessagesCount}
+                  </Badge>
+                )}
+              </Button>
+              <Button onClick={handleLogout} variant="outline" size="sm">
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Stats */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">This Week</p>
-                  <p className="text-2xl font-bold">{myShifts.length}</p>
-                  <p className="text-xs text-gray-500">shifts</p>
-                </div>
-                <Calendar className="h-8 w-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Unread Messages</p>
-                  <p className="text-2xl font-bold">{messages.filter((m) => !m.read).length}</p>
-                  <p className="text-xs text-gray-500">messages</p>
-                </div>
-                <MessageSquare className="h-8 w-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Vacation Days</p>
-                  <p className="text-2xl font-bold">{leaveBalance.vacation}</p>
-                  <p className="text-xs text-gray-500">remaining</p>
-                </div>
-                <CalendarDays className="h-8 w-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Swap Requests</p>
-                  <p className="text-2xl font-bold">{swapRequests.filter((r) => r.status === "pending").length}</p>
-                  <p className="text-xs text-gray-500">pending</p>
-                </div>
-                <RefreshCw className="h-8 w-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content */}
         <Tabs defaultValue="schedule" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="schedule">My Schedule</TabsTrigger>
-            <TabsTrigger value="swaps">Shift Swaps</TabsTrigger>
+            <TabsTrigger value="swap-requests">Swap Requests</TabsTrigger>
+            <TabsTrigger value="leave-requests">Leave Requests</TabsTrigger>
             <TabsTrigger value="messages">Messages</TabsTrigger>
-            <TabsTrigger value="leave">Leave Balance</TabsTrigger>
           </TabsList>
 
-          {/* My Schedule */}
+          {/* My Schedule Tab */}
           <TabsContent value="schedule" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>My Upcoming Shifts</CardTitle>
-                <CardDescription>View and manage your scheduled shifts</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {myShifts.map((shift) => (
-                    <div key={shift.id} className="p-4 border rounded-lg">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="font-semibold">{shift.shiftName}</h4>
-                          <p className="text-sm text-gray-600">
-                            {new Date(shift.date).toLocaleDateString("en-US", {
-                              weekday: "long",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {shift.startTime} - {shift.endTime}
-                          </p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Schedule */}
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CalendarDays className="h-5 w-5" />
+                      My Schedule
+                    </CardTitle>
+                    <CardDescription>
+                      View and manage your upcoming shifts
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {myShifts.map((shift) => (
+                        <div
+                          key={shift.id}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className="bg-blue-100 p-2 rounded-full">
+                              <Clock className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{shift.shiftName}</p>
+                              <p className="text-sm text-gray-500">
+                                {formatDate(shift.date)} • {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {getStatusBadge(shift.status)}
+                            {shift.canSwap && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSwapRequest(shift.id)}
+                              >
+                                Request Swap
+                              </Button>
+                            )}
+                            {shift.status === "scheduled" && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleConfirmShift(shift.id)}
+                              >
+                                Confirm
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <Badge variant={getStatusColor(shift.status)}>{shift.status}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Sidebar */}
+              <div className="space-y-6">
+                {/* Leave Balance */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Leave Balance</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm">Vacation</span>
+                        <span className="font-medium">{leaveBalance.vacation} days</span>
                       </div>
-
-                      <div className="flex space-x-2">
-                        {shift.status === "scheduled" && (
-                          <Button size="sm" onClick={() => handleConfirmShift(shift.id)}>
-                            Confirm Shift
-                          </Button>
-                        )}
-                        {shift.canSwap && (
-                          <Button size="sm" variant="outline" onClick={() => handleSwapRequest(shift.id)}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Request Swap
-                          </Button>
-                        )}
+                      <div className="flex justify-between">
+                        <span className="text-sm">Sick Leave</span>
+                        <span className="font-medium">{leaveBalance.sick} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm">Personal</span>
+                        <span className="font-medium">{leaveBalance.personal} days</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
-            {/* Swap Request Form */}
-            {showSwapForm && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Request Shift Swap</CardTitle>
-                  <CardDescription>Find a colleague to swap shifts with</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form className="space-y-4">
-                    <div>
-                      <Label htmlFor="target-employee">Swap With</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select colleague" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="jane">Jane Smith</SelectItem>
-                          <SelectItem value="mike">Mike Johnson</SelectItem>
-                          <SelectItem value="sarah">Sarah Wilson</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="reason">Reason for Swap</Label>
-                      <Textarea id="reason" placeholder="Please explain why you need to swap shifts..." />
-                    </div>
-
-                    <div className="flex space-x-2">
-                      <Button type="submit">
-                        <Send className="h-4 w-4 mr-2" />
-                        Send Request
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => setShowSwapForm(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quick Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Button variant="outline" className="w-full justify-start">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      View Full Schedule
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start">
+                      <Users className="h-4 w-4 mr-2" />
+                      Team Schedule
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      Report Issue
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
 
-          {/* Shift Swaps */}
-          <TabsContent value="swaps" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>My Swap Requests</CardTitle>
-                <CardDescription>Track your shift swap requests</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {swapRequests.map((request) => (
-                    <div key={request.id} className="p-4 border rounded-lg">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="font-semibold">Swap with {request.targetEmployeeName}</h4>
-                          <p className="text-sm text-gray-600">
-                            Submitted: {new Date(request.submittedAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Badge variant={getStatusColor(request.status)}>{request.status}</Badge>
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4 mb-3">
-                        <div className="p-3 bg-blue-50 rounded">
-                          <p className="text-sm font-medium text-blue-900">Your Shift</p>
-                          <p className="text-sm text-blue-700">
-                            {new Date(request.originalShift.date).toLocaleDateString()}
-                          </p>
-                          <p className="text-sm text-blue-700">
-                            {request.originalShift.shiftName} • {request.originalShift.time}
-                          </p>
-                        </div>
-                        <div className="p-3 bg-green-50 rounded">
-                          <p className="text-sm font-medium text-green-900">Their Shift</p>
-                          <p className="text-sm text-green-700">
-                            {new Date(request.targetShift.date).toLocaleDateString()}
-                          </p>
-                          <p className="text-sm text-green-700">
-                            {request.targetShift.shiftName} • {request.targetShift.time}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-medium">Reason:</p>
-                        <p className="text-sm text-gray-600">{request.reason}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          {/* Swap Requests Tab */}
+          <TabsContent value="swap-requests">
+            <SwapRequests />
           </TabsContent>
 
-          {/* Messages */}
+          {/* Leave Requests Tab */}
+          <TabsContent value="leave-requests">
+            <LeaveRequests />
+          </TabsContent>
+
+          {/* Messages Tab */}
           <TabsContent value="messages" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Team Messages</CardTitle>
-                <CardDescription>Communications and announcements</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Messages & Notifications
+                </CardTitle>
+                <CardDescription>
+                  Stay updated with important announcements and communications
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {messages.map((message) => (
                     <div
                       key={message.id}
-                      className={`p-4 border rounded-lg ${!message.read ? "bg-blue-50 border-blue-200" : ""}`}
+                      className={`p-4 border rounded-lg ${
+                        !message.read ? "bg-blue-50 border-blue-200" : ""
+                      }`}
                     >
-                      <div className="flex items-start space-x-3">
-                        {getMessageIcon(message.type)}
+                      <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <h4 className={`font-semibold ${!message.read ? "text-blue-900" : ""}`}>
-                                {message.subject}
-                              </h4>
-                              <p className="text-sm text-gray-600">From: {message.from}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs text-gray-500">
-                                {new Date(message.timestamp).toLocaleDateString()}
-                              </p>
-                              {!message.read && (
-                                <Badge variant="destructive" className="mt-1">
-                                  New
-                                </Badge>
-                              )}
-                            </div>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="font-medium">{message.from}</span>
+                            <Badge
+                              variant={
+                                message.type === "announcement"
+                                  ? "default"
+                                  : message.type === "schedule"
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                            >
+                              {message.type}
+                            </Badge>
+                            {!message.read && (
+                              <Badge variant="destructive">New</Badge>
+                            )}
                           </div>
-                          <p className="text-sm text-gray-700">{message.content}</p>
+                          <h4 className="font-medium mb-1">{message.subject}</h4>
+                          <p className="text-sm text-gray-600 mb-2">
+                            {message.content}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(message.timestamp).toLocaleString()}
+                          </p>
                         </div>
+                        <Button size="sm" variant="outline">
+                          <Send className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
                   ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Leave Balance */}
-          <TabsContent value="leave" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Leave Balance</CardTitle>
-                <CardDescription>Track your available time off</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div className="p-4 border rounded-lg text-center">
-                    <CalendarDays className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-                    <h3 className="font-semibold">Vacation Days</h3>
-                    <p className="text-2xl font-bold text-blue-600">{leaveBalance.vacation}</p>
-                    <p className="text-sm text-gray-600">days remaining</p>
-                  </div>
-
-                  <div className="p-4 border rounded-lg text-center">
-                    <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                    <h3 className="font-semibold">Sick Days</h3>
-                    <p className="text-2xl font-bold text-red-600">{leaveBalance.sick}</p>
-                    <p className="text-sm text-gray-600">days remaining</p>
-                  </div>
-
-                  <div className="p-4 border rounded-lg text-center">
-                    <Users className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                    <h3 className="font-semibold">Personal Days</h3>
-                    <p className="text-2xl font-bold text-green-600">{leaveBalance.personal}</p>
-                    <p className="text-sm text-gray-600">days remaining</p>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-yellow-50 rounded-lg">
-                  <div className="flex items-start space-x-2">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                    <div>
-                      <h4 className="font-semibold text-yellow-900">Leave Policy Reminder</h4>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        Vacation days must be requested at least 2 weeks in advance. Sick days can be used as needed.
-                        Personal days require manager approval.
-                      </p>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>

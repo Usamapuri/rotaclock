@@ -24,12 +24,14 @@ import { toast } from 'sonner'
 
 interface TimeEntry {
   id: string
+  employee_id: string
   clock_in: string
   clock_out?: string
   break_start?: string
   break_end?: string
   total_hours: number
   status: 'in-progress' | 'completed' | 'break'
+  created_at: string
 }
 
 interface Shift {
@@ -37,7 +39,9 @@ interface Shift {
   name: string
   start_time: string
   end_time: string
+  date: string
   status: 'scheduled' | 'in-progress' | 'completed'
+  employee_id: string
 }
 
 export default function EmployeeDashboard() {
@@ -48,6 +52,7 @@ export default function EmployeeDashboard() {
   const [isLoading, setIsLoading] = useState(false)
   const [weeklyHours, setWeeklyHours] = useState(0)
   const [maxWeeklyHours] = useState(40)
+  const [isLoadingData, setIsLoadingData] = useState(true)
   
   const router = useRouter()
 
@@ -63,38 +68,73 @@ export default function EmployeeDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      // Mock data for demo
-      setTodayShifts([
-        {
-          id: '1',
-          name: 'Morning Shift',
-          start_time: '08:00:00',
-          end_time: '16:00:00',
-          status: 'scheduled'
-        }
-      ])
-      setWeeklyHours(32.5)
+      setIsLoadingData(true)
+      const user = AuthService.getCurrentUser()
+      if (!user) return
+
+      // Load current time entry
+      const timeResponse = await fetch('/api/time/entries')
+      if (timeResponse.ok) {
+        const timeEntries = await timeResponse.json()
+        const currentEntry = timeEntries.find((entry: TimeEntry) => 
+          entry.employee_id === user.id && 
+          (entry.status === 'in-progress' || entry.status === 'break')
+        )
+        setCurrentTimeEntry(currentEntry || null)
+      }
+
+      // Load today's shifts
+      const today = new Date().toISOString().split('T')[0]
+      const shiftsResponse = await fetch(`/api/shifts?date=${today}&employee_id=${user.id}`)
+      if (shiftsResponse.ok) {
+        const shifts = await shiftsResponse.json()
+        setTodayShifts(shifts)
+      }
+
+      // Load weekly hours
+      const weekStart = new Date()
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekEnd.getDate() + 6)
+      
+      const weeklyResponse = await fetch(`/api/time/entries?start_date=${weekStart.toISOString().split('T')[0]}&end_date=${weekEnd.toISOString().split('T')[0]}&employee_id=${user.id}`)
+      if (weeklyResponse.ok) {
+        const weeklyEntries = await weeklyResponse.json()
+        const totalHours = weeklyEntries.reduce((sum: number, entry: TimeEntry) => sum + (entry.total_hours || 0), 0)
+        setWeeklyHours(totalHours)
+      }
     } catch (error) {
       console.error('Error loading dashboard data:', error)
+      toast.error('Failed to load dashboard data')
+    } finally {
+      setIsLoadingData(false)
     }
   }
 
   const handleClockIn = async () => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const newTimeEntry: TimeEntry = {
-        id: Date.now().toString(),
-        clock_in: new Date().toISOString(),
-        total_hours: 0,
-        status: 'in-progress'
+      const response = await fetch('/api/time/clock-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee_id: currentUser.id,
+        }),
+      })
+
+      if (response.ok) {
+        const newTimeEntry = await response.json()
+        setCurrentTimeEntry(newTimeEntry)
+        toast.success('Successfully clocked in!')
+        await loadDashboardData() // Refresh data
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to clock in')
       }
-      
-      setCurrentTimeEntry(newTimeEntry)
-      toast.success('Successfully clocked in!')
     } catch (error) {
+      console.error('Error clocking in:', error)
       toast.error('Failed to clock in')
     } finally {
       setIsLoading(false)
@@ -106,19 +146,27 @@ export default function EmployeeDashboard() {
     
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const updatedEntry = {
-        ...currentTimeEntry,
-        clock_out: new Date().toISOString(),
-        total_hours: 8.5, // Mock calculation
-        status: 'completed' as const
+      const response = await fetch('/api/time/clock-out', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee_id: currentUser.id,
+        }),
+      })
+
+      if (response.ok) {
+        const updatedEntry = await response.json()
+        setCurrentTimeEntry(updatedEntry)
+        toast.success('Successfully clocked out!')
+        await loadDashboardData() // Refresh data
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to clock out')
       }
-      
-      setCurrentTimeEntry(updatedEntry)
-      toast.success('Successfully clocked out!')
     } catch (error) {
+      console.error('Error clocking out:', error)
       toast.error('Failed to clock out')
     } finally {
       setIsLoading(false)
@@ -130,18 +178,26 @@ export default function EmployeeDashboard() {
     
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const updatedEntry = {
-        ...currentTimeEntry,
-        break_start: new Date().toISOString(),
-        status: 'break' as const
+      const response = await fetch('/api/time/break-start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee_id: currentUser.id,
+        }),
+      })
+
+      if (response.ok) {
+        const updatedEntry = await response.json()
+        setCurrentTimeEntry(updatedEntry)
+        toast.success('Break started!')
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to start break')
       }
-      
-      setCurrentTimeEntry(updatedEntry)
-      toast.success('Break started!')
     } catch (error) {
+      console.error('Error starting break:', error)
       toast.error('Failed to start break')
     } finally {
       setIsLoading(false)
@@ -153,18 +209,26 @@ export default function EmployeeDashboard() {
     
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const updatedEntry = {
-        ...currentTimeEntry,
-        break_end: new Date().toISOString(),
-        status: 'in-progress' as const
+      const response = await fetch('/api/time/break-end', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee_id: currentUser.id,
+        }),
+      })
+
+      if (response.ok) {
+        const updatedEntry = await response.json()
+        setCurrentTimeEntry(updatedEntry)
+        toast.success('Break ended!')
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to end break')
       }
-      
-      setCurrentTimeEntry(updatedEntry)
-      toast.success('Break ended!')
     } catch (error) {
+      console.error('Error ending break:', error)
       toast.error('Failed to end break')
     } finally {
       setIsLoading(false)
@@ -204,6 +268,17 @@ export default function EmployeeDashboard() {
   const isClockedIn = currentTimeEntry?.status === 'in-progress'
   const isOnBreak = currentTimeEntry?.status === 'break'
   const isClockedOut = currentTimeEntry?.status === 'completed'
+
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -255,6 +330,7 @@ export default function EmployeeDashboard() {
                         onClick={() => setShowCamera(true)}
                         className="w-full"
                         size="lg"
+                        disabled={isLoading}
                       >
                         <Camera className="h-4 w-4 mr-2" />
                         Start Shift with Verification
@@ -361,12 +437,12 @@ export default function EmployeeDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600">{weeklyHours}h</p>
+                    <p className="text-2xl font-bold text-blue-600">{weeklyHours.toFixed(1)}h</p>
                     <p className="text-sm text-gray-500">of {maxWeeklyHours}h</p>
                   </div>
                   <Progress value={(weeklyHours / maxWeeklyHours) * 100} />
                   <p className="text-xs text-gray-500 text-center">
-                    {maxWeeklyHours - weeklyHours}h remaining this week
+                    {(maxWeeklyHours - weeklyHours).toFixed(1)}h remaining this week
                   </p>
                 </div>
               </CardContent>
