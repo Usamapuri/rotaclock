@@ -18,7 +18,8 @@ import {
   BarChart3,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
+  Bell
 } from 'lucide-react'
 import { AuthService } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -99,6 +100,10 @@ export default function AdminDashboard() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false)
+  const [broadcastMessage, setBroadcastMessage] = useState('')
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([])
+  const [broadcastToAll, setBroadcastToAll] = useState(true)
   
   const router = useRouter()
 
@@ -331,6 +336,44 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleBroadcastMessage = async () => {
+    if (!broadcastMessage.trim()) {
+      toast.error('Please enter a message')
+      return
+    }
+    
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/notifications/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: broadcastMessage,
+          employeeIds: broadcastToAll ? null : selectedEmployeeIds,
+          sendToAll: broadcastToAll
+        }),
+      })
+
+      if (response.ok) {
+        toast.success('Message sent successfully!')
+        setShowBroadcastModal(false)
+        setBroadcastMessage('')
+        setSelectedEmployeeIds([])
+        setBroadcastToAll(true)
+      } else {
+        const error = await response.json()
+        toast.error(error.message || 'Failed to send message')
+      }
+    } catch (error) {
+      console.error('Error sending broadcast message:', error)
+      toast.error('Failed to send message')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   if (isLoadingData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -362,6 +405,10 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              <Button onClick={() => setShowBroadcastModal(true)} variant="outline" size="sm">
+                <Bell className="h-4 w-4 mr-2" />
+                Broadcast Message
+              </Button>
               <Button onClick={() => router.push('/admin/reports')} variant="outline" size="sm">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Reports
@@ -681,6 +728,90 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {showBroadcastModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg p-6">
+            <h2 className="text-xl font-bold mb-4">Broadcast Message</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Message</label>
+                <textarea
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                  className="w-full border rounded px-3 py-2 h-32"
+                  placeholder="Enter your message..."
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Recipients</label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      checked={broadcastToAll}
+                      onChange={() => setBroadcastToAll(true)}
+                      className="mr-2"
+                    />
+                    Send to all employees
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      checked={!broadcastToAll}
+                      onChange={() => setBroadcastToAll(false)}
+                      className="mr-2"
+                    />
+                    Select specific employees
+                  </label>
+                </div>
+              </div>
+              
+              {!broadcastToAll && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Select Employees</label>
+                  <select
+                    multiple
+                    value={selectedEmployeeIds}
+                    onChange={(e) => setSelectedEmployeeIds(Array.from(e.target.selectedOptions, option => option.value))}
+                    className="w-full border rounded px-3 py-2 h-32"
+                    required
+                  >
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.first_name} {emp.last_name} ({emp.department})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowBroadcastModal(false)
+                    setBroadcastMessage('')
+                    setSelectedEmployeeIds([])
+                    setBroadcastToAll(true)
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleBroadcastMessage}
+                  disabled={isLoading || !broadcastMessage.trim()}
+                >
+                  {isLoading ? 'Sending...' : 'Send Message'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
