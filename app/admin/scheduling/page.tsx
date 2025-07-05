@@ -130,7 +130,6 @@ export default function AdminScheduling() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [shifts, setShifts] = useState<Shift[]>([])
   const [shiftAssignments, setShiftAssignments] = useState<ShiftAssignment[]>([])
-  const [employees, setEmployees] = useState<any[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [showAddShift, setShowAddShift] = useState(false)
   const [showAssignShift, setShowAssignShift] = useState(false)
@@ -150,10 +149,11 @@ export default function AdminScheduling() {
     required_staff: '',
     hourly_rate: ''
   })
+  const [employees, setEmployees] = useState<any[]>([])
   const router = useRouter()
 
-  // Sample data
-  const employees: Employee[] = [
+  // Sample data for fallback
+  const sampleEmployees: Employee[] = [
     {
       id: "001",
       name: "John Doe",
