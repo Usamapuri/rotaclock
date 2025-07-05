@@ -53,6 +53,7 @@ export default function EmployeeDashboard() {
   const [weeklyHours, setWeeklyHours] = useState(0)
   const [maxWeeklyHours] = useState(40)
   const [isLoadingData, setIsLoadingData] = useState(true)
+  const [verificationFailed, setVerificationFailed] = useState(false)
   
   const router = useRouter()
 
@@ -238,9 +239,11 @@ export default function EmployeeDashboard() {
   const handleCameraVerification = (success: boolean, imageData?: string) => {
     setShowCamera(false)
     if (success) {
+      setVerificationFailed(false)
       toast.success('Identity verified! Starting shift...')
       handleClockIn()
     } else {
+      setVerificationFailed(true)
       toast.error('Verification failed. Please try again.')
     }
   }
@@ -335,6 +338,11 @@ export default function EmployeeDashboard() {
                         <Camera className="h-4 w-4 mr-2" />
                         Start Shift with Verification
                       </Button>
+                      {verificationFailed && (
+                        <div className="mt-4 text-red-600">
+                          Verification failed. <Button variant="link" onClick={() => setShowCamera(true)}>Retry</Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
