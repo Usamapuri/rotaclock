@@ -68,13 +68,26 @@ export function CameraVerification({
   }
 
   const captureImage = () => {
-    if (!videoRef.current || !canvasRef.current) return
+    if (!videoRef.current || !canvasRef.current) {
+      setIsCapturing(false)
+      return
+    }
 
     const video = videoRef.current
     const canvas = canvasRef.current
     const context = canvas.getContext('2d')
 
-    if (!context) return
+    if (!context) {
+      setIsCapturing(false)
+      return
+    }
+
+    // Ensure video is ready
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setIsCapturing(false)
+      toast.error('Camera not ready. Please try again.')
+      return
+    }
 
     // Set canvas dimensions to match video
     canvas.width = video.videoWidth
@@ -128,8 +141,16 @@ export function CameraVerification({
   }
 
   const handleCapture = () => {
+    if (!isStreaming) {
+      toast.error('Camera not ready')
+      return
+    }
+    
     setIsCapturing(true)
-    setTimeout(captureImage, 100) // Small delay to ensure video is ready
+    // Increased delay to ensure video is fully ready
+    setTimeout(() => {
+      captureImage()
+    }, 500)
   }
 
   return (

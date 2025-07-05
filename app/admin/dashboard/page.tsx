@@ -354,6 +354,14 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              <Button onClick={() => router.push('/admin/reports')} variant="outline" size="sm">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Reports
+              </Button>
+              <Button onClick={() => router.push('/admin/scheduling')} variant="outline" size="sm">
+                <Calendar className="h-4 w-4 mr-2" />
+                Create Shift
+              </Button>
               <Button onClick={() => router.push('/admin/employees')} variant="outline" size="sm">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Manage Employees
