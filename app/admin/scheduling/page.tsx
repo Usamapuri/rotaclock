@@ -21,9 +21,17 @@ import {
   XCircle,
   AlertTriangle,
   RefreshCw,
+  ArrowLeft,
+  Filter,
+  Download,
+  Input,
+  Label,
+  Calendar,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { AuthService } from "@/lib/auth"
+import { toast } from "sonner"
 
 interface Employee {
   id: string
@@ -46,11 +54,26 @@ interface Employee {
 interface Shift {
   id: string
   name: string
-  startTime: string
-  endTime: string
+  description: string
+  start_time: string
+  end_time: string
   department: string
-  requiredStaff: number
+  required_staff: number
+  hourly_rate: number
   color: string
+  is_active: boolean
+}
+
+interface ShiftAssignment {
+  id: string
+  shift_id: string
+  shift_name: string
+  employee_id: string
+  employee_name: string
+  date: string
+  start_time: string
+  end_time: string
+  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
 }
 
 interface Schedule {
@@ -104,6 +127,13 @@ export default function AdminScheduling() {
   const [adminUser, setAdminUser] = useState("")
   const [selectedWeek, setSelectedWeek] = useState(new Date())
   const [autoScheduleEnabled, setAutoScheduleEnabled] = useState(true)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [shifts, setShifts] = useState<Shift[]>([])
+  const [shiftAssignments, setShiftAssignments] = useState<ShiftAssignment[]>([])
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [showAddShift, setShowAddShift] = useState(false)
+  const [showAssignShift, setShowAssignShift] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   // Sample data
@@ -145,45 +175,6 @@ export default function AdminScheduling() {
       },
       shiftPreferences: ["day", "evening"],
       leaveBalance: { vacation: 12, sick: 8, personal: 2 },
-    },
-  ]
-
-  const shiftTypes: Shift[] = [
-    {
-      id: "morning",
-      name: "Morning Shift",
-      startTime: "06:00",
-      endTime: "14:00",
-      department: "All",
-      requiredStaff: 3,
-      color: "#3B82F6",
-    },
-    {
-      id: "day",
-      name: "Day Shift",
-      startTime: "09:00",
-      endTime: "17:00",
-      department: "All",
-      requiredStaff: 5,
-      color: "#10B981",
-    },
-    {
-      id: "evening",
-      name: "Evening Shift",
-      startTime: "14:00",
-      endTime: "22:00",
-      department: "All",
-      requiredStaff: 4,
-      color: "#F59E0B",
-    },
-    {
-      id: "night",
-      name: "Night Shift",
-      startTime: "22:00",
-      endTime: "06:00",
-      department: "All",
-      requiredStaff: 2,
-      color: "#8B5CF6",
     },
   ]
 
@@ -269,13 +260,115 @@ export default function AdminScheduling() {
   ])
 
   useEffect(() => {
-    const storedAdminUser = localStorage.getItem("adminUser")
-    if (!storedAdminUser) {
-      router.push("/admin/login")
-    } else {
-      setAdminUser(storedAdminUser)
+    const user = AuthService.getCurrentUser()
+    if (!user || user.role !== 'admin') {
+      router.push('/admin/login')
+      return
     }
+    setCurrentUser(user)
+    loadSchedulingData()
   }, [router])
+
+  const loadSchedulingData = async () => {
+    setIsLoading(true)
+    try {
+      // Mock data for demo
+      const mockShifts: Shift[] = [
+        {
+          id: '1',
+          name: 'Morning Shift',
+          description: 'Early morning operations and customer service',
+          start_time: '06:00:00',
+          end_time: '14:00:00',
+          department: 'All',
+          required_staff: 3,
+          hourly_rate: 16.00,
+          color: '#3B82F6',
+          is_active: true
+        },
+        {
+          id: '2',
+          name: 'Day Shift',
+          description: 'Regular business hours operations',
+          start_time: '09:00:00',
+          end_time: '17:00:00',
+          department: 'All',
+          required_staff: 5,
+          hourly_rate: 15.50,
+          color: '#10B981',
+          is_active: true
+        },
+        {
+          id: '3',
+          name: 'Evening Shift',
+          description: 'Evening operations and closing duties',
+          start_time: '14:00:00',
+          end_time: '22:00:00',
+          department: 'All',
+          required_staff: 4,
+          hourly_rate: 16.50,
+          color: '#F59E0B',
+          is_active: true
+        },
+        {
+          id: '4',
+          name: 'Night Shift',
+          description: 'Overnight operations and security',
+          start_time: '22:00:00',
+          end_time: '06:00:00',
+          department: 'Security',
+          required_staff: 2,
+          hourly_rate: 18.00,
+          color: '#8B5CF6',
+          is_active: true
+        }
+      ]
+
+      const mockAssignments: ShiftAssignment[] = [
+        {
+          id: '1',
+          shift_id: '2',
+          shift_name: 'Day Shift',
+          employee_id: 'EMP001',
+          employee_name: 'John Doe',
+          date: '2024-01-15',
+          start_time: '09:00:00',
+          end_time: '17:00:00',
+          status: 'scheduled'
+        },
+        {
+          id: '2',
+          shift_id: '2',
+          shift_name: 'Day Shift',
+          employee_id: 'EMP002',
+          employee_name: 'Jane Smith',
+          date: '2024-01-15',
+          start_time: '09:00:00',
+          end_time: '17:00:00',
+          status: 'scheduled'
+        },
+        {
+          id: '3',
+          shift_id: '3',
+          shift_name: 'Evening Shift',
+          employee_id: 'EMP003',
+          employee_name: 'Mike Johnson',
+          date: '2024-01-15',
+          start_time: '14:00:00',
+          end_time: '22:00:00',
+          status: 'in-progress'
+        }
+      ]
+
+      setShifts(mockShifts)
+      setShiftAssignments(mockAssignments)
+    } catch (error) {
+      console.error('Error loading scheduling data:', error)
+      toast.error('Failed to load scheduling data')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem("adminUser")
@@ -322,31 +415,77 @@ export default function AdminScheduling() {
     }
   }
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'scheduled':
+        return <Badge variant="secondary">Scheduled</Badge>
+      case 'in-progress':
+        return <Badge variant="default">In Progress</Badge>
+      case 'completed':
+        return <Badge variant="outline">Completed</Badge>
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelled</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
+    }
+  }
+
+  const getAssignmentsForDate = (date: string) => {
+    return shiftAssignments.filter(assignment => assignment.date === date)
+  }
+
+  const formatTime = (time: string) => {
+    return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <Link href="/admin/dashboard">
-                <div className="flex items-center">
-                  <Clock className="h-6 w-6 text-purple-600 mr-2" />
-                  <span className="text-xl font-bold text-gray-900">ShiftTracker Admin</span>
-                </div>
-              </Link>
-              <Badge variant="outline">Scheduling</Badge>
+              <Button 
+                onClick={() => router.push('/admin/dashboard')} 
+                variant="ghost" 
+                size="sm"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <div className="bg-purple-100 p-2 rounded-full">
+                <Calendar className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  Shift Scheduling
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Manage employee shifts and schedules
+                </p>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {adminUser}</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export Schedule
+              </Button>
+              <Button onClick={() => setShowAssignShift(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Assign Shift
+              </Button>
+              <Button onClick={() => setShowAddShift(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Shift
               </Button>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}
@@ -443,7 +582,7 @@ export default function AdminScheduling() {
                         <div
                           className="w-4 h-4 rounded"
                           style={{
-                            backgroundColor: shiftTypes.find((s) => s.id === schedule.shiftId)?.color || "#gray",
+                            backgroundColor: shifts.find((s) => s.id === schedule.shiftId)?.color || "#gray",
                           }}
                         />
                         <div>
@@ -461,7 +600,7 @@ export default function AdminScheduling() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
-                        <Badge variant={getStatusColor(schedule.status)}>{schedule.status}</Badge>
+                        {getStatusBadge(schedule.status)}
                         <div className="flex space-x-2">
                           <Button variant="outline" size="sm">
                             <Edit className="h-4 w-4" />
@@ -495,16 +634,16 @@ export default function AdminScheduling() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {shiftTypes.map((shift) => (
+                  {shifts.map((shift) => (
                     <div key={shift.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-4">
                         <div className="w-4 h-4 rounded" style={{ backgroundColor: shift.color }} />
                         <div>
                           <h4 className="font-semibold">{shift.name}</h4>
                           <p className="text-sm text-gray-600">
-                            {shift.startTime} - {shift.endTime} • {shift.department}
+                            {shift.start_time} - {shift.end_time} • {shift.department}
                           </p>
-                          <p className="text-sm text-gray-600">Required Staff: {shift.requiredStaff}</p>
+                          <p className="text-sm text-gray-600">Required Staff: {shift.required_staff}</p>
                         </div>
                       </div>
                       <div className="flex space-x-2">
@@ -610,7 +749,7 @@ export default function AdminScheduling() {
                             {new Date(request.endDate).toLocaleDateString()} ({request.days} days)
                           </p>
                         </div>
-                        <Badge variant={getStatusColor(request.status)}>{request.status}</Badge>
+                        {getStatusBadge(request.status)}
                       </div>
 
                       <div className="mb-3">
@@ -686,7 +825,7 @@ export default function AdminScheduling() {
                             {request.requesterName} ↔ {request.targetName}
                           </p>
                         </div>
-                        <Badge variant={getStatusColor(request.status)}>{request.status}</Badge>
+                        {getStatusBadge(request.status)}
                       </div>
 
                       <div className="grid md:grid-cols-2 gap-4 mb-3">
@@ -802,6 +941,125 @@ export default function AdminScheduling() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Add Shift Modal */}
+      {showAddShift && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Add New Shift</CardTitle>
+              <CardDescription>Create a new shift template</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4">
+                <div>
+                  <Label htmlFor="shift_name">Shift Name</Label>
+                  <Input id="shift_name" required />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Input id="description" required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="start_time">Start Time</Label>
+                    <Input id="start_time" type="time" required />
+                  </div>
+                  <div>
+                    <Label htmlFor="end_time">End Time</Label>
+                    <Input id="end_time" type="time" required />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="department">Department</Label>
+                    <select id="department" className="w-full p-2 border rounded-md" required>
+                      <option value="">Select Department</option>
+                      <option value="All">All Departments</option>
+                      <option value="Engineering">Engineering</option>
+                      <option value="Marketing">Marketing</option>
+                      <option value="Sales">Sales</option>
+                      <option value="Security">Security</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="required_staff">Required Staff</Label>
+                    <Input id="required_staff" type="number" min="1" required />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="hourly_rate">Hourly Rate</Label>
+                  <Input id="hourly_rate" type="number" step="0.01" required />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="submit" className="flex-1">
+                    Add Shift
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowAddShift(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Assign Shift Modal */}
+      {showAssignShift && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Assign Shift</CardTitle>
+              <CardDescription>Assign an employee to a shift</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4">
+                <div>
+                  <Label htmlFor="shift_id">Shift</Label>
+                  <select id="shift_id" className="w-full p-2 border rounded-md" required>
+                    <option value="">Select Shift</option>
+                    {shifts.filter(s => s.is_active).map(shift => (
+                      <option key={shift.id} value={shift.id}>
+                        {shift.name} ({formatTime(shift.start_time)} - {formatTime(shift.end_time)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="employee_id">Employee</Label>
+                  <select id="employee_id" className="w-full p-2 border rounded-md" required>
+                    <option value="">Select Employee</option>
+                    <option value="EMP001">John Doe - Engineering</option>
+                    <option value="EMP002">Jane Smith - Marketing</option>
+                    <option value="EMP003">Mike Johnson - Sales</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="assignment_date">Date</Label>
+                  <Input id="assignment_date" type="date" required />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="submit" className="flex-1">
+                    Assign Shift
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowAssignShift(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

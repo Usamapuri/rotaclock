@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 /**
  * GET /api/shifts/[id]
@@ -12,9 +13,10 @@ export async function GET(
   try {
     const supabase = createServerSupabaseClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -52,9 +54,10 @@ export async function PATCH(
   try {
     const supabase = createServerSupabaseClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -151,9 +154,10 @@ export async function DELETE(
   try {
     const supabase = createServerSupabaseClient()
     
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
