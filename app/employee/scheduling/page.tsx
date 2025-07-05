@@ -161,6 +161,9 @@ export default function EmployeeScheduling() {
 
   const [showSwapForm, setShowSwapForm] = useState(false)
   const [selectedShiftForSwap, setSelectedShiftForSwap] = useState<string | null>(null)
+  const [swapReason, setSwapReason] = useState('')
+  const [targetShiftId, setTargetShiftId] = useState<string | null>(null)
+  const [myShiftsState, setMyShiftsState] = useState(myShifts)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -182,10 +185,36 @@ export default function EmployeeScheduling() {
     setShowSwapForm(true)
   }
 
+  const handleSwapFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedShiftForSwap || !targetShiftId || !swapReason.trim()) {
+      alert('Please select a target shift and provide a reason.')
+      return
+    }
+    // In a real app, send to backend
+    // await fetch('/api/shifts/swap-requests', ...)
+    setSwapRequests(prev => [
+      ...prev,
+      {
+        id: Math.random().toString(36).substr(2, 9),
+        targetEmployeeName: 'Target Employee',
+        originalShift: myShiftsState.find(s => s.id === selectedShiftForSwap) || {},
+        targetShift: myShiftsState.find(s => s.id === targetShiftId) || {},
+        reason: swapReason,
+        status: 'pending',
+        submittedAt: new Date().toISOString(),
+      },
+    ])
+    setShowSwapForm(false)
+    setSwapReason('')
+    setTargetShiftId(null)
+    setSelectedShiftForSwap(null)
+    alert('Swap request submitted!')
+  }
+
   const handleConfirmShift = (shiftId: string) => {
-    // In a real app, this would update the shift status via API
-    console.log(`Confirming shift ${shiftId}`)
-    alert("Shift confirmed!")
+    setMyShiftsState(prev => prev.map(s => s.id === shiftId ? { ...s, status: 'confirmed' } : s))
+    alert('Shift confirmed!')
   }
 
   const getStatusColor = (status: string) => {
@@ -296,7 +325,7 @@ export default function EmployeeScheduling() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {myShifts.map((shift) => (
+                      {myShiftsState.map((shift) => (
                         <div
                           key={shift.id}
                           className="flex items-center justify-between p-4 border rounded-lg"
@@ -458,6 +487,47 @@ export default function EmployeeScheduling() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {showSwapForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <h2 className="text-xl font-bold mb-4">Request Shift Swap</h2>
+            <form onSubmit={handleSwapFormSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Select Target Shift</label>
+                <select
+                  className="w-full border rounded px-3 py-2"
+                  value={targetShiftId || ''}
+                  onChange={e => setTargetShiftId(e.target.value)}
+                  required
+                >
+                  <option value="">Select a shift</option>
+                  {myShiftsState.filter(s => s.id !== selectedShiftForSwap).map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.shiftName} ({formatDate(s.date)} {formatTime(s.startTime)} - {formatTime(s.endTime)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Reason for Swap</label>
+                <Textarea
+                  value={swapReason}
+                  onChange={e => setSwapReason(e.target.value)}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button type="button" variant="outline" onClick={() => setShowSwapForm(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Submit Request</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
