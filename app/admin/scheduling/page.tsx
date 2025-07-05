@@ -150,6 +150,7 @@ export default function AdminScheduling() {
     hourly_rate: ''
   })
   const [employees, setEmployees] = useState<any[]>([])
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([])
   const router = useRouter()
 
   // Sample data for fallback
@@ -407,58 +408,40 @@ export default function AdminScheduling() {
 
   const handleShiftFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!shiftFormData.name || !shiftFormData.description || !shiftFormData.start_time || 
-        !shiftFormData.end_time || !shiftFormData.department || !shiftFormData.required_staff || !shiftFormData.hourly_rate) {
-      toast.error('Please fill in all required fields')
-      return
-    }
-
+    setIsLoading(true)
     try {
-      const response = await fetch('/api/shifts/templates', {
+      // 1. Create the shift
+      const shiftRes = await fetch('/api/shifts/templates', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: shiftFormData.name,
-          description: shiftFormData.description,
-          start_time: shiftFormData.start_time,
-          end_time: shiftFormData.end_time,
-          department: shiftFormData.department,
-          required_staff: parseInt(shiftFormData.required_staff),
-          hourly_rate: parseFloat(shiftFormData.hourly_rate),
-          color: '#3b82f6', // Default blue color
-          is_active: true
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(shiftFormData)
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create shift')
+      if (!shiftRes.ok) throw new Error('Failed to create shift')
+      const shiftData = await shiftRes.json()
+      const newShiftId = shiftData.shift?.id
+      // 2. Assign shift to selected employees
+      for (const empId of selectedEmployeeIds) {
+        await fetch('/api/shifts/assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shift_id: newShiftId,
+            employee_id: empId,
+            date: selectedDate,
+            start_time: shiftFormData.start_time,
+            end_time: shiftFormData.end_time
+          })
+        })
       }
-
-      const { shift } = await response.json()
-      
-      // Add the new shift to the local state
-      setShifts([...shifts, shift])
+      toast.success('Shift created and assigned!')
       setShowAddShift(false)
-      
-      // Reset form
-      setShiftFormData({
-        name: '',
-        description: '',
-        start_time: '',
-        end_time: '',
-        department: '',
-        required_staff: '',
-        hourly_rate: ''
-      })
-      
-      toast.success('Shift template created successfully!')
-    } catch (error) {
-      console.error('Error creating shift:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to create shift')
+      setShiftFormData({ name: '', description: '', start_time: '', end_time: '', department: '', required_staff: '', hourly_rate: '' })
+      setSelectedEmployeeIds([])
+      await loadSchedulingData()
+    } catch (err) {
+      toast.error('Failed to create shift')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -1039,110 +1022,46 @@ export default function AdminScheduling() {
 
       {/* Add Shift Modal */}
       {showAddShift && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Add New Shift</CardTitle>
-              <CardDescription>Create a new shift template</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleShiftFormSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="shift_name">Shift Name</Label>
-                  <Input 
-                    id="shift_name" 
-                    value={shiftFormData.name}
-                    onChange={(e) => handleShiftInputChange('name', e.target.value)}
-                    required 
-                  />
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg p-6">
+            <h2 className="text-xl font-bold mb-4">Create Shift</h2>
+            <form onSubmit={handleShiftFormSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Shift Name</label>
+                <input type="text" className="w-full border rounded px-3 py-2" value={shiftFormData.name} onChange={e => setShiftFormData({ ...shiftFormData, name: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea className="w-full border rounded px-3 py-2" value={shiftFormData.description} onChange={e => setShiftFormData({ ...shiftFormData, description: e.target.value })} />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Start Time</label>
+                  <input type="time" className="w-full border rounded px-3 py-2" value={shiftFormData.start_time} onChange={e => setShiftFormData({ ...shiftFormData, start_time: e.target.value })} required />
                 </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Input 
-                    id="description" 
-                    value={shiftFormData.description}
-                    onChange={(e) => handleShiftInputChange('description', e.target.value)}
-                    required 
-                  />
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">End Time</label>
+                  <input type="time" className="w-full border rounded px-3 py-2" value={shiftFormData.end_time} onChange={e => setShiftFormData({ ...shiftFormData, end_time: e.target.value })} required />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="start_time">Start Time</Label>
-                    <Input 
-                      id="start_time" 
-                      type="time" 
-                      value={shiftFormData.start_time}
-                      onChange={(e) => handleShiftInputChange('start_time', e.target.value)}
-                      required 
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="end_time">End Time</Label>
-                    <Input 
-                      id="end_time" 
-                      type="time" 
-                      value={shiftFormData.end_time}
-                      onChange={(e) => handleShiftInputChange('end_time', e.target.value)}
-                      required 
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="department">Department</Label>
-                    <select 
-                      id="department" 
-                      className="w-full p-2 border rounded-md" 
-                      value={shiftFormData.department}
-                      onChange={(e) => handleShiftInputChange('department', e.target.value)}
-                      required
-                    >
-                      <option value="">Select Department</option>
-                      <option value="All">All Departments</option>
-                      <option value="Engineering">Engineering</option>
-                      <option value="Marketing">Marketing</option>
-                      <option value="Sales">Sales</option>
-                      <option value="Security">Security</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="required_staff">Required Staff</Label>
-                    <Input 
-                      id="required_staff" 
-                      type="number" 
-                      min="1" 
-                      value={shiftFormData.required_staff}
-                      onChange={(e) => handleShiftInputChange('required_staff', e.target.value)}
-                      required 
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="hourly_rate">Hourly Rate</Label>
-                  <Input 
-                    id="hourly_rate" 
-                    type="number" 
-                    step="0.01" 
-                    value={shiftFormData.hourly_rate}
-                    onChange={(e) => handleShiftInputChange('hourly_rate', e.target.value)}
-                    required 
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-1">
-                    Add Shift
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setShowAddShift(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Department</label>
+                <input type="text" className="w-full border rounded px-3 py-2" value={shiftFormData.department} onChange={e => setShiftFormData({ ...shiftFormData, department: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Assign Employees</label>
+                <select multiple className="w-full border rounded px-3 py-2 h-32" value={selectedEmployeeIds} onChange={e => setSelectedEmployeeIds(Array.from(e.target.selectedOptions, option => option.value))} required>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button type="button" variant="outline" onClick={() => setShowAddShift(false)}>Cancel</Button>
+                <Button type="submit" disabled={isLoading}>{isLoading ? 'Creating...' : 'Create Shift'}</Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
