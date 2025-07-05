@@ -16,6 +16,8 @@ const nextConfig = {
     serverComponentsExternalPackages: [],
     // Force dynamic rendering
     dynamicParams: true,
+    // Disable static generation
+    staticGenerationAsyncStorage: false,
   },
   // Ensure proper handling of dynamic routes
   trailingSlash: false,
@@ -23,6 +25,8 @@ const nextConfig = {
   generateStaticParams: false,
   // Force dynamic rendering for all pages
   staticPageGenerationTimeout: 0,
+  // Disable static optimization
+  staticPageGeneration: false,
 }
 
 export default nextConfig
