@@ -15,6 +15,7 @@ import { CalendarIcon, Clock, User, Calendar as CalendarIcon2, FileText, Check, 
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { AuthService } from '@/lib/auth'
+import { DateRange } from 'react-day-picker'
 
 interface LeaveRequest {
   id: string
@@ -36,8 +37,7 @@ export function LeaveRequests() {
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [startDate, setStartDate] = useState<Date>()
-  const [endDate, setEndDate] = useState<Date>()
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [leaveType, setLeaveType] = useState('')
   const [reason, setReason] = useState('')
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -71,16 +71,16 @@ export function LeaveRequests() {
   }
 
   const handleCreateRequest = async () => {
+    const startDate = dateRange?.from
+    const endDate = dateRange?.to
     if (!startDate || !endDate || !leaveType || !reason) {
       toast.error('Please fill in all fields')
       return
     }
-
     if (startDate > endDate) {
       toast.error('Start date cannot be after end date')
       return
     }
-
     setIsLoading(true)
     try {
       const response = await fetch('/api/onboarding/leave-requests', {
@@ -96,13 +96,11 @@ export function LeaveRequests() {
           reason,
         }),
       })
-
       if (response.ok) {
         const newRequest = await response.json()
         setLeaveRequests(prev => [newRequest, ...prev])
         setShowCreateDialog(false)
-        setStartDate(undefined)
-        setEndDate(undefined)
+        setDateRange(undefined)
         setLeaveType('')
         setReason('')
         toast.success('Leave request submitted successfully!')
@@ -276,54 +274,31 @@ export function LeaveRequests() {
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Start Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {startDate ? format(startDate, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={startDate}
-                        onSelect={setStartDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <Label>End Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {endDate ? format(endDate, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={endDate}
-                        onSelect={setEndDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
+              <div>
+                <Label>Date Range</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from && dateRange?.to
+                        ? `${format(dateRange.from, 'PPP')} - ${format(dateRange.to, 'PPP')}`
+                        : 'Pick a date range'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={1}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
-              
               <div>
                 <Label htmlFor="reason">Reason</Label>
                 <Textarea
@@ -334,7 +309,6 @@ export function LeaveRequests() {
                   rows={3}
                 />
               </div>
-              
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                   Cancel
