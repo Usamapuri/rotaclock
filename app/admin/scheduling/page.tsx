@@ -281,58 +281,15 @@ export default function AdminScheduling() {
   const loadSchedulingData = async () => {
     setIsLoading(true)
     try {
-      // Mock data for demo
-      const mockShifts: Shift[] = [
-        {
-          id: '1',
-          name: 'Morning Shift',
-          description: 'Early morning operations and customer service',
-          start_time: '06:00:00',
-          end_time: '14:00:00',
-          department: 'All',
-          required_staff: 3,
-          hourly_rate: 16.00,
-          color: '#3B82F6',
-          is_active: true
-        },
-        {
-          id: '2',
-          name: 'Day Shift',
-          description: 'Regular business hours operations',
-          start_time: '09:00:00',
-          end_time: '17:00:00',
-          department: 'All',
-          required_staff: 5,
-          hourly_rate: 15.50,
-          color: '#10B981',
-          is_active: true
-        },
-        {
-          id: '3',
-          name: 'Evening Shift',
-          description: 'Evening operations and closing duties',
-          start_time: '14:00:00',
-          end_time: '22:00:00',
-          department: 'All',
-          required_staff: 4,
-          hourly_rate: 16.50,
-          color: '#F59E0B',
-          is_active: true
-        },
-        {
-          id: '4',
-          name: 'Night Shift',
-          description: 'Overnight operations and security',
-          start_time: '22:00:00',
-          end_time: '06:00:00',
-          department: 'Security',
-          required_staff: 2,
-          hourly_rate: 18.00,
-          color: '#8B5CF6',
-          is_active: true
-        }
-      ]
+      // Fetch shift templates from API
+      const shiftsResponse = await fetch('/api/shifts/templates')
+      if (!shiftsResponse.ok) {
+        throw new Error('Failed to fetch shift templates')
+      }
+      const shiftsData = await shiftsResponse.json()
+      setShifts(shiftsData.shifts || [])
 
+      // For now, keep mock assignments until we implement the assignment API
       const mockAssignments: ShiftAssignment[] = [
         {
           id: '1',
@@ -369,7 +326,6 @@ export default function AdminScheduling() {
         }
       ]
 
-      setShifts(mockShifts)
       setShiftAssignments(mockAssignments)
     } catch (error) {
       console.error('Error loading scheduling data:', error)
@@ -460,34 +416,52 @@ export default function AdminScheduling() {
       return
     }
 
-    const newShift: Shift = {
-      id: Date.now().toString(),
-      name: shiftFormData.name,
-      description: shiftFormData.description,
-      start_time: shiftFormData.start_time,
-      end_time: shiftFormData.end_time,
-      department: shiftFormData.department,
-      required_staff: parseInt(shiftFormData.required_staff),
-      hourly_rate: parseFloat(shiftFormData.hourly_rate),
-      color: '#3b82f6', // Default blue color
-      is_active: true
-    }
+    try {
+      const response = await fetch('/api/shifts/templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: shiftFormData.name,
+          description: shiftFormData.description,
+          start_time: shiftFormData.start_time,
+          end_time: shiftFormData.end_time,
+          department: shiftFormData.department,
+          required_staff: parseInt(shiftFormData.required_staff),
+          hourly_rate: parseFloat(shiftFormData.hourly_rate),
+          color: '#3b82f6', // Default blue color
+          is_active: true
+        }),
+      })
 
-    setShifts([...shifts, newShift])
-    setShowAddShift(false)
-    
-    // Reset form
-    setShiftFormData({
-      name: '',
-      description: '',
-      start_time: '',
-      end_time: '',
-      department: '',
-      required_staff: '',
-      hourly_rate: ''
-    })
-    
-    toast.success('Shift created successfully!')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create shift')
+      }
+
+      const { shift } = await response.json()
+      
+      // Add the new shift to the local state
+      setShifts([...shifts, shift])
+      setShowAddShift(false)
+      
+      // Reset form
+      setShiftFormData({
+        name: '',
+        description: '',
+        start_time: '',
+        end_time: '',
+        department: '',
+        required_staff: '',
+        hourly_rate: ''
+      })
+      
+      toast.success('Shift template created successfully!')
+    } catch (error) {
+      console.error('Error creating shift:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to create shift')
+    }
   }
 
   const handleShiftInputChange = (field: string, value: string) => {
