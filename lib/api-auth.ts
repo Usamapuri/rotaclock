@@ -19,11 +19,13 @@ export function createApiAuthMiddleware() {
       hasSession: !!sessionHeader
     })
     
-    // Return a mock user for demo purposes
+    // For demo purposes, allow all requests but return a generic admin user
+    // In a real app, you'd extract user info from JWT or session
+    // Use a valid employee ID from the database
     return {
       user: {
-        id: 'demo-user',
-        email: 'demo@company.com',
+        id: '3cae45f4-f119-41d2-b24f-66a7249cf974', // Use a valid employee ID from the database
+        email: 'john.doe@company.com',
         role: 'admin'
       },
       isAuthenticated: true

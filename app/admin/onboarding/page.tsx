@@ -35,12 +35,6 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import {
-  useOnboardingTemplates,
-  useOnboardingProcesses,
-  useOnboardingDocuments,
-  useEmployees,
-} from "@/hooks/useOnboarding"
 import { toast } from "@/hooks/use-toast"
 
 export default function AdminOnboarding() {
@@ -51,11 +45,15 @@ export default function AdminOnboarding() {
   const [selectedProcess, setSelectedProcess] = useState<any>(null)
   const router = useRouter()
 
-  // Use custom hooks for data management
-  const { templates, loading: templatesLoading, createTemplate } = useOnboardingTemplates()
-  const { processes, loading: processesLoading, createProcess, completeStep, uncompleteStep } = useOnboardingProcesses()
-  const { documents, loading: documentsLoading } = useOnboardingDocuments()
-  const { employees, loading: employeesLoading } = useEmployees()
+  // State for data management
+  const [templates, setTemplates] = useState<any[]>([])
+  const [processes, setProcesses] = useState<any[]>([])
+  const [documents, setDocuments] = useState<any[]>([])
+  const [employees, setEmployees] = useState<any[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [processesLoading, setProcessesLoading] = useState(false)
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [employeesLoading, setEmployeesLoading] = useState(false)
 
   const [newTemplate, setNewTemplate] = useState({
     name: "",
@@ -75,6 +73,74 @@ export default function AdminOnboarding() {
 
   const [isCreatingTemplate, setIsCreatingTemplate] = useState(false)
   const [isCreatingProcess, setIsCreatingProcess] = useState(false)
+
+  // Load data on component mount
+  useEffect(() => {
+    loadTemplates()
+    loadProcesses()
+    loadDocuments()
+    loadEmployees()
+  }, [])
+
+  const loadTemplates = async () => {
+    setTemplatesLoading(true)
+    try {
+      const response = await fetch('/api/onboarding/templates')
+      const data = await response.json()
+      if (response.ok) {
+        setTemplates(data.templates || [])
+      }
+    } catch (error) {
+      console.error('Error loading templates:', error)
+    } finally {
+      setTemplatesLoading(false)
+    }
+  }
+
+  const loadProcesses = async () => {
+    setProcessesLoading(true)
+    try {
+      const response = await fetch('/api/onboarding/processes')
+      const data = await response.json()
+      if (response.ok) {
+        setProcesses(data.processes || [])
+      }
+    } catch (error) {
+      console.error('Error loading processes:', error)
+    } finally {
+      setProcessesLoading(false)
+    }
+  }
+
+  const loadDocuments = async () => {
+    setDocumentsLoading(true)
+    try {
+      const response = await fetch('/api/onboarding/documents')
+      const data = await response.json()
+      if (response.ok) {
+        setDocuments(data.documents || [])
+      }
+    } catch (error) {
+      console.error('Error loading documents:', error)
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }
+
+  const loadEmployees = async () => {
+    setEmployeesLoading(true)
+    try {
+      const response = await fetch('/api/employees')
+      const data = await response.json()
+      if (response.ok) {
+        setEmployees(data.employees || [])
+      }
+    } catch (error) {
+      console.error('Error loading employees:', error)
+    } finally {
+      setEmployeesLoading(false)
+    }
+  }
 
   useEffect(() => {
     const storedAdminUser = localStorage.getItem("adminUser")
@@ -102,25 +168,40 @@ export default function AdminOnboarding() {
 
     try {
       setIsCreatingTemplate(true)
-      await createTemplate(newTemplate)
-
-      setNewTemplate({
-        name: "",
-        description: "",
-        department: "",
-        position: "",
-        steps: [],
+      const response = await fetch('/api/onboarding/templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newTemplate),
       })
-      setShowCreateTemplateDialog(false)
 
-      toast({
-        title: "Success",
-        description: "Onboarding template created successfully",
-      })
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Template created successfully",
+        })
+        setShowCreateTemplateDialog(false)
+        setNewTemplate({
+          name: "",
+          description: "",
+          department: "",
+          position: "",
+          steps: [],
+        })
+        loadTemplates()
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to create template",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create template",
+        description: "Failed to create template",
         variant: "destructive",
       })
     } finally {
@@ -147,29 +228,44 @@ export default function AdminOnboarding() {
         throw new Error("Invalid template or employee selection")
       }
 
-      await createProcess({
-        employee_id: employee.id,
-        employee_name: `${employee.first_name} ${employee.last_name}`,
-        template_id: template.id,
-        template_name: template.name,
-        start_date: newProcess.start_date,
-        assigned_mentor: newProcess.assigned_mentor,
-        notes: newProcess.notes,
+      const response = await fetch('/api/onboarding/processes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee_id: employee.id,
+          employee_name: `${employee.first_name} ${employee.last_name}`,
+          template_id: template.id,
+          template_name: template.name,
+          start_date: newProcess.start_date,
+          assigned_mentor: newProcess.assigned_mentor,
+          notes: newProcess.notes,
+        }),
       })
 
-      setNewProcess({
-        employee_id: "",
-        template_id: "",
-        start_date: "",
-        assigned_mentor: "",
-        notes: "",
-      })
-      setShowStartProcessDialog(false)
-
-      toast({
-        title: "Success",
-        description: "Onboarding process started successfully",
-      })
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Onboarding process started successfully",
+        })
+        setShowStartProcessDialog(false)
+        setNewProcess({
+          employee_id: "",
+          template_id: "",
+          start_date: "",
+          assigned_mentor: "",
+          notes: "",
+        })
+        loadProcesses()
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to start process",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -183,16 +279,28 @@ export default function AdminOnboarding() {
 
   const updateProcessStatus = async (processId: string, stepId: string, completed: boolean) => {
     try {
-      if (completed) {
-        await completeStep(processId, stepId)
-      } else {
-        await uncompleteStep(processId, stepId)
-      }
-
-      toast({
-        title: "Success",
-        description: `Step ${completed ? "completed" : "uncompleted"} successfully`,
+      const response = await fetch(`/api/onboarding/processes/${processId}/steps/${stepId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ completed }),
       })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: `Step ${completed ? "completed" : "uncompleted"} successfully`,
+        })
+        loadProcesses()
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update step",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
       toast({
         title: "Error",

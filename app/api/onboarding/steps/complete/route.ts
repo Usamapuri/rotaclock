@@ -1,83 +1,66 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { query } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
     const body = await request.json()
 
     const { process_id, step_id, completed_by, feedback } = body
 
     // Insert step completion
-    const { data: completion, error: completionError } = await supabase
-      .from("step_completions")
-      .insert({
-        process_id,
-        step_id,
-        completed_by,
-        feedback,
-      })
-      .select()
-      .single()
+    const completionResult = await query(`
+      INSERT INTO step_completions (process_id, step_id, completed_by, feedback)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [process_id, step_id, completed_by, feedback])
 
-    if (completionError) {
-      console.error("Error creating completion:", completionError)
-      return NextResponse.json({ error: completionError.message }, { status: 500 })
-    }
+    const completion = completionResult.rows[0]
 
     // Get all steps for this template to calculate progress
-    const { data: process, error: processError } = await supabase
-      .from("onboarding_processes")
-      .select("template_id")
-      .eq("id", process_id)
-      .single()
+    const processResult = await query(`
+      SELECT template_id FROM onboarding_processes WHERE id = $1
+    `, [process_id])
 
-    if (processError) {
-      console.error("Error fetching process:", processError)
-      return NextResponse.json({ error: processError.message }, { status: 500 })
+    if (processResult.rows.length === 0) {
+      return NextResponse.json({ error: "Process not found" }, { status: 404 })
     }
+
+    const process = processResult.rows[0]
 
     // Get total steps count
-    const { count: totalSteps, error: stepsCountError } = await supabase
-      .from("onboarding_steps")
-      .select("*", { count: "exact", head: true })
-      .eq("template_id", process.template_id)
+    const totalStepsResult = await query(`
+      SELECT COUNT(*) as count FROM onboarding_steps WHERE template_id = $1
+    `, [process.template_id])
 
-    if (stepsCountError) {
-      console.error("Error counting steps:", stepsCountError)
-      return NextResponse.json({ error: stepsCountError.message }, { status: 500 })
-    }
+    const totalSteps = parseInt(totalStepsResult.rows[0].count)
 
     // Get completed steps count
-    const { count: completedSteps, error: completedCountError } = await supabase
-      .from("step_completions")
-      .select("*", { count: "exact", head: true })
-      .eq("process_id", process_id)
+    const completedStepsResult = await query(`
+      SELECT COUNT(*) as count FROM step_completions WHERE process_id = $1
+    `, [process_id])
 
-    if (completedCountError) {
-      console.error("Error counting completed steps:", completedCountError)
-      return NextResponse.json({ error: completedCountError.message }, { status: 500 })
-    }
+    const completedSteps = parseInt(completedStepsResult.rows[0].count)
 
     // Calculate progress
-    const progress = totalSteps ? (completedSteps! / totalSteps) * 100 : 0
+    const progress = totalSteps ? (completedSteps / totalSteps) * 100 : 0
     const status = progress === 100 ? "completed" : progress > 0 ? "in-progress" : "not-started"
 
     // Update process progress
-    const { error: updateError } = await supabase
-      .from("onboarding_processes")
-      .update({
-        progress,
-        status,
-        actual_completion_date: progress === 100 ? new Date().toISOString().split("T")[0] : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", process_id)
-
-    if (updateError) {
-      console.error("Error updating process:", updateError)
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
-    }
+    await query(`
+      UPDATE onboarding_processes
+      SET 
+        progress = $1,
+        status = $2,
+        actual_completion_date = $3,
+        updated_at = $4
+      WHERE id = $5
+    `, [
+      progress,
+      status,
+      progress === 100 ? new Date().toISOString().split("T")[0] : null,
+      new Date().toISOString(),
+      process_id
+    ])
 
     return NextResponse.json({ completion, progress, status })
   } catch (error) {

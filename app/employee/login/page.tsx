@@ -27,7 +27,7 @@ export default function EmployeeLogin() {
       if (user) {
         router.push("/employee/dashboard")
       } else {
-        alert("Invalid credentials. Use: EMP001 / emp123")
+        alert("Invalid credentials. Please try again.")
       }
     } catch (error) {
       alert("Login failed. Please try again.")

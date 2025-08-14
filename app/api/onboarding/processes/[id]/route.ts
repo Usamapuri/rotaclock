@@ -1,74 +1,71 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { query } from "@/lib/database"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
 
-    const { data: process, error } = await supabase
-      .from("onboarding_processes")
-      .select(`
-        *,
-        step_completions (
-          step_id,
-          completed_at,
-          feedback,
-          completed_by
-        )
-      `)
-      .eq("id", params.id)
-      .single()
+    const processResult = await query(`
+      SELECT * FROM onboarding_processes WHERE id = $1
+    `, [id])
 
-    if (error) {
-      console.error("Error fetching process:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (processResult.rows.length === 0) {
+      return NextResponse.json({ error: "Process not found" }, { status: 404 })
     }
+
+    const process = processResult.rows[0]
+
+    // Get step completions for this process
+    const completionsResult = await query(`
+      SELECT step_id, completed_at, feedback, completed_by
+      FROM step_completions 
+      WHERE process_id = $1
+    `, [id])
+
+    const stepCompletions = completionsResult.rows
 
     // Get template steps
-    const { data: steps, error: stepsError } = await supabase
-      .from("onboarding_steps")
-      .select(`
-        *,
-        step_dependencies (
-          depends_on_step_id
-        ),
-        step_documents (
-          onboarding_documents (*)
-        )
-      `)
-      .eq("template_id", process.template_id)
-      .order("step_order")
+    const stepsResult = await query(`
+      SELECT * FROM onboarding_steps
+      WHERE template_id = $1
+      ORDER BY step_order
+    `, [process.template_id])
 
-    if (stepsError) {
-      console.error("Error fetching steps:", stepsError)
-      return NextResponse.json({ error: stepsError.message }, { status: 500 })
-    }
+    const steps = stepsResult.rows
 
-    return NextResponse.json({ process, steps })
+    return NextResponse.json({ 
+      process: { ...process, step_completions: stepCompletions }, 
+      steps 
+    })
   } catch (error) {
     console.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
     const body = await request.json()
 
-    const { data: process, error } = await supabase
-      .from("onboarding_processes")
-      .update(body)
-      .eq("id", params.id)
-      .select()
-      .single()
+    // Build update query dynamically
+    const updateFields = Object.keys(body).map((key, index) => `${key} = $${index + 2}`).join(', ')
+    const updateValues = Object.values(body)
 
-    if (error) {
-      console.error("Error updating process:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    const processResult = await query(`
+      UPDATE onboarding_processes
+      SET ${updateFields}, updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [id, ...updateValues])
+
+    if (processResult.rows.length === 0) {
+      return NextResponse.json({ error: "Process not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ process })
+    const process = processResult.rows[0]
+
+    return NextResponse.json({ data: process })
   } catch (error) {
     console.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

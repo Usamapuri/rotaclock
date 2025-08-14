@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import {
   Clock,
   Calendar,
@@ -19,151 +20,67 @@ import {
   CalendarDays,
   Users,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeftRight,
+  CheckCircle,
+  XCircle,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { SwapRequests } from "@/components/ui/swap-requests"
-import { LeaveRequests } from "@/components/ui/leave-requests"
 import { AuthService } from "@/lib/auth"
+import { toast } from "sonner"
 
-interface Shift {
+interface ShiftAssignment {
   id: string
+  employee_id: string
+  shift_id: string
   date: string
-  startTime: string
-  endTime: string
-  shiftName: string
-  status: "scheduled" | "confirmed" | "swap-requested" | "completed"
-  canSwap: boolean
+  start_time: string
+  end_time: string
+  status: 'assigned' | 'confirmed' | 'completed' | 'cancelled' | 'swap-requested'
+  shift_name?: string
+  shift_description?: string
 }
 
 interface SwapRequest {
   id: string
-  targetEmployeeName: string
-  originalShift: {
-    date: string
-    shiftName: string
-    time: string
-  }
-  targetShift: {
-    date: string
-    shiftName: string
-    time: string
-  }
-  reason: string
-  status: "pending" | "approved" | "denied"
-  submittedAt: string
-}
-
-interface Message {
-  id: string
-  from: string
-  subject: string
-  content: string
-  timestamp: string
-  read: boolean
-  type: "announcement" | "schedule" | "personal"
+  requester_id: string
+  target_id: string
+  original_shift_id: string
+  requested_shift_id: string
+  status: 'pending' | 'approved' | 'denied' | 'cancelled'
+  reason?: string
+  admin_notes?: string
+  created_at: string
+  requester_first_name?: string
+  requester_last_name?: string
+  target_first_name?: string
+  target_last_name?: string
+  original_shift_date?: string
+  original_shift_start_time?: string
+  original_shift_end_time?: string
+  requested_shift_date?: string
+  requested_shift_start_time?: string
+  requested_shift_end_time?: string
 }
 
 export default function EmployeeScheduling() {
   const [employeeId, setEmployeeId] = useState("")
-  const [selectedWeek, setSelectedWeek] = useState(new Date())
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [selectedWeek, setSelectedWeek] = useState(new Date())
+  const [weeklyShifts, setWeeklyShifts] = useState<ShiftAssignment[]>([])
+  const [swapRequests, setSwapRequests] = useState<SwapRequest[]>([])
+  const [availableShifts, setAvailableShifts] = useState<ShiftAssignment[]>([])
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  // Sample data
-  const [myShifts] = useState<Shift[]>([
-    {
-      id: "1",
-      date: "2024-01-08",
-      startTime: "09:00",
-      endTime: "17:00",
-      shiftName: "Day Shift",
-      status: "confirmed",
-      canSwap: true,
-    },
-    {
-      id: "2",
-      date: "2024-01-09",
-      startTime: "14:00",
-      endTime: "22:00",
-      shiftName: "Evening Shift",
-      status: "scheduled",
-      canSwap: true,
-    },
-    {
-      id: "3",
-      date: "2024-01-10",
-      startTime: "09:00",
-      endTime: "17:00",
-      shiftName: "Day Shift",
-      status: "confirmed",
-      canSwap: false,
-    },
-  ])
-
-  const [swapRequests, setSwapRequests] = useState<SwapRequest[]>([
-    {
-      id: "1",
-      targetEmployeeName: "Jane Smith",
-      originalShift: {
-        date: "2024-01-10",
-        shiftName: "Day Shift",
-        time: "09:00-17:00",
-      },
-      targetShift: {
-        date: "2024-01-11",
-        shiftName: "Evening Shift",
-        time: "14:00-22:00",
-      },
-      reason: "Personal appointment",
-      status: "pending",
-      submittedAt: "2024-01-09T16:00:00Z",
-    },
-  ])
-
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      from: "Management",
-      subject: "Schedule Update - Week of Jan 8",
-      content: "Your schedule for next week has been updated. Please review and confirm your shifts.",
-      timestamp: "2024-01-07T10:00:00Z",
-      read: false,
-      type: "schedule",
-    },
-    {
-      id: "2",
-      from: "HR Department",
-      subject: "Holiday Schedule Reminder",
-      content:
-        "Please remember that no shifts are scheduled during company holidays. Check the holiday calendar for details.",
-      timestamp: "2024-01-06T14:30:00Z",
-      read: true,
-      type: "announcement",
-    },
-    {
-      id: "3",
-      from: "Jane Smith",
-      subject: "Shift Swap Request",
-      content:
-        "Hi! I'd like to swap my evening shift on Jan 11 with your day shift on Jan 10. Let me know if this works for you.",
-      timestamp: "2024-01-05T16:45:00Z",
-      read: false,
-      type: "personal",
-    },
-  ])
-
-  const [leaveBalance] = useState({
-    vacation: 15,
-    sick: 5,
-    personal: 3,
-  })
-
-  const [showSwapForm, setShowSwapForm] = useState(false)
-  const [selectedShiftForSwap, setSelectedShiftForSwap] = useState<string | null>(null)
-  const [swapReason, setSwapReason] = useState('')
-  const [targetShiftId, setTargetShiftId] = useState<string | null>(null)
-  const [myShiftsState, setMyShiftsState] = useState(myShifts)
+  // Swap request dialog state
+  const [showSwapDialog, setShowSwapDialog] = useState(false)
+  const [selectedShiftForSwap, setSelectedShiftForSwap] = useState<ShiftAssignment | null>(null)
+  const [selectedTargetShift, setSelectedTargetShift] = useState<string>("")
+  const [swapReason, setSwapReason] = useState("")
+  const [submittingSwap, setSubmittingSwap] = useState(false)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -172,315 +89,412 @@ export default function EmployeeScheduling() {
     } else {
       setCurrentUser(user)
       setEmployeeId(user.id)
+      loadData()
     }
-  }, [router])
+  }, [router, selectedWeek])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      
+      // Load weekly shifts
+      const weekStart = getWeekStart(selectedWeek)
+      const weekEnd = getWeekEnd(selectedWeek)
+      
+      // Use the current user's ID (UUID) for filtering
+      const employeeIdToUse = currentUser?.id || employeeId
+      
+      const shiftsResponse = await fetch(`/api/shifts/assignments?start_date=${weekStart}&end_date=${weekEnd}&employee_id=${employeeIdToUse}`)
+      if (shiftsResponse.ok) {
+        const shiftsData = await shiftsResponse.json()
+        if (shiftsData.data) {
+          setWeeklyShifts(shiftsData.data)
+        }
+      }
+
+      // Load available shifts for swapping (other employees' shifts in the same week)
+      const availableResponse = await fetch(`/api/shifts/assignments?start_date=${weekStart}&end_date=${weekEnd}`)
+      if (availableResponse.ok) {
+        const availableData = await availableResponse.json()
+        if (availableData.data) {
+          // Filter out current employee's shifts and only show confirmed shifts
+          const filtered = availableData.data.filter((shift: ShiftAssignment) => 
+            shift.employee_id !== employeeId && shift.status === 'confirmed'
+          )
+          setAvailableShifts(filtered)
+        }
+      }
+
+      // Load swap requests
+      const swapResponse = await fetch(`/api/shifts/swap-requests?requester_id=${employeeId}`)
+      if (swapResponse.ok) {
+        const swapData = await swapResponse.json()
+        if (swapData.data) {
+          setSwapRequests(swapData.data)
+        }
+      }
+
+    } catch (error) {
+      console.error('Error loading data:', error)
+      toast.error('Failed to load schedule data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getWeekStart = (date: Date) => {
+    const d = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const monday = new Date(d.setDate(diff))
+    return monday.toISOString().split('T')[0]
+  }
+
+  const getWeekEnd = (date: Date) => {
+    const d = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? 0 : 7)
+    const sunday = new Date(d.setDate(diff))
+    return sunday.toISOString().split('T')[0]
+  }
+
+  const handlePreviousWeek = () => {
+    const newDate = new Date(selectedWeek)
+    newDate.setDate(newDate.getDate() - 7)
+    setSelectedWeek(newDate)
+  }
+
+  const handleNextWeek = () => {
+    const newDate = new Date(selectedWeek)
+    newDate.setDate(newDate.getDate() + 7)
+    setSelectedWeek(newDate)
+  }
+
+  const handleSwapRequest = (shift: ShiftAssignment) => {
+    setSelectedShiftForSwap(shift)
+    setShowSwapDialog(true)
+  }
+
+  const handleSwapSubmit = async () => {
+    if (!selectedShiftForSwap || !selectedTargetShift || !swapReason.trim()) {
+      toast.error('Please select a target shift and provide a reason')
+      return
+    }
+
+    try {
+      setSubmittingSwap(true)
+      
+      const response = await fetch('/api/shifts/swap-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requester_id: employeeId,
+          target_id: availableShifts.find(s => s.id === selectedTargetShift)?.employee_id,
+          original_shift_id: selectedShiftForSwap.id,
+          requested_shift_id: selectedTargetShift,
+          reason: swapReason
+        })
+      })
+
+      if (response.ok) {
+        toast.success('Swap request submitted successfully')
+        setShowSwapDialog(false)
+        setSelectedShiftForSwap(null)
+        setSelectedTargetShift("")
+        setSwapReason("")
+        loadData() // Refresh data
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to submit swap request')
+      }
+    } catch (error) {
+      console.error('Error submitting swap request:', error)
+      toast.error('Failed to submit swap request')
+    } finally {
+      setSubmittingSwap(false)
+    }
+  }
 
   const handleLogout = () => {
     AuthService.logout()
     router.push("/employee/login")
   }
 
-  const handleSwapRequest = (shiftId: string) => {
-    setSelectedShiftForSwap(shiftId)
-    setShowSwapForm(true)
-  }
-
-  const handleSwapFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedShiftForSwap || !targetShiftId || !swapReason.trim()) {
-      alert('Please select a target shift and provide a reason.')
-      return
-    }
-    // In a real app, send to backend
-    // await fetch('/api/shifts/swap-requests', ...)
-    setSwapRequests(prev => [
-      ...prev,
-      {
-        id: Math.random().toString(36).substr(2, 9),
-        targetEmployeeName: 'Target Employee',
-        originalShift: myShiftsState.find(s => s.id === selectedShiftForSwap) || {},
-        targetShift: myShiftsState.find(s => s.id === targetShiftId) || {},
-        reason: swapReason,
-        status: 'pending',
-        submittedAt: new Date().toISOString(),
-      },
-    ])
-    setShowSwapForm(false)
-    setSwapReason('')
-    setTargetShiftId(null)
-    setSelectedShiftForSwap(null)
-    alert('Swap request submitted!')
-  }
-
-  const handleConfirmShift = (shiftId: string) => {
-    setMyShiftsState(prev => prev.map(s => s.id === shiftId ? { ...s, status: 'confirmed' } : s))
-    alert('Shift confirmed!')
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "confirmed":
-        return "default"
-      case "scheduled":
-        return "secondary"
-      case "swap-requested":
-        return "destructive"
-      case "completed":
-        return "outline"
-      default:
-        return "secondary"
-    }
-  }
-
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "confirmed":
+      case 'assigned':
+        return <Badge variant="outline">Assigned</Badge>
+      case 'confirmed':
         return <Badge variant="default">Confirmed</Badge>
-      case "scheduled":
-        return <Badge variant="secondary">Scheduled</Badge>
-      case "swap-requested":
-        return <Badge variant="destructive">Swap Requested</Badge>
-      case "completed":
-        return <Badge variant="outline">Completed</Badge>
+      case 'completed':
+        return <Badge variant="secondary">Completed</Badge>
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelled</Badge>
+      case 'swap-requested':
+        return <Badge variant="outline" className="text-orange-600">Swap Requested</Badge>
       default:
-        return <Badge variant="secondary">{status}</Badge>
+        return <Badge variant="outline">{status}</Badge>
+    }
+  }
+
+  const getSwapStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="outline" className="text-yellow-600">Pending</Badge>
+      case 'approved':
+        return <Badge variant="default" className="text-green-600">Approved</Badge>
+      case 'denied':
+        return <Badge variant="destructive">Denied</Badge>
+      case 'cancelled':
+        return <Badge variant="secondary">Cancelled</Badge>
+      default:
+        return <Badge variant="outline">{status}</Badge>
     }
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
     })
   }
 
   const formatTime = (timeString: string) => {
-    return timeString
+    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })
   }
 
-  const unreadMessagesCount = messages.filter((msg) => !msg.read).length
+  const getDayShifts = (date: string) => {
+    return weeklyShifts.filter(shift => {
+      // Convert shift.date (ISO format) to YYYY-MM-DD format for comparison
+      const shiftDate = new Date(shift.date).toISOString().split('T')[0]
+      return shiftDate === date
+    })
+  }
+
+  const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading schedule...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <div className="bg-blue-100 p-2 rounded-full">
-                <Calendar className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  Employee Scheduling
-                </h1>
-                <p className="text-sm text-gray-500">
-                  Manage your shifts and requests
-                </p>
-              </div>
+              <Link href="/employee/dashboard">
+                <div className="flex items-center">
+                  <Calendar className="h-6 w-6 text-blue-600 mr-2" />
+                  <span className="text-xl font-bold text-gray-900">Employee Scheduling</span>
+                </div>
+              </Link>
+              <Badge variant="outline">Manage your shifts and requests</Badge>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm">
-                <Bell className="h-4 w-4 mr-2" />
-                Notifications
-                {unreadMessagesCount > 0 && (
-                  <Badge variant="destructive" className="ml-2">
-                    {unreadMessagesCount}
-                  </Badge>
-                )}
-              </Button>
-              <Button onClick={handleLogout} variant="outline" size="sm">
+              <span className="text-sm text-gray-600">Welcome, {currentUser?.email}</span>
+              <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Week Navigation */}
+        <div className="flex items-center justify-between mb-6">
+          <Button variant="outline" onClick={handlePreviousWeek}>
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Previous Week
+          </Button>
+          <div className="text-center">
+            <h2 className="text-lg font-semibold">
+              Week of {formatDate(getWeekStart(selectedWeek))} - {formatDate(getWeekEnd(selectedWeek))}
+            </h2>
+            <p className="text-sm text-gray-600">Your weekly schedule</p>
+          </div>
+          <Button variant="outline" onClick={handleNextWeek}>
+            Next Week
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+
+        {/* Main Content Tabs */}
         <Tabs defaultValue="schedule" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="schedule">My Schedule</TabsTrigger>
             <TabsTrigger value="swap-requests">Swap Requests</TabsTrigger>
-            <TabsTrigger value="leave-requests">Leave Requests</TabsTrigger>
-            <TabsTrigger value="messages">Messages</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
 
           {/* My Schedule Tab */}
           <TabsContent value="schedule" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Main Schedule */}
-              <div className="lg:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CalendarDays className="h-5 w-5" />
-                      My Schedule
-                    </CardTitle>
-                    <CardDescription>
-                      View and manage your upcoming shifts
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {myShiftsState.map((shift) => (
-                        <div
-                          key={shift.id}
-                          className="flex items-center justify-between p-4 border rounded-lg"
-                        >
-                          <div className="flex items-center space-x-4">
-                            <div className="bg-blue-100 p-2 rounded-full">
-                              <Clock className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{shift.shiftName}</p>
-                              <p className="text-sm text-gray-500">
-                                {formatDate(shift.date)} • {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
-                              </p>
-                            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <CalendarDays className="h-5 w-5 mr-2" />
+                  Weekly Schedule
+                </CardTitle>
+                <CardDescription>View and manage your shifts for this week</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {weeklyShifts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No shifts scheduled for this week</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {weekDays.map((day, index) => {
+                      const dayDate = new Date(getWeekStart(selectedWeek))
+                      dayDate.setDate(dayDate.getDate() + index)
+                      const dateString = dayDate.toISOString().split('T')[0]
+                      const dayShifts = getDayShifts(dateString)
+                      
+                      return (
+                        <div key={day} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold text-gray-900">{day}</h3>
+                            <span className="text-sm text-gray-500">{formatDate(dateString)}</span>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            {getStatusBadge(shift.status)}
-                            {shift.canSwap && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleSwapRequest(shift.id)}
-                              >
-                                Request Swap
-                              </Button>
-                            )}
-                            {shift.status === "scheduled" && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleConfirmShift(shift.id)}
-                              >
-                                Confirm
-                              </Button>
-                            )}
-                          </div>
+                          
+                          {dayShifts.length === 0 ? (
+                            <p className="text-gray-500 text-sm">No shifts scheduled</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {dayShifts.map((shift) => (
+                                <div key={shift.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="font-medium">{shift.shift_name || 'Scheduled Shift'}</span>
+                                      {getStatusBadge(shift.status)}
+                                    </div>
+                                    <div className="text-sm text-gray-600">
+                                      {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                    </div>
+                                  </div>
+                                  
+                                  {shift.status === 'confirmed' && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleSwapRequest(shift)}
+                                      className="ml-2"
+                                    >
+                                      <ArrowLeftRight className="h-4 w-4 mr-1" />
+                                      Request Swap
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-6">
-                {/* Leave Balance */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Leave Balance</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm">Vacation</span>
-                        <span className="font-medium">{leaveBalance.vacation} days</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm">Sick Leave</span>
-                        <span className="font-medium">{leaveBalance.sick} days</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm">Personal</span>
-                        <span className="font-medium">{leaveBalance.personal} days</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Quick Actions */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      View Full Schedule
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Users className="h-4 w-4 mr-2" />
-                      Team Schedule
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <AlertCircle className="h-4 w-4 mr-2" />
-                      Report Issue
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Swap Requests Tab */}
-          <TabsContent value="swap-requests">
-            <SwapRequests />
-          </TabsContent>
-
-          {/* Leave Requests Tab */}
-          <TabsContent value="leave-requests">
-            <LeaveRequests />
-          </TabsContent>
-
-          {/* Messages Tab */}
-          <TabsContent value="messages" className="space-y-6">
+          <TabsContent value="swap-requests" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Messages & Notifications
+                <CardTitle className="flex items-center">
+                  <ArrowLeftRight className="h-5 w-5 mr-2" />
+                  My Swap Requests
                 </CardTitle>
-                <CardDescription>
-                  Stay updated with important announcements and communications
-                </CardDescription>
+                <CardDescription>Track the status of your shift swap requests</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`p-4 border rounded-lg ${
-                        !message.read ? "bg-blue-50 border-blue-200" : ""
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <span className="font-medium">{message.from}</span>
-                            <Badge
-                              variant={
-                                message.type === "announcement"
-                                  ? "default"
-                                  : message.type === "schedule"
-                                  ? "secondary"
-                                  : "outline"
-                              }
-                            >
-                              {message.type}
-                            </Badge>
-                            {!message.read && (
-                              <Badge variant="destructive">New</Badge>
-                            )}
+                {swapRequests.length === 0 ? (
+                  <div className="text-center py-8">
+                    <ArrowLeftRight className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No swap requests found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {swapRequests.map((request) => (
+                      <div key={request.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Swap Request</span>
+                            {getSwapStatusBadge(request.status)}
                           </div>
-                          <h4 className="font-medium mb-1">{message.subject}</h4>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {message.content}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(message.timestamp).toLocaleString()}
-                          </p>
+                          <span className="text-sm text-gray-500">
+                            {new Date(request.created_at).toLocaleDateString()}
+                          </span>
                         </div>
-                        <Button size="sm" variant="outline">
-                          <Send className="h-3 w-3" />
-                        </Button>
+                        
+                        <div className="grid md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="font-medium text-gray-700">Your Shift:</p>
+                            <p className="text-gray-600">
+                              {formatDate(request.original_shift_date || '')} - {formatTime(request.original_shift_start_time || '')} to {formatTime(request.original_shift_end_time || '')}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-700">Requested Shift:</p>
+                            <p className="text-gray-600">
+                              {formatDate(request.requested_shift_date || '')} - {formatTime(request.requested_shift_start_time || '')} to {formatTime(request.requested_shift_end_time || '')}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {request.reason && (
+                          <div className="mt-3">
+                            <p className="font-medium text-gray-700">Reason:</p>
+                            <p className="text-gray-600">{request.reason}</p>
+                          </div>
+                        )}
+                        
+                        {request.admin_notes && (
+                          <div className="mt-3">
+                            <p className="font-medium text-gray-700">Admin Notes:</p>
+                            <p className="text-gray-600">{request.admin_notes}</p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Notifications Tab */}
+          <TabsContent value="notifications" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Bell className="h-5 w-5 mr-2" />
+                  Notifications
+                </CardTitle>
+                <CardDescription>Stay updated with schedule changes and announcements</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No notifications at this time</p>
                 </div>
               </CardContent>
             </Card>
@@ -488,46 +502,58 @@ export default function EmployeeScheduling() {
         </Tabs>
       </div>
 
-      {showSwapForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-            <h2 className="text-xl font-bold mb-4">Request Shift Swap</h2>
-            <form onSubmit={handleSwapFormSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Select Target Shift</label>
-                <select
-                  className="w-full border rounded px-3 py-2"
-                  value={targetShiftId || ''}
-                  onChange={e => setTargetShiftId(e.target.value)}
-                  required
-                >
-                  <option value="">Select a shift</option>
-                  {myShiftsState.filter(s => s.id !== selectedShiftForSwap).map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.shiftName} ({formatDate(s.date)} {formatTime(s.startTime)} - {formatTime(s.endTime)})
-                    </option>
+      {/* Swap Request Dialog */}
+      <Dialog open={showSwapDialog} onOpenChange={setShowSwapDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Shift Swap</DialogTitle>
+            <DialogDescription>
+              Select a shift to swap with and provide a reason for your request.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="target-shift">Select Target Shift</Label>
+              <Select value={selectedTargetShift} onValueChange={setSelectedTargetShift}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a shift to swap with" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableShifts.map((shift) => (
+                    <SelectItem key={shift.id} value={shift.id}>
+                      {formatDate(shift.date)} - {formatTime(shift.start_time)} to {formatTime(shift.end_time)}
+                    </SelectItem>
                   ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Reason for Swap</label>
-                <Textarea
-                  value={swapReason}
-                  onChange={e => setSwapReason(e.target.value)}
-                  className="w-full border rounded px-3 py-2"
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button type="button" variant="outline" onClick={() => setShowSwapForm(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Submit Request</Button>
-              </div>
-            </form>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="reason">Reason for Swap</Label>
+              <Textarea
+                id="reason"
+                placeholder="Please provide a reason for requesting this swap..."
+                value={swapReason}
+                onChange={(e) => setSwapReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowSwapDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSwapSubmit} 
+                disabled={submittingSwap || !selectedTargetShift || !swapReason.trim()}
+              >
+                {submittingSwap ? 'Submitting...' : 'Submit Request'}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,135 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
-import { z } from 'zod'
+import { createShiftLog, getShiftAssignments, isEmployeeClockedIn } from '@/lib/database'
+import { AuthService } from '@/lib/auth'
 
-// Validation schema for clock-in
-const clockInSchema = z.object({
-  notes: z.string().optional(),
-  location_lat: z.number().optional(),
-  location_lng: z.number().optional(),
-  shift_assignment_id: z.string().uuid().optional()
-})
-
-/**
- * POST /api/time/clock-in
- * Clock in for the current employee
- */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { employee_id } = await request.json()
+
+    if (!employee_id) {
+      return NextResponse.json(
+        { error: 'Employee ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Check if employee is already clocked in
+    const isClockedIn = await isEmployeeClockedIn(employee_id)
+    if (isClockedIn) {
+      return NextResponse.json(
+        { error: 'Employee is already clocked in' },
+        { status: 409 }
+      )
+    }
+
+    // Get today's date
+    const today = new Date().toISOString().split('T')[0]
     
-    // Use demo authentication
-    const authMiddleware = createApiAuthMiddleware()
-    const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Find today's shift assignment for this employee
+    const shiftAssignments = await getShiftAssignments({
+      start_date: today,
+      end_date: today,
+      employee_id: employee_id
+    })
+
+    let shift_assignment_id = null
+    if (shiftAssignments.length > 0) {
+      shift_assignment_id = shiftAssignments[0].id
     }
 
-    // For demo purposes, use a mock employee
-    const employee = {
-      id: 'demo-employee-id',
-      first_name: 'Demo',
-      last_name: 'Employee',
-      is_active: true
-    }
+    // Create shift log
+    const shiftLog = await createShiftLog({
+      employee_id,
+      shift_assignment_id,
+      clock_in_time: new Date().toISOString(),
+      break_time_used: 0,
+      max_break_allowed: 1.0,
+      is_late: false,
+      is_no_show: false,
+      late_minutes: 0,
+      status: 'active'
+    })
 
-    // Check if already clocked in
-    const { data: existingTimeEntry } = await supabase
-      .from('time_entries')
-      .select('id, clock_in, status')
-      .eq('employee_id', employee.id)
-      .is('clock_out', null)
-      .eq('status', 'in-progress')
-      .single()
-
-    if (existingTimeEntry) {
-      return NextResponse.json({ 
-        error: 'Already clocked in',
-        data: {
-          time_entry_id: existingTimeEntry.id,
-          clock_in: existingTimeEntry.clock_in
-        }
-      }, { status: 409 })
-    }
-
-    // Parse and validate request body
-    const body = await request.json()
-    const validatedData = clockInSchema.parse(body)
-
-    // Get current date and time
-    const now = new Date().toISOString()
-
-    // Check if there's a scheduled shift for today
-    let shiftAssignmentId = validatedData.shift_assignment_id
-    if (!shiftAssignmentId) {
-      const { data: todayShift } = await supabase
-        .from('shift_assignments')
-        .select('id, status')
-        .eq('employee_id', employee.id)
-        .eq('date', new Date().toISOString().split('T')[0])
-        .in('status', ['assigned', 'confirmed'])
-        .single()
-
-      if (todayShift) {
-        shiftAssignmentId = todayShift.id
-      }
-    }
-
-    // Create time entry
-    const timeEntryData = {
-      employee_id: employee.id,
-      shift_assignment_id: shiftAssignmentId,
-      clock_in: now,
-      status: 'in-progress',
-      notes: validatedData.notes,
-      location_lat: validatedData.location_lat,
-      location_lng: validatedData.location_lng
-    }
-
-    const { data: timeEntry, error: insertError } = await supabase
-      .from('time_entries')
-      .insert(timeEntryData)
-      .select(`
-        *,
-        employee:employees(*),
-        shift_assignment:shift_assignments(
-          *,
-          shift:shifts(*)
-        )
-      `)
-      .single()
-
-    if (insertError) {
-      console.error('Error creating time entry:', insertError)
-      return NextResponse.json({ error: 'Failed to clock in' }, { status: 500 })
-    }
-
-    // Create notification for successful clock-in
-    await supabase
-      .from('notifications')
-      .insert({
-        user_id: user.id,
-        title: 'Clock In Successful',
-        message: `You have successfully clocked in at ${new Date(now).toLocaleTimeString()}`,
-        type: 'success',
-        action_url: '/employee/time-tracking'
-      })
-
-    return NextResponse.json({ 
-      data: timeEntry,
-      message: 'Successfully clocked in' 
-    }, { status: 201 })
+    return NextResponse.json({
+      success: true,
+      data: shiftLog,
+      message: 'Successfully clocked in'
+    })
 
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      }, { status: 400 })
-    }
-
-    console.error('Error in POST /api/time/clock-in:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error in clock in:', error)
+    return NextResponse.json(
+      { error: 'Failed to clock in' },
+      { status: 500 }
+    )
   }
 } 

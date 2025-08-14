@@ -1,103 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { query, getShiftSwaps, createShiftSwap } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
 
-// Validation schema for swap requests
-const createSwapRequestSchema = z.object({
-  requester_shift_id: z.string().uuid('Invalid shift ID'),
-  target_shift_id: z.string().uuid('Invalid shift ID'),
-  reason: z.string().min(1, 'Reason is required').max(500, 'Reason too long'),
-  status: z.enum(['pending', 'approved', 'rejected', 'cancelled']).default('pending')
-})
-
-const updateSwapRequestSchema = z.object({
-  status: z.enum(['pending', 'approved', 'rejected', 'cancelled']),
-  admin_notes: z.string().optional()
+// Validation schemas
+const createShiftSwapSchema = z.object({
+  requester_id: z.string().uuid('Invalid requester ID'),
+  target_id: z.string().uuid('Invalid target ID'),
+  original_shift_id: z.string().uuid('Invalid original shift ID'),
+  requested_shift_id: z.string().uuid('Invalid requested shift ID'),
+  reason: z.string().optional()
 })
 
 /**
  * GET /api/shifts/swap-requests
- * Get swap requests (filtered by user role and permissions)
+ * Get shift swap requests with filters
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
-    // Use demo authentication
-    const authMiddleware = createApiAuthMiddleware()
-    const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    // Get query parameters
     const { searchParams } = new URL(request.url)
+    const requester_id = searchParams.get('requester_id')
+    const target_id = searchParams.get('target_id')
     const status = searchParams.get('status')
-    const employeeId = searchParams.get('employee_id')
 
-    let query = supabase
-      .from('shift_swap_requests')
-      .select(`
-        id,
-        requester_shift_id,
-        target_shift_id,
-        reason,
-        status,
-        admin_notes,
-        created_at,
-        updated_at,
-        requester_shift:shifts!shift_swap_requests_requester_shift_id_fkey(
-          id,
-          employee_id,
-          shift_template_id,
-          start_time,
-          end_time,
-          status,
-          employee:employees!shifts_employee_id_fkey(
-            id,
-            first_name,
-            last_name,
-            employee_id
-          )
-        ),
-        target_shift:shifts!shift_swap_requests_target_shift_id_fkey(
-          id,
-          employee_id,
-          shift_template_id,
-          start_time,
-          end_time,
-          status,
-          employee:employees!shifts_employee_id_fkey(
-            id,
-            first_name,
-            last_name,
-            employee_id
-          )
-        )
-      `)
+    // Build filters
+    const filters: any = {}
+    if (requester_id) filters.requester_id = requester_id
+    if (target_id) filters.target_id = target_id
+    if (status) filters.status = status
 
-    // Filter by status if provided
-    if (status) {
-      query = query.eq('status', status)
-    }
+    // Get shift swaps
+    const swaps = await getShiftSwaps(filters)
 
-    // Filter by employee if not admin
-    if (user?.role !== 'admin') {
-      // Employees can only see their own swap requests
-      query = query.or(`requester_shift.employee_id.eq.${user?.id},target_shift.employee_id.eq.${user?.id}`)
-    } else if (employeeId) {
-      // Admin can filter by specific employee
-      query = query.or(`requester_shift.employee_id.eq.${employeeId},target_shift.employee_id.eq.${employeeId}`)
-    }
-
-    const { data: swapRequests, error } = await query.order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching swap requests:', error)
-      return NextResponse.json({ error: 'Failed to fetch swap requests' }, { status: 500 })
-    }
-
-    return NextResponse.json({ swapRequests })
+    return NextResponse.json({
+      data: swaps
+    })
 
   } catch (error) {
     console.error('Error in GET /api/shifts/swap-requests:', error)
@@ -107,12 +45,10 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/shifts/swap-requests
- * Create a new swap request
+ * Create a new shift swap request
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -120,93 +56,83 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Parse and validate request body
     const body = await request.json()
-    
-    // Validate input
-    const validationResult = createSwapRequestSchema.safeParse(body)
-    if (!validationResult.success) {
+    const validatedData = createShiftSwapSchema.parse(body)
+
+    // Check if requester exists and is active
+    const requesterResult = await query(
+      'SELECT id FROM employees WHERE id = $1 AND is_active = true',
+      [validatedData.requester_id]
+    )
+
+    if (requesterResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Requester not found or inactive' }, { status: 404 })
+    }
+
+    // Check if target exists and is active
+    const targetResult = await query(
+      'SELECT id FROM employees WHERE id = $1 AND is_active = true',
+      [validatedData.target_id]
+    )
+
+    if (targetResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Target employee not found or inactive' }, { status: 404 })
+    }
+
+    // Check if original shift assignment exists
+    const originalShiftResult = await query(
+      'SELECT id FROM shift_assignments WHERE id = $1 AND employee_id = $2',
+      [validatedData.original_shift_id, validatedData.requester_id]
+    )
+
+    if (originalShiftResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Original shift assignment not found' }, { status: 404 })
+    }
+
+    // Check if requested shift assignment exists
+    const requestedShiftResult = await query(
+      'SELECT id FROM shift_assignments WHERE id = $1 AND employee_id = $2',
+      [validatedData.requested_shift_id, validatedData.target_id]
+    )
+
+    if (requestedShiftResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Requested shift assignment not found' }, { status: 404 })
+    }
+
+    // Check for existing swap request
+    const existingSwapResult = await query(
+      `SELECT id FROM shift_swaps 
+       WHERE requester_id = $1 
+       AND target_id = $2 
+       AND original_shift_id = $3 
+       AND requested_shift_id = $4 
+       AND status = 'pending'`,
+      [validatedData.requester_id, validatedData.target_id, validatedData.original_shift_id, validatedData.requested_shift_id]
+    )
+
+    if (existingSwapResult.rows.length > 0) {
       return NextResponse.json({ 
-        error: 'Validation failed', 
-        details: validationResult.error.errors 
-      }, { status: 400 })
+        error: 'Swap request already exists for these shifts' 
+      }, { status: 409 })
     }
 
-    const { requester_shift_id, target_shift_id, reason, status } = validationResult.data
-
-    // Verify that the requester owns the requester shift
-    const { data: requesterShift, error: requesterError } = await supabase
-      .from('shifts')
-      .select('id, employee_id')
-      .eq('id', requester_shift_id)
-      .single()
-
-    if (requesterError || !requesterShift) {
-      return NextResponse.json({ error: 'Requester shift not found' }, { status: 404 })
-    }
-
-    if (requesterShift.employee_id !== user?.id && user?.role !== 'admin') {
-      return NextResponse.json({ error: 'You can only request swaps for your own shifts' }, { status: 403 })
-    }
-
-    // Verify that the target shift exists and is different
-    const { data: targetShift, error: targetError } = await supabase
-      .from('shifts')
-      .select('id, employee_id')
-      .eq('id', target_shift_id)
-      .single()
-
-    if (targetError || !targetShift) {
-      return NextResponse.json({ error: 'Target shift not found' }, { status: 404 })
-    }
-
-    if (requester_shift_id === target_shift_id) {
-      return NextResponse.json({ error: 'Cannot swap a shift with itself' }, { status: 400 })
-    }
-
-    // Check if there's already a pending swap request for these shifts
-    const { data: existingRequest, error: existingError } = await supabase
-      .from('shift_swap_requests')
-      .select('id')
-      .or(`and(requester_shift_id.eq.${requester_shift_id},target_shift_id.eq.${target_shift_id}),and(requester_shift_id.eq.${target_shift_id},target_shift_id.eq.${requester_shift_id})`)
-      .eq('status', 'pending')
-      .single()
-
-    if (existingRequest) {
-      return NextResponse.json({ error: 'A pending swap request already exists for these shifts' }, { status: 409 })
-    }
-
-    // Create the swap request
-    const { data: swapRequest, error: createError } = await supabase
-      .from('shift_swap_requests')
-      .insert({
-        requester_shift_id,
-        target_shift_id,
-        reason,
-        status
-      })
-      .select(`
-        id,
-        requester_shift_id,
-        target_shift_id,
-        reason,
-        status,
-        admin_notes,
-        created_at,
-        updated_at
-      `)
-      .single()
-
-    if (createError) {
-      console.error('Error creating swap request:', createError)
-      return NextResponse.json({ error: 'Failed to create swap request' }, { status: 500 })
-    }
+    // Create shift swap
+    const swap = await createShiftSwap(validatedData)
 
     return NextResponse.json({ 
-      swapRequest,
-      message: 'Swap request created successfully' 
+      data: swap,
+      message: 'Shift swap request created successfully' 
     }, { status: 201 })
 
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ 
+        error: 'Validation error', 
+        details: error.errors 
+      }, { status: 400 })
+    }
+
     console.error('Error in POST /api/shifts/swap-requests:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

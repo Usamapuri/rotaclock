@@ -10,6 +10,25 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  
+  /* Prevent text overlap */
+  .no-overlap {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Ensure proper spacing for dashboard elements */
+  .dashboard-card {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  /* Fix for timer display */
+  .timer-display {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
 }
 
 @layer base {

@@ -1,123 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
-import { z } from 'zod'
+import { updateBreakLog, getCurrentBreak, updateShiftLog } from '@/lib/database'
 
-// Validation schema for break end
-const breakEndSchema = z.object({
-  notes: z.string().optional()
-})
-
-/**
- * POST /api/time/break-end
- * End a break for the current employee
- */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
-    // Use demo authentication
-    const authMiddleware = createApiAuthMiddleware()
-    const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { employee_id } = await request.json()
+
+    if (!employee_id) {
+      return NextResponse.json(
+        { error: 'Employee ID is required' },
+        { status: 400 }
+      )
     }
 
-    // For demo purposes, use a mock employee
-    const employee = {
-      id: 'demo-employee-id',
-      first_name: 'Demo',
-      last_name: 'Employee',
-      is_active: true
+    // Get current active break
+    const currentBreak = await getCurrentBreak(employee_id)
+    if (!currentBreak) {
+      return NextResponse.json(
+        { error: 'No active break found' },
+        { status: 404 }
+      )
     }
 
-    // Find current time entry
-    const { data: currentTimeEntry, error: timeEntryError } = await supabase
-      .from('time_entries')
-      .select('id, clock_in, break_start, break_end, status')
-      .eq('employee_id', employee.id)
-      .is('clock_out', null)
-      .eq('status', 'break')
-      .single()
+    const breakEndTime = new Date()
+    const breakStartTime = new Date(currentBreak.break_start_time)
+    const breakDuration = (breakEndTime.getTime() - breakStartTime.getTime()) / (1000 * 60 * 60) // hours
 
-    if (timeEntryError || !currentTimeEntry) {
-      return NextResponse.json({ error: 'No active break found' }, { status: 404 })
-    }
+    // Update break log to complete it
+    const updatedBreak = await updateBreakLog(currentBreak.id, {
+      break_end_time: breakEndTime.toISOString(),
+      break_duration: breakDuration,
+      status: 'completed'
+    })
 
-    // Check if break was started
-    if (!currentTimeEntry.break_start) {
-      return NextResponse.json({ error: 'Break was not properly started' }, { status: 400 })
-    }
+    // Update shift log to add the break time used
+    const currentBreakTimeUsed = currentBreak.shift_log?.break_time_used || 0
+    const newBreakTimeUsed = currentBreakTimeUsed + breakDuration
 
-    // Parse and validate request body
-    const body = await request.json()
-    const validatedData = breakEndSchema.parse(body)
+    await updateShiftLog(currentBreak.shift_log_id, {
+      break_time_used: newBreakTimeUsed
+    })
 
-    // Get current date and time
-    const now = new Date().toISOString()
-
-    // Calculate break duration
-    const breakStart = new Date(currentTimeEntry.break_start)
-    const breakEnd = new Date(now)
-    const breakMinutes = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60)
-    const breakHours = Math.round((breakMinutes / 60) * 100) / 100
-
-    // Update time entry to end break
-    const updateData = {
-      break_end: now,
-      status: 'in-progress',
-      notes: validatedData.notes
-    }
-
-    const { data: updatedTimeEntry, error: updateError } = await supabase
-      .from('time_entries')
-      .update(updateData)
-      .eq('id', currentTimeEntry.id)
-      .select(`
-        *,
-        employee:employees(*),
-        shift_assignment:shift_assignments(
-          *,
-          shift:shifts(*)
-        )
-      `)
-      .single()
-
-    if (updateError) {
-      console.error('Error updating time entry:', updateError)
-      return NextResponse.json({ error: 'Failed to end break' }, { status: 500 })
-    }
-
-    // Create notification for break end
-    await supabase
-      .from('notifications')
-      .insert({
-        user_id: user.id,
-        title: 'Break Ended',
-        message: `Your break has ended. Break duration: ${breakHours} hours`,
-        type: 'info',
-        action_url: '/employee/time-tracking'
-      })
-
-    return NextResponse.json({ 
-      data: updatedTimeEntry,
+    return NextResponse.json({
+      success: true,
+      data: updatedBreak,
       message: 'Break ended successfully',
-      break_summary: {
-        break_start: currentTimeEntry.break_start,
-        break_end: now,
-        break_duration_hours: breakHours
-      }
+      breakDuration: breakDuration.toFixed(2), // Include break duration in response
+      totalBreakTimeUsed: newBreakTimeUsed.toFixed(2)
     })
 
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      }, { status: 400 })
-    }
-
-    console.error('Error in POST /api/time/break-end:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error ending break:', error)
+    return NextResponse.json(
+      { error: 'Failed to end break' },
+      { status: 500 }
+    )
   }
 } 

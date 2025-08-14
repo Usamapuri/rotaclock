@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
 
@@ -15,10 +15,10 @@ const updateLeaveRequestSchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -28,34 +28,36 @@ export async function GET(
     }
 
     // Get the leave request with related data
-    const { data: leaveRequest, error } = await supabase
-      .from('leave_requests')
-      .select(`
-        id,
-        employee_id,
-        leave_type,
-        start_date,
-        end_date,
-        reason,
-        status,
-        admin_notes,
-        created_at,
-        updated_at,
-        employee:employees!leave_requests_employee_id_fkey(
-          id,
-          first_name,
-          last_name,
-          employee_id,
-          department
-        )
-      `)
-      .eq('id', params.id)
-      .single()
+    const leaveRequestResult = await query(`
+      SELECT 
+        lr.id,
+        lr.employee_id,
+        lr.type as leave_type,
+        lr.start_date,
+        lr.end_date,
+        lr.days_requested,
+        lr.reason,
+        lr.status,
+        lr.admin_notes,
+        lr.created_at,
+        lr.updated_at,
+        json_build_object(
+          'id', e.id,
+          'first_name', e.first_name,
+          'last_name', e.last_name,
+          'employee_id', e.employee_id,
+          'department', e.department
+        ) as employee
+      FROM leave_requests lr
+      LEFT JOIN employees e ON lr.employee_id = e.id
+      WHERE lr.id = $1
+    `, [id])
 
-    if (error) {
-      console.error('Error fetching leave request:', error)
+    if (leaveRequestResult.rows.length === 0) {
       return NextResponse.json({ error: 'Leave request not found' }, { status: 404 })
     }
+
+    const leaveRequest = leaveRequestResult.rows[0]
 
     // Check permissions - employees can only see their own leave requests
     if (user?.role !== 'admin' && leaveRequest.employee_id !== user?.id) {
@@ -76,10 +78,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -102,19 +104,17 @@ export async function PUT(
     const { status, admin_notes } = validationResult.data
 
     // Get the current leave request
-    const { data: currentRequest, error: fetchError } = await supabase
-      .from('leave_requests')
-      .select(`
-        id,
-        employee_id,
-        status
-      `)
-      .eq('id', params.id)
-      .single()
+    const currentRequestResult = await query(`
+      SELECT id, employee_id, status
+      FROM leave_requests
+      WHERE id = $1
+    `, [id])
 
-    if (fetchError || !currentRequest) {
+    if (currentRequestResult.rows.length === 0) {
       return NextResponse.json({ error: 'Leave request not found' }, { status: 404 })
     }
+
+    const currentRequest = currentRequestResult.rows[0]
 
     // Check permissions
     if (user?.role !== 'admin') {
@@ -134,37 +134,24 @@ export async function PUT(
       }
     }
 
-    // Update the leave request
-    const updateData: any = { status }
+    // Build update query
+    let updateQuery = `UPDATE leave_requests SET status = $1, updated_at = NOW()`
+    const updateParams = [status, id]
+    let paramIndex = 3
+
     if (admin_notes !== undefined) {
-      updateData.admin_notes = admin_notes
+      updateQuery += `, admin_notes = $${paramIndex}`
+      updateParams.push(admin_notes)
+      paramIndex++
     }
 
-    const { data: updatedRequest, error: updateError } = await supabase
-      .from('leave_requests')
-      .update(updateData)
-      .eq('id', params.id)
-      .select(`
-        id,
-        employee_id,
-        leave_type,
-        start_date,
-        end_date,
-        reason,
-        status,
-        admin_notes,
-        created_at,
-        updated_at
-      `)
-      .single()
+    updateQuery += ` WHERE id = $2 RETURNING *`
 
-    if (updateError) {
-      console.error('Error updating leave request:', updateError)
-      return NextResponse.json({ error: 'Failed to update leave request' }, { status: 500 })
-    }
+    // Update the leave request
+    const updatedRequestResult = await query(updateQuery, updateParams)
 
     return NextResponse.json({ 
-      leaveRequest: updatedRequest,
+      leaveRequest: updatedRequestResult.rows[0],
       message: `Leave request ${status} successfully` 
     })
 
@@ -180,10 +167,10 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -193,19 +180,17 @@ export async function DELETE(
     }
 
     // Get the current leave request
-    const { data: currentRequest, error: fetchError } = await supabase
-      .from('leave_requests')
-      .select(`
-        id,
-        employee_id,
-        status
-      `)
-      .eq('id', params.id)
-      .single()
+    const currentRequestResult = await query(`
+      SELECT id, employee_id, status
+      FROM leave_requests
+      WHERE id = $1
+    `, [id])
 
-    if (fetchError || !currentRequest) {
+    if (currentRequestResult.rows.length === 0) {
       return NextResponse.json({ error: 'Leave request not found' }, { status: 404 })
     }
+
+    const currentRequest = currentRequestResult.rows[0]
 
     // Check permissions
     if (user?.role !== 'admin') {
@@ -220,15 +205,9 @@ export async function DELETE(
     }
 
     // Delete the leave request
-    const { error: deleteError } = await supabase
-      .from('leave_requests')
-      .delete()
-      .eq('id', params.id)
-
-    if (deleteError) {
-      console.error('Error deleting leave request:', deleteError)
-      return NextResponse.json({ error: 'Failed to delete leave request' }, { status: 500 })
-    }
+    await query(`
+      DELETE FROM leave_requests WHERE id = $1
+    `, [id])
 
     return NextResponse.json({ 
       message: 'Leave request deleted successfully' 

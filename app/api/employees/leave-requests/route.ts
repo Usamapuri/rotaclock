@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { query, getLeaveRequests } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
 
@@ -24,69 +24,21 @@ const updateLeaveRequestSchema = z.object({
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
-    // Use demo authentication
-    const authMiddleware = createApiAuthMiddleware()
-    const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const employeeId = searchParams.get('employee_id')
     const leaveType = searchParams.get('leave_type')
 
-    let query = supabase
-      .from('leave_requests')
-      .select(`
-        id,
-        employee_id,
-        leave_type,
-        start_date,
-        end_date,
-        reason,
-        status,
-        admin_notes,
-        created_at,
-        updated_at,
-        employee:employees!leave_requests_employee_id_fkey(
-          id,
-          first_name,
-          last_name,
-          employee_id,
-          department
-        )
-      `)
+    // Build filters
+    const filters: any = {}
+    if (status) filters.status = status
+    if (employeeId) filters.employee_id = employeeId
+    if (leaveType) filters.type = leaveType
 
-    // Filter by status if provided
-    if (status) {
-      query = query.eq('status', status)
-    }
+    // Get leave requests
+    const leaveRequests = await getLeaveRequests(filters)
 
-    // Filter by leave type if provided
-    if (leaveType) {
-      query = query.eq('leave_type', leaveType)
-    }
-
-    // Filter by employee if not admin
-    if (user?.role !== 'admin') {
-      // Employees can only see their own leave requests
-      query = query.eq('employee_id', user?.id)
-    } else if (employeeId) {
-      // Admin can filter by specific employee
-      query = query.eq('employee_id', employeeId)
-    }
-
-    const { data: leaveRequests, error } = await query.order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching leave requests:', error)
-      return NextResponse.json({ error: 'Failed to fetch leave requests' }, { status: 500 })
-    }
-
-    return NextResponse.json({ leaveRequests })
+    return NextResponse.json({ data: leaveRequests })
 
   } catch (error) {
     console.error('Error in GET /api/employees/leave-requests:', error)
@@ -100,8 +52,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -128,13 +78,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify that the employee exists
-    const { data: employee, error: employeeError } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('id', employee_id)
-      .single()
+    const employeeResult = await query(`
+      SELECT id FROM employees WHERE id = $1
+    `, [employee_id])
 
-    if (employeeError || !employee) {
+    if (employeeResult.rows.length === 0) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
     }
 
@@ -153,52 +101,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for overlapping leave requests
-    const { data: overlappingRequests, error: overlapError } = await supabase
-      .from('leave_requests')
-      .select('id')
-      .eq('employee_id', employee_id)
-      .in('status', ['pending', 'approved'])
-      .or(`and(start_date.lte.${end_date},end_date.gte.${start_date})`)
-      .limit(1)
+    const overlappingRequestsResult = await query(`
+      SELECT id FROM leave_requests
+      WHERE employee_id = $1 
+      AND status IN ('pending', 'approved')
+      AND (
+        (start_date <= $2 AND end_date >= $3) OR
+        (start_date <= $3 AND end_date >= $2) OR
+        (start_date >= $2 AND end_date <= $3)
+      )
+      LIMIT 1
+    `, [employee_id, end_date, start_date])
 
-    if (overlapError) {
-      console.error('Error checking overlapping requests:', overlapError)
-    } else if (overlappingRequests && overlappingRequests.length > 0) {
+    if (overlappingRequestsResult.rows.length > 0) {
       return NextResponse.json({ error: 'You have overlapping leave requests for this period' }, { status: 409 })
     }
 
+    // Calculate days requested
+    const daysRequested = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+
     // Create the leave request
-    const { data: leaveRequest, error: createError } = await supabase
-      .from('leave_requests')
-      .insert({
-        employee_id,
-        leave_type,
-        start_date,
-        end_date,
-        reason,
-        status
-      })
-      .select(`
+    const leaveRequestResult = await query(`
+      INSERT INTO leave_requests (employee_id, type, start_date, end_date, days_requested, reason, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING 
         id,
         employee_id,
-        leave_type,
+        type as leave_type,
         start_date,
         end_date,
+        days_requested,
         reason,
         status,
         admin_notes,
         created_at,
         updated_at
-      `)
-      .single()
-
-    if (createError) {
-      console.error('Error creating leave request:', createError)
-      return NextResponse.json({ error: 'Failed to create leave request' }, { status: 500 })
-    }
+    `, [employee_id, leave_type, start_date, end_date, daysRequested, reason, status])
 
     return NextResponse.json({ 
-      leaveRequest,
+      leaveRequest: leaveRequestResult.rows[0],
       message: 'Leave request created successfully' 
     }, { status: 201 })
 

@@ -68,25 +68,34 @@ export function SwapRequests() {
       if (!user) return
 
       // Load swap requests
-      const requestsResponse = await fetch('/api/onboarding/swap-requests')
+      const requestsResponse = await fetch('/api/shifts/swaps')
       if (requestsResponse.ok) {
-        const requests = await requestsResponse.json()
-        setSwapRequests(requests)
+        const response = await requestsResponse.json()
+        const requests = response.data || []
+        setSwapRequests(Array.isArray(requests) ? requests : [])
+      } else {
+        setSwapRequests([])
       }
 
       // Load my shifts
       const myShiftsResponse = await fetch(`/api/shifts?employee_id=${user.id}`)
       if (myShiftsResponse.ok) {
-        const shifts = await myShiftsResponse.json()
-        setMyShifts(shifts)
+        const response = await myShiftsResponse.json()
+        const shifts = response.data || []
+        setMyShifts(Array.isArray(shifts) ? shifts : [])
+      } else {
+        setMyShifts([])
       }
 
       // Load available shifts (shifts assigned to other employees)
       const availableResponse = await fetch('/api/shifts')
       if (availableResponse.ok) {
-        const allShifts = await availableResponse.json()
-        const available = allShifts.filter((shift: Shift) => shift.employee_id !== user.id)
+        const response = await availableResponse.json()
+        const allShifts = response.data || []
+        const available = Array.isArray(allShifts) ? allShifts.filter((shift: Shift) => shift.employee_id !== user.id) : []
         setAvailableShifts(available)
+      } else {
+        setAvailableShifts([])
       }
     } catch (error) {
       console.error('Error loading swap request data:', error)
@@ -104,7 +113,7 @@ export function SwapRequests() {
 
     setIsLoading(true)
     try {
-      const response = await fetch('/api/onboarding/swap-requests', {
+      const response = await fetch('/api/shifts/swaps', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,7 +149,7 @@ export function SwapRequests() {
   const handleApproveRequest = async (requestId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/onboarding/swap-requests/${requestId}`, {
+      const response = await fetch(`/api/shifts/swaps/${requestId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +181,7 @@ export function SwapRequests() {
   const handleRejectRequest = async (requestId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/onboarding/swap-requests/${requestId}`, {
+      const response = await fetch(`/api/shifts/swaps/${requestId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -257,7 +266,7 @@ export function SwapRequests() {
                       <SelectValue placeholder="Select your shift" />
                     </SelectTrigger>
                     <SelectContent>
-                      {myShifts.map((shift) => (
+                      {(myShifts || []).map((shift) => (
                         <SelectItem key={shift.id} value={shift.id}>
                           {shift.name} - {shift.date} ({formatShiftTime(shift)})
                         </SelectItem>
@@ -272,7 +281,7 @@ export function SwapRequests() {
                       <SelectValue placeholder="Select desired shift" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableShifts.map((shift) => (
+                      {(availableShifts || []).map((shift) => (
                         <SelectItem key={shift.id} value={shift.id}>
                           {shift.name} - {shift.date} ({formatShiftTime(shift)})
                         </SelectItem>
@@ -313,9 +322,9 @@ export function SwapRequests() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {swapRequests.length > 0 ? (
+          {(swapRequests || []).length > 0 ? (
             <div className="space-y-4">
-              {swapRequests.map((request) => (
+              {(swapRequests || []).map((request) => (
                 <div key={request.id} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">

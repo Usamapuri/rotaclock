@@ -57,10 +57,10 @@ export function LeaveRequests() {
       if (!user) return
 
       // Load leave requests
-      const response = await fetch('/api/onboarding/leave-requests')
+      const response = await fetch('/api/leave-requests')
       if (response.ok) {
         const requests = await response.json()
-        setLeaveRequests(requests)
+        setLeaveRequests(requests.data || [])
       }
     } catch (error) {
       console.error('Error loading leave request data:', error)
@@ -83,7 +83,7 @@ export function LeaveRequests() {
     }
     setIsLoading(true)
     try {
-      const response = await fetch('/api/onboarding/leave-requests', {
+      const response = await fetch('/api/leave-requests', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

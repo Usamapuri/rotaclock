@@ -1,113 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
-import { z } from 'zod'
+import { createBreakLog, getShiftLogs, getCurrentBreak } from '@/lib/database'
 
-// Validation schema for break start
-const breakStartSchema = z.object({
-  notes: z.string().optional()
-})
-
-/**
- * POST /api/time/break-start
- * Start a break for the current employee
- */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
-    // Use demo authentication
-    const authMiddleware = createApiAuthMiddleware()
-    const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { employee_id } = await request.json()
+
+    if (!employee_id) {
+      return NextResponse.json(
+        { error: 'Employee ID is required' },
+        { status: 400 }
+      )
     }
 
-    // For demo purposes, use a mock employee
-    const employee = {
-      id: 'demo-employee-id',
-      first_name: 'Demo',
-      last_name: 'Employee',
-      is_active: true
+    // Check if employee is already on break
+    const currentBreak = await getCurrentBreak(employee_id)
+    if (currentBreak) {
+      return NextResponse.json(
+        { error: 'Employee is already on break' },
+        { status: 400 }
+      )
     }
 
-    // Find current time entry
-    const { data: currentTimeEntry, error: timeEntryError } = await supabase
-      .from('time_entries')
-      .select('id, clock_in, break_start, break_end, status')
-      .eq('employee_id', employee.id)
-      .is('clock_out', null)
-      .eq('status', 'in-progress')
-      .single()
+    // Get current active shift
+    const shiftLogs = await getShiftLogs({
+      employee_id: employee_id,
+      status: 'active'
+    })
 
-    if (timeEntryError || !currentTimeEntry) {
-      return NextResponse.json({ error: 'No active time entry found' }, { status: 404 })
+    if (shiftLogs.length === 0) {
+      return NextResponse.json(
+        { error: 'No active shift found' },
+        { status: 404 }
+      )
     }
 
-    // Check if already on break
-    if (currentTimeEntry.status === 'break') {
-      return NextResponse.json({ error: 'Already on break' }, { status: 409 })
+    const currentShift = shiftLogs[0]
+
+    // Check if break time limit is reached
+    if (currentShift.break_time_used >= currentShift.max_break_allowed) {
+      return NextResponse.json(
+        { error: 'Break time limit reached for this shift' },
+        { status: 400 }
+      )
     }
 
-    // Parse and validate request body
-    const body = await request.json()
-    const validatedData = breakStartSchema.parse(body)
+    // Calculate elapsed shift time before break
+    const shiftStartTime = new Date(currentShift.clock_in_time)
+    const breakStartTime = new Date()
+    const elapsedShiftTime = (breakStartTime.getTime() - shiftStartTime.getTime()) / (1000 * 60 * 60) // hours
 
-    // Get current date and time
-    const now = new Date().toISOString()
+    // Create break log
+    const breakLog = await createBreakLog({
+      shift_log_id: currentShift.id,
+      employee_id: employee_id,
+      break_start_time: breakStartTime.toISOString(),
+      break_type: 'lunch',
+      status: 'active'
+    })
 
-    // Update time entry to start break
-    const updateData = {
-      break_start: now,
-      status: 'break',
-      notes: validatedData.notes
-    }
-
-    const { data: updatedTimeEntry, error: updateError } = await supabase
-      .from('time_entries')
-      .update(updateData)
-      .eq('id', currentTimeEntry.id)
-      .select(`
-        *,
-        employee:employees(*),
-        shift_assignment:shift_assignments(
-          *,
-          shift:shifts(*)
-        )
-      `)
-      .single()
-
-    if (updateError) {
-      console.error('Error updating time entry:', updateError)
-      return NextResponse.json({ error: 'Failed to start break' }, { status: 500 })
-    }
-
-    // Create notification for break start
-    await supabase
-      .from('notifications')
-      .insert({
-        user_id: user.id,
-        title: 'Break Started',
-        message: `Your break has started at ${new Date(now).toLocaleTimeString()}`,
-        type: 'info',
-        action_url: '/employee/time-tracking'
-      })
-
-    return NextResponse.json({ 
-      data: updatedTimeEntry,
+    return NextResponse.json({
+      success: true,
+      data: breakLog,
       message: 'Break started successfully',
-      break_start: now
+      elapsedShiftTime: elapsedShiftTime.toFixed(2) // Include elapsed time in response
     })
 
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      }, { status: 400 })
-    }
-
-    console.error('Error in POST /api/time/break-start:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error starting break:', error)
+    return NextResponse.json(
+      { error: 'Failed to start break' },
+      { status: 500 }
+    )
   }
 } 

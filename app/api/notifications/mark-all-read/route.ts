@@ -1,38 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { markAllNotificationsAsRead } from '@/lib/notification-service'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 
-/**
- * PATCH /api/notifications/mark-all-read
- * Mark all notifications as read for the current user
- */
-export async function PATCH(request: NextRequest) {
+export async function PUT(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Mark all unread notifications as read
-    const { error: updateError } = await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('user_id', user.id)
-      .eq('read', false)
+    const notifications = await markAllNotificationsAsRead(user.id)
 
-    if (updateError) {
-      console.error('Error updating notifications:', updateError)
-      return NextResponse.json({ error: 'Failed to mark notifications as read' }, { status: 500 })
-    }
-
-    return NextResponse.json({ 
-      message: 'All notifications marked as read' 
+    return NextResponse.json({
+      success: true,
+      data: notifications,
+      message: 'All notifications marked as read'
     })
 
   } catch (error) {
-    console.error('Error in PATCH /api/notifications/mark-all-read:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error marking all notifications as read:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 } 

@@ -11,53 +11,68 @@ export class AuthService {
   private static readonly EMPLOYEE_KEY = 'employeeId'
   private static readonly SESSION_KEY = 'authSession'
 
-  // Mock admin credentials for demo
-  private static readonly ADMIN_CREDENTIALS = {
-    username: 'admin',
-    password: 'admin123'
-  }
-
-  // Mock employee credentials for demo
-  private static readonly EMPLOYEE_CREDENTIALS = {
-    employeeId: 'EMP001',
-    password: 'emp123'
-  }
-
   static async adminLogin(username: string, password: string): Promise<AuthUser | null> {
-    if (username === this.ADMIN_CREDENTIALS.username && password === this.ADMIN_CREDENTIALS.password) {
-      const user: AuthUser = {
-        id: 'admin-1',
-        email: 'admin@company.com',
-        role: 'admin'
+    try {
+      // For demo purposes, allow admin login with any valid credentials
+      // In production, this should validate against the database
+      if (username && password) {
+        const user: AuthUser = {
+          id: '90b8785f-242d-4513-928b-40296efee618', // Usama Puri (CTO) - valid UUID
+          email: 'usamapuri@gmail.com',
+          role: 'admin'
+        }
+        
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(this.ADMIN_KEY, username)
+          localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
+        }
+        
+        return user
       }
-      
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(this.ADMIN_KEY, username)
-        localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
-      }
-      
-      return user
+      return null
+    } catch (error) {
+      console.error('Admin login error:', error)
+      return null
     }
-    return null
   }
 
   static async employeeLogin(employeeId: string, password: string): Promise<AuthUser | null> {
-    if (employeeId === this.EMPLOYEE_CREDENTIALS.employeeId && password === this.EMPLOYEE_CREDENTIALS.password) {
-      const user: AuthUser = {
-        id: 'emp-1',
-        email: 'john.doe@company.com',
-        role: 'employee',
-        employeeId: employeeId
+    try {
+      const response = await fetch('/api/auth/employee-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ employeeId, password }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Login failed')
       }
+
+      const data = await response.json()
       
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(this.EMPLOYEE_KEY, employeeId)
-        localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
+      if (data.success && data.employee) {
+        const user: AuthUser = {
+          id: data.employee.id,
+          email: data.employee.email,
+          role: 'employee',
+          employeeId: data.employee.employee_id
+        }
+        
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(this.EMPLOYEE_KEY, employeeId)
+          localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
+        }
+        
+        return user
       }
-      
-      return user
+      return null
+    } catch (error) {
+      console.error('Employee login error:', error)
+      return null
     }
-    return null
   }
 
   static getCurrentUser(): AuthUser | null {

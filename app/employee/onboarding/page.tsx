@@ -23,7 +23,6 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { useOnboardingDocuments } from "@/hooks/useOnboarding"
 import { toast } from "@/hooks/use-toast"
 
 interface OnboardingStep {
@@ -59,9 +58,29 @@ export default function EmployeeOnboarding() {
   const [feedback, setFeedback] = useState("")
   const [loading, setLoading] = useState(true)
   const [onboardingProcess, setOnboardingProcess] = useState<OnboardingProcess | null>(null)
+  const [documents, setDocuments] = useState<any[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(false)
   const router = useRouter()
 
-  const { documents, loading: documentsLoading } = useOnboardingDocuments()
+  // Load documents on component mount
+  useEffect(() => {
+    loadDocuments()
+  }, [])
+
+  const loadDocuments = async () => {
+    setDocumentsLoading(true)
+    try {
+      const response = await fetch('/api/onboarding/documents')
+      const data = await response.json()
+      if (response.ok) {
+        setDocuments(data.documents || [])
+      }
+    } catch (error) {
+      console.error('Error loading documents:', error)
+    } finally {
+      setDocumentsLoading(false)
+    }
+  }
 
   useEffect(() => {
     const storedEmployeeId = localStorage.getItem("employeeId")

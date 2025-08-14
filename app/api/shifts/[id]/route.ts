@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { query, getShift } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 /**
@@ -8,11 +8,9 @@ import { createApiAuthMiddleware } from '@/lib/api-auth'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
-    
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -20,20 +18,24 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
-    const { data: shift, error } = await supabase
-      .from('shifts')
-      .select(`
-        *,
-        employee:employees(id, first_name, last_name, email)
-      `)
-      .eq('id', id)
-      .single()
+    const result = await query(`
+      SELECT s.*, 
+             e.id as employee_id, 
+             e.first_name, 
+             e.last_name, 
+             e.email
+      FROM shifts s
+      LEFT JOIN employees e ON s.created_by = e.id
+      WHERE s.id = $1
+    `, [id])
 
-    if (error || !shift) {
+    if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
     }
+
+    const shift = result.rows[0]
 
     return NextResponse.json({ shift })
 
@@ -49,11 +51,9 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
-    
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -61,76 +61,91 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
-    const { start_time, end_time, status, notes, location } = body
+    const { name, description, start_time, end_time, department, required_staff, hourly_rate, color, is_active } = body
 
     // Check if shift exists
-    const { data: existingShift, error: fetchError } = await supabase
-      .from('shifts')
-      .select('id, status, start_time, end_time, employee_id')
-      .eq('id', id)
-      .single()
+    const existingShiftResult = await query(`
+      SELECT id, name, start_time, end_time, department
+      FROM shifts
+      WHERE id = $1
+    `, [id])
 
-    if (fetchError || !existingShift) {
+    if (existingShiftResult.rows.length === 0) {
       return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
     }
 
-    // Validate dates if provided
+    // Validate times if provided
     if (start_time && end_time) {
-      const startDate = new Date(start_time)
-      const endDate = new Date(end_time)
-      
-      if (startDate >= endDate) {
+      if (start_time >= end_time) {
         return NextResponse.json({ 
           error: 'End time must be after start time' 
         }, { status: 400 })
       }
-
-      // Check for overlapping shifts (excluding current shift and cancelled shifts)
-      const { data: overlappingShifts, error: overlapError } = await supabase
-        .from('shifts')
-        .select('id')
-        .eq('employee_id', existingShift.employee_id)
-        .neq('id', id)
-        .neq('status', 'cancelled')
-        .or(`start_time.lt.${end_time},end_time.gt.${start_time}`)
-
-      if (overlapError) {
-        console.error('Error checking overlapping shifts:', overlapError)
-        return NextResponse.json({ error: 'Failed to check shift conflicts' }, { status: 500 })
-      }
-
-      if (overlappingShifts && overlappingShifts.length > 0) {
-        return NextResponse.json({ 
-          error: 'Shift conflicts with existing shifts for this employee' 
-        }, { status: 400 })
-      }
     }
 
-    // Prepare update data
-    const updateData: any = {}
-    if (start_time !== undefined) updateData.start_time = start_time
-    if (end_time !== undefined) updateData.end_time = end_time
-    if (status !== undefined) updateData.status = status
-    if (notes !== undefined) updateData.notes = notes
-    if (location !== undefined) updateData.location = location
+    // Build update query
+    const updateFields = []
+    const updateValues = []
+    let paramIndex = 1
 
-    // Update shift
-    const { data: shift, error: updateError } = await supabase
-      .from('shifts')
-      .update(updateData)
-      .eq('id', id)
-      .select(`
-        *,
-        employee:employees(id, first_name, last_name, email)
-      `)
-      .single()
+    if (name !== undefined) {
+      updateFields.push(`name = $${paramIndex++}`)
+      updateValues.push(name)
+    }
+    if (description !== undefined) {
+      updateFields.push(`description = $${paramIndex++}`)
+      updateValues.push(description)
+    }
+    if (start_time !== undefined) {
+      updateFields.push(`start_time = $${paramIndex++}`)
+      updateValues.push(start_time)
+    }
+    if (end_time !== undefined) {
+      updateFields.push(`end_time = $${paramIndex++}`)
+      updateValues.push(end_time)
+    }
+    if (department !== undefined) {
+      updateFields.push(`department = $${paramIndex++}`)
+      updateValues.push(department)
+    }
+    if (required_staff !== undefined) {
+      updateFields.push(`required_staff = $${paramIndex++}`)
+      updateValues.push(required_staff)
+    }
+    if (hourly_rate !== undefined) {
+      updateFields.push(`hourly_rate = $${paramIndex++}`)
+      updateValues.push(hourly_rate)
+    }
+    if (color !== undefined) {
+      updateFields.push(`color = $${paramIndex++}`)
+      updateValues.push(color)
+    }
+    if (is_active !== undefined) {
+      updateFields.push(`is_active = $${paramIndex++}`)
+      updateValues.push(is_active)
+    }
 
-    if (updateError) {
-      console.error('Error updating shift:', updateError)
+    if (updateFields.length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    }
+
+    updateValues.push(id)
+    const updateQuery = `
+      UPDATE shifts 
+      SET ${updateFields.join(', ')}, updated_at = NOW()
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `
+
+    const result = await query(updateQuery, updateValues)
+
+    if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Failed to update shift' }, { status: 500 })
     }
+
+    const shift = result.rows[0]
 
     return NextResponse.json({ 
       shift,
@@ -149,11 +164,9 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
-    
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -161,35 +174,30 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
-    // Check if shift exists
-    const { data: shift, error: fetchError } = await supabase
-      .from('shifts')
-      .select('id, status')
-      .eq('id', id)
-      .single()
+    // Check if shift exists and has assignments
+    const assignmentResult = await query(`
+      SELECT COUNT(*) as assignment_count
+      FROM shift_assignments
+      WHERE shift_id = $1
+    `, [id])
 
-    if (fetchError || !shift) {
-      return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
-    }
-
-    // Prevent deletion of in-progress shifts
-    if (shift.status === 'in-progress') {
+    if (parseInt(assignmentResult.rows[0].assignment_count) > 0) {
       return NextResponse.json({ 
-        error: 'Cannot delete a shift that is currently in progress' 
+        error: 'Cannot delete shift that has assignments. Please remove assignments first.' 
       }, { status: 400 })
     }
 
     // Delete shift
-    const { error: deleteError } = await supabase
-      .from('shifts')
-      .delete()
-      .eq('id', id)
+    const result = await query(`
+      DELETE FROM shifts
+      WHERE id = $1
+      RETURNING id
+    `, [id])
 
-    if (deleteError) {
-      console.error('Error deleting shift:', deleteError)
-      return NextResponse.json({ error: 'Failed to delete shift' }, { status: 500 })
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
     }
 
     return NextResponse.json({ 

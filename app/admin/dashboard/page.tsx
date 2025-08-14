@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,11 +19,17 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Bell
+  Bell,
+  Loader2,
+  Eye,
+  RefreshCw,
+  FileText
 } from 'lucide-react'
 import { AuthService } from '@/lib/auth'
+import { apiService } from '@/lib/api-service'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useDashboardPolling } from '@/lib/hooks/use-dashboard-polling'
 
 interface Employee {
   id: string
@@ -31,8 +37,8 @@ interface Employee {
   first_name: string
   last_name: string
   email: string
-  department: string
-  position: string
+  department?: string
+  position?: string
   is_active: boolean
 }
 
@@ -41,34 +47,89 @@ interface Shift {
   name: string
   start_time: string
   end_time: string
-  status: string
+  department?: string
+  required_staff: number
+  hourly_rate?: number
+  color: string
+  is_active: boolean
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
+interface TimeEntry {
+  id: string
+  employee_id: string
+  shift_assignment_id?: string
+  clock_in?: string
+  clock_out?: string
+  break_start?: string
+  break_end?: string
+  total_hours?: number
+  status: 'in-progress' | 'completed' | 'break' | 'overtime'
+  notes?: string
+  location_lat?: number
+  location_lng?: number
+  created_at: string
+  updated_at: string
+  employee_first_name?: string
+  employee_last_name?: string
+}
+
+interface ShiftLog {
+  id: string
+  employee_id: string
+  shift_assignment_id?: string
+  clock_in_time: string
+  clock_out_time?: string
+  total_shift_hours?: number
+  break_time_used: number
+  max_break_allowed: number
+  is_late: boolean
+  is_no_show: boolean
+  late_minutes: number
+  status: 'active' | 'completed' | 'cancelled'
+  created_at: string
+  updated_at: string
+  employee?: Employee
+  shift_assignment?: any
 }
 
 interface SwapRequest {
   id: string
   requester_id: string
-  requester_name: string
+  target_id: string
+  original_shift_id: string
   requested_shift_id: string
-  requested_shift_date: string
-  requested_shift_time: string
-  offered_shift_id: string
-  offered_shift_date: string
-  offered_shift_time: string
-  reason: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending' | 'approved' | 'denied' | 'cancelled'
+  reason?: string
+  admin_notes?: string
+  approved_by?: string
+  approved_at?: string
   created_at: string
+  updated_at: string
+  requester_first_name?: string
+  requester_last_name?: string
+  target_first_name?: string
+  target_last_name?: string
 }
 
 interface LeaveRequest {
   id: string
   employee_id: string
-  employee_name: string
-  leave_type: 'vacation' | 'sick' | 'personal' | 'bereavement' | 'other'
+  type: 'vacation' | 'sick' | 'personal' | 'bereavement' | 'jury-duty' | 'other'
   start_date: string
   end_date: string
-  reason: string
-  status: 'pending' | 'approved' | 'rejected'
+  days_requested: number
+  reason?: string
+  status: 'pending' | 'approved' | 'denied' | 'cancelled'
+  approved_by?: string
+  approved_at?: string
+  admin_notes?: string
   created_at: string
+  updated_at: string
+  employee_first_name?: string
+  employee_last_name?: string
 }
 
 interface DashboardStats {
@@ -80,14 +141,26 @@ interface DashboardStats {
   avgHoursPerEmployee: number
   pendingSwapRequests: number
   pendingLeaveRequests: number
+  currentAttendance: number
+  attendanceRate: number
+}
+
+interface EmployeeStatus {
+  employeeId: string
+  status: 'online' | 'offline' | 'break'
+  lastActivity?: string
 }
 
 export default function AdminDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [shifts, setShifts] = useState<Shift[]>([])
+  const [shiftAssignments, setShiftAssignments] = useState<any[]>([])
   const [swapRequests, setSwapRequests] = useState<SwapRequest[]>([])
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([])
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([])
+  const [shiftLogs, setShiftLogs] = useState<ShiftLog[]>([])
+  const [employeeStatuses, setEmployeeStatuses] = useState<EmployeeStatus[]>([])
   const [stats, setStats] = useState<DashboardStats>({
     totalEmployees: 0,
     activeEmployees: 0,
@@ -96,7 +169,9 @@ export default function AdminDashboard() {
     weeklyHours: 0,
     avgHoursPerEmployee: 0,
     pendingSwapRequests: 0,
-    pendingLeaveRequests: 0
+    pendingLeaveRequests: 0,
+    currentAttendance: 0,
+    attendanceRate: 0
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
@@ -106,150 +181,274 @@ export default function AdminDashboard() {
   const [broadcastToAll, setBroadcastToAll] = useState(true)
   
   const router = useRouter()
+  
+  // Dashboard polling for real-time updates
+  const {
+    stats: pollingStats,
+    data: pollingData,
+    isLoading: isPollingLoading,
+    error: pollingError,
+    lastUpdate: pollingLastUpdate,
+    isPolling,
+    refresh: refreshData
+  } = useDashboardPolling(currentUser?.id || '', 10000) // Poll every 10 seconds
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
-    if (!user || user.role !== 'admin') {
+    if (!user) {
       router.push('/admin/login')
       return
     }
     setCurrentUser(user)
-    loadDashboardData()
   }, [router])
 
-  const loadDashboardData = async () => {
+  // Load initial data only if polling is not available
+  useEffect(() => {
+    if (currentUser && !pollingStats) {
+      loadDashboardData()
+    }
+  }, [currentUser, pollingStats])
+
+  // Update dashboard data when polling data changes
+  useEffect(() => {
+    if (pollingStats) {
+      setStats(pollingStats)
+      setIsLoadingData(false)
+    }
+  }, [pollingStats])
+
+  useEffect(() => {
+    if (pollingData) {
+      if (pollingData.employees) {
+        setEmployees(pollingData.employees)
+      }
+      if (pollingData.shifts) {
+        setShiftAssignments(pollingData.shifts)
+      }
+      if (pollingData.swapRequests) {
+        setSwapRequests(pollingData.swapRequests)
+      }
+      if (pollingData.leaveRequests) {
+        setLeaveRequests(pollingData.leaveRequests)
+      }
+    }
+  }, [pollingData])
+
+  const loadDashboardData = useCallback(async () => {
     setIsLoadingData(true)
     try {
+      console.log('🔄 Loading admin dashboard data...')
+      
       // Load employees
       const employeesResponse = await fetch('/api/employees')
-      let employeesData: any[] = []
+      let employeesData: Employee[] = []
       if (employeesResponse.ok) {
-        const json = await employeesResponse.json()
-        employeesData = json.data || json.employees || json || []
-        setEmployees(employeesData)
-      } else {
-        // Fallback data if API fails
-        employeesData = [
-          { id: '1', first_name: 'John', last_name: 'Doe', email: 'john@company.com', department: 'Sales', is_active: true },
-          { id: '2', first_name: 'Jane', last_name: 'Smith', email: 'jane@company.com', department: 'Support', is_active: true },
-          { id: '3', first_name: 'Mike', last_name: 'Johnson', email: 'mike@company.com', department: 'Engineering', is_active: true }
-        ]
-        setEmployees(employeesData)
+        const data = await employeesResponse.json()
+        if (data.data) {
+          employeesData = data.data
+          setEmployees(employeesData)
+          console.log(`📊 Loaded ${employeesData.length} employees`)
+        }
       }
 
       // Load shifts
       const shiftsResponse = await fetch('/api/shifts')
-      let shiftsData: any[] = []
+      let shiftsData: Shift[] = []
       if (shiftsResponse.ok) {
-        const json = await shiftsResponse.json()
-        shiftsData = json.data || json.shifts || json || []
-        setShifts(shiftsData)
-      } else {
-        // Fallback data if API fails
-        shiftsData = [
-          { id: '1', name: 'Morning Shift', status: 'completed' },
-          { id: '2', name: 'Evening Shift', status: 'in-progress' },
-          { id: '3', name: 'Night Shift', status: 'scheduled' }
-        ]
-        setShifts(shiftsData)
+        const data = await shiftsResponse.json()
+        if (data.data) {
+          shiftsData = data.data
+          setShifts(shiftsData)
+          console.log(`📊 Loaded ${shiftsData.length} shifts`)
+        }
       }
 
-      // Load swap requests
-      const swapResponse = await fetch('/api/onboarding/swap-requests')
-      let swapData: any[] = []
+      // Load shift swap requests
+      const swapResponse = await fetch('/api/shifts/swap-requests')
+      let swapRequestsData: SwapRequest[] = []
       if (swapResponse.ok) {
-        const json = await swapResponse.json()
-        swapData = json.data || json.swapRequests || json || []
-        setSwapRequests(swapData)
-      } else {
-        // Fallback data if API fails
-        swapData = [
-          { id: '1', status: 'pending', requester_name: 'John Doe' },
-          { id: '2', status: 'approved', requester_name: 'Jane Smith' }
-        ]
-        setSwapRequests(swapData)
+        const data = await swapResponse.json()
+        if (data.data) {
+          swapRequestsData = data.data
+          setSwapRequests(swapRequestsData)
+          console.log(`📊 Loaded ${swapRequestsData.length} swap requests`)
+        }
       }
 
       // Load leave requests
-      const leaveResponse = await fetch('/api/onboarding/leave-requests')
-      let leaveData: any[] = []
+      const leaveResponse = await fetch('/api/leave-requests')
+      let leaveRequestsData: LeaveRequest[] = []
       if (leaveResponse.ok) {
-        const json = await leaveResponse.json()
-        leaveData = json.data || json.leaveRequests || json || []
-        setLeaveRequests(leaveData)
-      } else {
-        // Fallback data if API fails
-        leaveData = [
-          { id: '1', status: 'pending', employee_name: 'Mike Johnson', leave_type: 'vacation' },
-          { id: '2', status: 'approved', employee_name: 'John Doe', leave_type: 'sick' }
-        ]
-        setLeaveRequests(leaveData)
+        const data = await leaveResponse.json()
+        if (data.data) {
+          leaveRequestsData = data.data
+          setLeaveRequests(leaveRequestsData)
+          console.log(`📊 Loaded ${leaveRequestsData.length} leave requests`)
+        }
       }
 
-      // Calculate stats
+      // Load time entries for attendance tracking (legacy)
+      const today = new Date().toISOString().split('T')[0]
+      const timeResponse = await fetch(`/api/time/entries?start_date=${today}&end_date=${today}`)
+      if (timeResponse.ok) {
+        const data = await timeResponse.json()
+        if (data.data) {
+          setTimeEntries(data.data)
+          console.log(`📊 Loaded ${data.data.length} time entries for today`)
+        }
+      }
+
+      // Load shift logs for current attendance (new system)
+      console.log('🔄 Loading active shift logs...')
+      const shiftLogsResponse = await fetch(`/api/shift-logs?status=active`)
+      let shiftLogsWithEmployees: any[] = []
+      
+      if (shiftLogsResponse.ok) {
+        const shiftLogsData = await shiftLogsResponse.json()
+        console.log('📊 Shift logs API response:', shiftLogsData)
+        
+        if (shiftLogsData.success && shiftLogsData.data) {
+          // Map employee data properly
+          shiftLogsWithEmployees = shiftLogsData.data.map((log: any) => ({
+            ...log,
+            employee: {
+              id: log.employee_id,
+              first_name: log.first_name,
+              last_name: log.last_name,
+              employee_id: log.emp_id
+            }
+          }))
+          setShiftLogs(shiftLogsWithEmployees)
+          console.log(`📊 Loaded ${shiftLogsWithEmployees.length} active shift logs`)
+          shiftLogsWithEmployees.forEach((log, index) => {
+            console.log(`  Shift Log ${index + 1}: ${log.employee?.first_name} ${log.employee?.last_name} - ${log.status}`)
+          })
+        }
+      } else {
+        console.error('❌ Failed to load shift logs:', shiftLogsResponse.status)
+      }
+
+      // Load shift assignments for current week
+      const weekStart = new Date()
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1) // Monday
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekEnd.getDate() + 6) // Sunday
+      
+      const assignmentsResponse = await fetch(`/api/shifts/assignments?start_date=${weekStart.toISOString().split('T')[0]}&end_date=${weekEnd.toISOString().split('T')[0]}`)
+      let shiftAssignmentsData: any[] = []
+      let totalShifts = 0
+      let completedShifts = 0
+      
+      if (assignmentsResponse.ok) {
+        const assignmentsData = await assignmentsResponse.json()
+        if (assignmentsData.data) {
+          shiftAssignmentsData = assignmentsData.data
+          setShiftAssignments(shiftAssignmentsData)
+          totalShifts = shiftAssignmentsData.length
+          completedShifts = shiftAssignmentsData.filter((assignment: any) => assignment.status === 'completed').length
+          console.log(`📊 Loaded ${shiftAssignmentsData.length} shift assignments for current week`)
+        }
+      }
+
+      // Calculate stats using loaded data
       const activeEmployees = employeesData.filter(emp => emp.is_active).length
-      const completedShifts = shiftsData.filter(shift => shift.status === 'completed').length
-      const pendingSwapRequests = swapData.filter(req => req.status === 'pending').length
-      const pendingLeaveRequests = leaveData.filter(req => req.status === 'pending').length
+      const pendingSwapRequests = swapRequestsData.filter(req => req.status === 'pending').length
+      const pendingLeaveRequests = leaveRequestsData.filter(req => req.status === 'pending').length
+      
+      // Calculate current attendance from both systems
+      const activeShiftLogs = shiftLogsWithEmployees.filter(log => log.status === 'active')
+      const activeTimeEntries = timeEntries.filter(entry => entry.status === 'in-progress' || entry.status === 'break')
+      const currentAttendance = activeShiftLogs.length + activeTimeEntries.length
+      const totalTimeEntries = timeEntries.length
+      const attendanceRate = totalTimeEntries > 0 ? Math.round((currentAttendance / totalTimeEntries) * 100) : 0
+
+      console.log(`📊 Current attendance: ${currentAttendance} (${activeShiftLogs.length} shift logs + ${activeTimeEntries.length} time entries)`)
+
+      // Calculate employee statuses
+      const employeeStatusesData: EmployeeStatus[] = []
+      for (const employee of employeesData) {
+        const status = await determineEmployeeStatus(employee.id, timeEntries, shiftLogsWithEmployees)
+        employeeStatusesData.push({
+          employeeId: employee.id,
+          status
+        })
+      }
+      setEmployeeStatuses(employeeStatusesData)
+      
+      const onlineEmployees = employeeStatusesData.filter(s => s.status === 'online').length
+      const onBreakEmployees = employeeStatusesData.filter(s => s.status === 'break').length
+      console.log(`📊 Calculated statuses for ${employeeStatusesData.length} employees: ${onlineEmployees} online, ${onBreakEmployees} on break`)
 
       setStats({
         totalEmployees: employeesData.length,
         activeEmployees,
-        totalShifts: shiftsData.length,
+        totalShifts,
         completedShifts,
         weeklyHours: 168, // Mock total weekly hours
         avgHoursPerEmployee: employeesData.length > 0 ? Math.round(168 / employeesData.length) : 0,
         pendingSwapRequests,
-        pendingLeaveRequests
+        pendingLeaveRequests,
+        currentAttendance,
+        attendanceRate
       })
     } catch (error) {
-      console.error('Error loading dashboard data:', error)
-      // Set fallback data on error
-      const fallbackEmployees = [
-        { id: '1', first_name: 'John', last_name: 'Doe', email: 'john@company.com', department: 'Sales', is_active: true },
-        { id: '2', first_name: 'Jane', last_name: 'Smith', email: 'jane@company.com', department: 'Support', is_active: true }
-      ]
-      setEmployees(fallbackEmployees)
-      setStats({
-        totalEmployees: 2,
-        activeEmployees: 2,
-        totalShifts: 3,
-        completedShifts: 1,
-        weeklyHours: 168,
-        avgHoursPerEmployee: 84,
-        pendingSwapRequests: 1,
-        pendingLeaveRequests: 1
-      })
-      toast.error('Failed to load dashboard data - showing fallback data')
+      console.error('❌ Error loading dashboard data:', error)
+      toast.error('Failed to load dashboard data')
     } finally {
       setIsLoadingData(false)
     }
-  }
+  }, [])
 
   const handleApproveSwapRequest = async (requestId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/onboarding/swap-requests/${requestId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: 'approved',
-        }),
-      })
+      const response = await apiService.updateShiftSwap(requestId, { status: 'approved' })
 
-      if (response.ok) {
+      if (response.success && response.data) {
         setSwapRequests(prev => 
           prev.map(req => 
             req.id === requestId ? { ...req, status: 'approved' as const } : req
           )
         )
+        
+        // Send notification to both requester and target
+        const request = swapRequests.find(req => req.id === requestId)
+        if (request) {
+          try {
+            // Notify requester
+            await fetch('/api/notifications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: request.requester_id,
+                title: 'Swap Request Approved',
+                message: `Your shift swap request has been approved.`,
+                type: 'swap',
+                priority: 'normal'
+              })
+            })
+            
+            // Notify target
+            await fetch('/api/notifications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: request.target_id,
+                title: 'Shift Swap Approved',
+                message: `A shift swap involving your schedule has been approved.`,
+                type: 'swap',
+                priority: 'normal'
+              })
+            })
+          } catch (error) {
+            console.error('Error sending notifications:', error)
+          }
+        }
+        
         toast.success('Swap request approved!')
         await loadDashboardData() // Refresh stats
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to approve request')
+        toast.error(response.message || 'Failed to approve request')
       }
     } catch (error) {
       console.error('Error approving swap request:', error)
@@ -262,27 +461,39 @@ export default function AdminDashboard() {
   const handleRejectSwapRequest = async (requestId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/onboarding/swap-requests/${requestId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: 'rejected',
-        }),
-      })
+      const response = await apiService.updateShiftSwap(requestId, { status: 'denied' })
 
-      if (response.ok) {
+      if (response.success && response.data) {
         setSwapRequests(prev => 
           prev.map(req => 
-            req.id === requestId ? { ...req, status: 'rejected' as const } : req
+            req.id === requestId ? { ...req, status: 'denied' as const } : req
           )
         )
+        
+        // Send notification to requester
+        const request = swapRequests.find(req => req.id === requestId)
+        if (request) {
+          try {
+            await fetch('/api/notifications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: request.requester_id,
+                title: 'Swap Request Denied',
+                message: `Your shift swap request has been denied.`,
+                type: 'swap',
+                priority: 'high'
+              })
+            })
+          } catch (error) {
+            console.error('Error sending notification:', error)
+          }
+        }
+        
         toast.success('Swap request rejected')
         await loadDashboardData() // Refresh stats
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to reject request')
+        toast.error(response.message || 'Failed to reject request')
       }
     } catch (error) {
       console.error('Error rejecting swap request:', error)
@@ -295,27 +506,39 @@ export default function AdminDashboard() {
   const handleApproveLeaveRequest = async (requestId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/onboarding/leave-requests/${requestId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: 'approved',
-        }),
-      })
+      const response = await apiService.approveLeaveRequest(requestId)
 
-      if (response.ok) {
+      if (response.success && response.data) {
         setLeaveRequests(prev => 
           prev.map(req => 
             req.id === requestId ? { ...req, status: 'approved' as const } : req
           )
         )
+        
+        // Send notification to employee
+        const request = leaveRequests.find(req => req.id === requestId)
+        if (request) {
+          try {
+            await fetch('/api/notifications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: request.employee_id,
+                title: 'Leave Request Approved',
+                message: `Your leave request for ${request.start_date} to ${request.end_date} has been approved.`,
+                type: 'leave',
+                priority: 'normal'
+              })
+            })
+          } catch (error) {
+            console.error('Error sending notification:', error)
+          }
+        }
+        
         toast.success('Leave request approved!')
         await loadDashboardData() // Refresh stats
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to approve request')
+        toast.error(response.message || 'Failed to approve request')
       }
     } catch (error) {
       console.error('Error approving leave request:', error)
@@ -328,27 +551,39 @@ export default function AdminDashboard() {
   const handleRejectLeaveRequest = async (requestId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/onboarding/leave-requests/${requestId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: 'rejected',
-        }),
-      })
+      const response = await apiService.rejectLeaveRequest(requestId)
 
-      if (response.ok) {
+      if (response.success && response.data) {
         setLeaveRequests(prev => 
           prev.map(req => 
-            req.id === requestId ? { ...req, status: 'rejected' as const } : req
+            req.id === requestId ? { ...req, status: 'denied' as const } : req
           )
         )
+        
+        // Send notification to employee
+        const request = leaveRequests.find(req => req.id === requestId)
+        if (request) {
+          try {
+            await fetch('/api/notifications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: request.employee_id,
+                title: 'Leave Request Denied',
+                message: `Your leave request for ${request.start_date} to ${request.end_date} has been denied.`,
+                type: 'leave',
+                priority: 'high'
+              })
+            })
+          } catch (error) {
+            console.error('Error sending notification:', error)
+          }
+        }
+        
         toast.success('Leave request rejected')
         await loadDashboardData() // Refresh stats
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to reject request')
+        toast.error(response.message || 'Failed to reject request')
       }
     } catch (error) {
       console.error('Error rejecting leave request:', error)
@@ -375,11 +610,74 @@ export default function AdminDashboard() {
         return <Badge variant="secondary">Pending</Badge>
       case 'approved':
         return <Badge variant="default">Approved</Badge>
-      case 'rejected':
-        return <Badge variant="destructive">Rejected</Badge>
+      case 'denied':
+        return <Badge variant="destructive">Denied</Badge>
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
+  }
+
+  const getEmployeeStatusBadge = (employeeId: string) => {
+    const status = employeeStatuses.find(s => s.employeeId === employeeId)
+    if (!status) {
+      return <Badge variant="outline">Offline</Badge>
+    }
+    
+    switch (status.status) {
+      case 'online':
+        return <Badge variant="default" className="bg-green-500 hover:bg-green-600">Online</Badge>
+      case 'break':
+        return <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white">Break</Badge>
+      case 'offline':
+      default:
+        return <Badge variant="outline">Offline</Badge>
+    }
+  }
+
+  const determineEmployeeStatus = async (employeeId: string, timeEntries: TimeEntry[], shiftLogs: ShiftLog[]): Promise<'online' | 'offline' | 'break'> => {
+    // Check for active shift logs first (newer system)
+    const activeShiftLog = shiftLogs.find(log => 
+      log.employee_id === employeeId && 
+      log.status === 'active' && 
+      !log.clock_out_time
+    )
+    
+    if (activeShiftLog) {
+      // Check if on break using break_logs table
+      // We need to check if there's an active break for this employee
+      try {
+        const breakResponse = await fetch(`/api/time/break-status?employee_id=${employeeId}`)
+        if (breakResponse.ok) {
+          const breakData = await breakResponse.json()
+          if (breakData.data && breakData.data.status === 'active') {
+            return 'break'
+          }
+        }
+      } catch (error) {
+        console.error('Error checking break status:', error)
+      }
+      
+      return 'online'
+    }
+    
+    // Check for active time entries (legacy system)
+    const activeTimeEntry = timeEntries.find(entry => 
+      entry.employee_id === employeeId && 
+      entry.status === 'in-progress' && 
+      entry.clock_in && 
+      !entry.clock_out
+    )
+    
+    if (activeTimeEntry) {
+      // Check if on break
+      if (activeTimeEntry.status === 'break' && activeTimeEntry.break_start && !activeTimeEntry.break_end) {
+        return 'break'
+      }
+      
+      return 'online'
+    }
+    
+    return 'offline'
   }
 
   const handleBroadcastMessage = async () => {
@@ -390,6 +688,7 @@ export default function AdminDashboard() {
     
     setIsLoading(true)
     try {
+      console.log('📢 Sending broadcast message...')
       const response = await fetch('/api/notifications/broadcast', {
         method: 'POST',
         headers: {
@@ -402,15 +701,17 @@ export default function AdminDashboard() {
         }),
       })
 
+      const data = await response.json()
+
       if (response.ok) {
-        toast.success('Message sent successfully!')
+        toast.success(`Message sent successfully to ${data.recipients} employee(s)!`)
         setShowBroadcastModal(false)
         setBroadcastMessage('')
         setSelectedEmployeeIds([])
         setBroadcastToAll(true)
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to send message')
+        console.error('Broadcast error response:', data)
+        toast.error(data.error || data.message || 'Failed to send message')
       }
     } catch (error) {
       console.error('Error sending broadcast message:', error)
@@ -424,7 +725,7 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading dashboard...</p>
         </div>
       </div>
@@ -451,6 +752,26 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                {isPolling ? (
+                  <span className="flex items-center">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                    Live
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                    Offline
+                  </span>
+                )}
+                {pollingLastUpdate && (
+                  <span>Updated {new Date(pollingLastUpdate).toLocaleTimeString()}</span>
+                )}
+              </div>
+              <Button onClick={refreshData} variant="outline" size="sm" disabled={isPollingLoading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isPollingLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
               <Button onClick={() => setShowBroadcastModal(true)} variant="outline" size="sm">
                 <Bell className="h-4 w-4 mr-2" />
                 Broadcast Message
@@ -466,6 +787,10 @@ export default function AdminDashboard() {
               <Button onClick={() => router.push('/admin/employees')} variant="outline" size="sm">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Manage Employees
+              </Button>
+              <Button onClick={() => router.push('/admin/timesheet')} variant="outline" size="sm">
+                <FileText className="h-4 w-4 mr-2" />
+                Timesheet
               </Button>
               <Button onClick={handleLogout} variant="outline" size="sm">
                 <LogOut className="h-4 w-4 mr-2" />
@@ -496,6 +821,19 @@ export default function AdminDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
+                  <p className="text-sm font-medium text-gray-600">Current Attendance</p>
+                  <p className="text-2xl font-bold">{stats.currentAttendance}</p>
+                  <p className="text-xs text-gray-500">{stats.attendanceRate}% rate</p>
+                </div>
+                <Eye className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
                   <p className="text-sm font-medium text-gray-600">Total Shifts</p>
                   <p className="text-2xl font-bold">{stats.totalShifts}</p>
                   <p className="text-xs text-gray-500">{stats.completedShifts} completed</p>
@@ -517,25 +855,13 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Weekly Hours</p>
-                  <p className="text-2xl font-bold">{stats.weeklyHours}h</p>
-                  <p className="text-xs text-gray-500">Avg: {stats.avgHoursPerEmployee}h/employee</p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="attendance">Attendance</TabsTrigger>
             <TabsTrigger value="swap-requests">Swap Requests</TabsTrigger>
             <TabsTrigger value="leave-requests">Leave Requests</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
@@ -544,50 +870,130 @@ export default function AdminDashboard() {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Employees */}
+              {/* Active Employees */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Recent Employees</CardTitle>
-                  <CardDescription>Latest employee additions</CardDescription>
+                  <CardTitle>Active Employees</CardTitle>
+                  <CardDescription>Currently active employees</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {employees.slice(0, 5).map((employee) => (
-                      <div key={employee.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{employee.first_name} {employee.last_name}</p>
-                          <p className="text-sm text-gray-500">{employee.position}</p>
+                    {employees
+                      .filter(emp => emp.is_active)
+                      .sort((a, b) => {
+                        const statusA = employeeStatuses.find(s => s.employeeId === a.id)?.status || 'offline'
+                        const statusB = employeeStatuses.find(s => s.employeeId === b.id)?.status || 'offline'
+                        
+                        // Priority: online > break > offline
+                        const priority = { online: 3, break: 2, offline: 1 }
+                        return priority[statusB as keyof typeof priority] - priority[statusA as keyof typeof priority]
+                      })
+                      .slice(0, 5)
+                      .map((employee) => (
+                        <div key={employee.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium">{employee.first_name} {employee.last_name}</p>
+                            <p className="text-sm text-gray-500">{employee.position || employee.department || 'Employee'}</p>
+                          </div>
+                          {getEmployeeStatusBadge(employee.id)}
                         </div>
-                        <Badge variant={employee.is_active ? "default" : "secondary"}>
-                          {employee.is_active ? "Active" : "Inactive"}
-                        </Badge>
+                      ))}
+                    {employees.filter(emp => emp.is_active).length === 0 && (
+                      <div className="text-center py-4 text-gray-500">
+                        No active employees found
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Recent Shifts */}
+              {/* Active and Upcoming Shifts */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Recent Shifts</CardTitle>
-                  <CardDescription>Latest shift activities</CardDescription>
+                  <CardTitle>Active and Upcoming Shifts</CardTitle>
+                  <CardDescription>Current week's shift assignments</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {shifts.slice(0, 5).map((shift) => (
-                      <div key={shift.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    {shiftAssignments.slice(0, 5).map((assignment) => (
+                      <div key={assignment.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div>
-                          <p className="font-medium">{shift.name}</p>
-                          <p className="text-sm text-gray-500">{shift.start_time} - {shift.end_time}</p>
+                          <p className="font-medium">{assignment.employee_first_name} {assignment.employee_last_name}</p>
+                          <p className="text-sm text-gray-500">
+                            {assignment.shift_name} • {new Date(assignment.date).toLocaleDateString('en-US', { 
+                              weekday: 'short', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {assignment.start_time} - {assignment.end_time}
+                          </p>
                         </div>
-                        {getStatusBadge(shift.status)}
+                        <Badge variant={assignment.status === 'confirmed' ? "default" : "secondary"}>
+                          {assignment.status}
+                        </Badge>
                       </div>
                     ))}
+                    {shiftAssignments.length === 0 && (
+                      <div className="text-center py-4 text-gray-500">
+                        No shifts scheduled for this week
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Attendance Tab */}
+          <TabsContent value="attendance" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Attendance</CardTitle>
+                <CardDescription>Employees currently clocked in</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {/* Show employees from shift logs (new system) */}
+                  {shiftLogs.filter(log => log.status === 'active').map((log) => (
+                    <div key={log.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">
+                          {log.employee?.first_name} {log.employee?.last_name}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Clocked in at {log.clock_in_time ? new Date(log.clock_in_time).toLocaleTimeString() : 'Unknown'}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Break time used: {(typeof log.break_time_used === 'string' ? parseFloat(log.break_time_used) : log.break_time_used || 0).toFixed(2)}h / {(typeof log.max_break_allowed === 'string' ? parseFloat(log.max_break_allowed) : log.max_break_allowed || 1)}h
+                        </p>
+                      </div>
+                      <Badge variant="default">Active</Badge>
+                    </div>
+                  ))}
+                  
+                  {/* Show employees from time entries (legacy system) */}
+                  {timeEntries.filter(entry => entry.status === 'in-progress').map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{entry.employee_first_name} {entry.employee_last_name}</p>
+                        <p className="text-sm text-gray-500">Clocked in at {entry.clock_in ? new Date(entry.clock_in).toLocaleTimeString() : 'Unknown'}</p>
+                      </div>
+                      <Badge variant="default">Active (Legacy)</Badge>
+                    </div>
+                  ))}
+                  
+                  {shiftLogs.filter(log => log.status === 'active').length === 0 && 
+                   timeEntries.filter(entry => entry.status === 'in-progress').length === 0 && (
+                    <div className="text-center py-8">
+                      <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">No employees currently clocked in</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Swap Requests Tab */}
@@ -604,25 +1010,11 @@ export default function AdminDashboard() {
                       <div key={request.id} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
-                            <span className="font-medium">{request.requester_name}</span>
+                            <span className="font-medium">{request.requester_first_name} {request.requester_last_name}</span>
+                            <span className="text-gray-500">→</span>
+                            <span className="font-medium">{request.target_first_name} {request.target_last_name}</span>
                           </div>
                           {getStatusBadge(request.status)}
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                          <div className="bg-gray-50 p-3 rounded">
-                            <p className="text-sm font-medium text-gray-700">Offering</p>
-                            <p className="text-sm text-gray-600">{request.offered_shift_date}</p>
-                            <p className="text-sm text-gray-600">{request.offered_shift_time}</p>
-                          </div>
-                          <div className="flex items-center justify-center">
-                            <span className="text-gray-400">→</span>
-                          </div>
-                          <div className="bg-blue-50 p-3 rounded">
-                            <p className="text-sm font-medium text-blue-700">Requesting</p>
-                            <p className="text-sm text-blue-600">{request.requested_shift_date}</p>
-                            <p className="text-sm text-blue-600">{request.requested_shift_time}</p>
-                          </div>
                         </div>
                         
                         <div className="mb-3">
@@ -682,8 +1074,8 @@ export default function AdminDashboard() {
                       <div key={request.id} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
-                            <span className="font-medium">{request.employee_name}</span>
-                            <Badge variant="outline">{request.leave_type}</Badge>
+                            <span className="font-medium">{request.employee_first_name} {request.employee_last_name}</span>
+                            <Badge variant="outline">{request.type}</Badge>
                           </div>
                           {getStatusBadge(request.status)}
                         </div>
@@ -751,23 +1143,33 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {employees.map((employee) => (
-                    <div key={employee.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{employee.first_name} {employee.last_name}</p>
-                        <p className="text-sm text-gray-500">{employee.email}</p>
-                        <p className="text-sm text-gray-500">{employee.position} • {employee.department}</p>
+                  {employees
+                    .sort((a, b) => {
+                      const statusA = employeeStatuses.find(s => s.employeeId === a.id)?.status || 'offline'
+                      const statusB = employeeStatuses.find(s => s.employeeId === b.id)?.status || 'offline'
+                      
+                      // Priority: online > break > offline
+                      const priority = { online: 3, break: 2, offline: 1 }
+                      return priority[statusB as keyof typeof priority] - priority[statusA as keyof typeof priority]
+                    })
+                    .map((employee) => (
+                      <div key={employee.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{employee.first_name} {employee.last_name}</p>
+                          <p className="text-sm text-gray-500">{employee.email}</p>
+                          <p className="text-sm text-gray-500">{employee.position} • {employee.department}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {getEmployeeStatusBadge(employee.id)}
+                          <Badge variant={employee.is_active ? "default" : "secondary"}>
+                            {employee.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                          <Button size="sm" variant="outline">
+                            Edit
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={employee.is_active ? "default" : "secondary"}>
-                          {employee.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                        <Button size="sm" variant="outline">
-                          Edit
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </CardContent>
             </Card>

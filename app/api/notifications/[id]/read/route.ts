@@ -1,59 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { markNotificationAsRead } from '@/lib/notification-service'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 
-/**
- * PATCH /api/notifications/[id]/read
- * Mark a notification as read
- */
-export async function PATCH(
+export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
-    
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = params
+    const notificationId = await params.id
 
-    // Check if notification exists and belongs to the user
-    const { data: notification, error: fetchError } = await supabase
-      .from('notifications')
-      .select('id, read')
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (fetchError || !notification) {
-      return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
+    if (!notificationId) {
+      return NextResponse.json(
+        { error: 'Notification ID is required' },
+        { status: 400 }
+      )
     }
 
-    if (notification.read) {
-      return NextResponse.json({ message: 'Notification is already read' })
-    }
+    const notification = await markNotificationAsRead(notificationId)
 
-    // Mark as read
-    const { error: updateError } = await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('id', id)
-      .eq('user_id', user.id)
-
-    if (updateError) {
-      console.error('Error updating notification:', updateError)
-      return NextResponse.json({ error: 'Failed to mark notification as read' }, { status: 500 })
-    }
-
-    return NextResponse.json({ 
-      message: 'Notification marked as read' 
+    return NextResponse.json({
+      success: true,
+      data: notification,
+      message: 'Notification marked as read'
     })
 
   } catch (error) {
-    console.error('Error in PATCH /api/notifications/[id]/read:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error marking notification as read:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 } 

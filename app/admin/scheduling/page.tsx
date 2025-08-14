@@ -146,8 +146,10 @@ export default function AdminScheduling() {
     start_time: '',
     end_time: '',
     department: '',
-    required_staff: '',
-    hourly_rate: ''
+    required_staff: 1,
+    hourly_rate: 15.00,
+    color: '#3B82F6',
+    is_active: true
   })
   const [employees, setEmployees] = useState<any[]>([])
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([])
@@ -287,64 +289,79 @@ export default function AdminScheduling() {
   }, [router])
 
   const loadSchedulingData = async () => {
-    setIsLoading(true)
     try {
-      // Fetch shift templates from API
-      const shiftsResponse = await fetch('/api/shifts/templates')
-      if (!shiftsResponse.ok) {
-        throw new Error('Failed to fetch shift templates')
-      }
-      const shiftsData = await shiftsResponse.json()
-      setShifts(shiftsData.shifts || [])
-
-      // Fetch shift assignments from API
-      const assignmentsResponse = await fetch('/api/shifts/assignments')
-      if (!assignmentsResponse.ok) {
-        throw new Error('Failed to fetch shift assignments')
-      }
-      const assignmentsData = await assignmentsResponse.json()
+      setIsLoading(true)
       
-      // Transform the API response to match our interface
-      const transformedAssignments: ShiftAssignment[] = assignmentsData.assignments.map((assignment: any) => ({
-        id: assignment.id,
-        shift_id: assignment.shift_id,
-        shift_name: assignment.shift?.name || 'Unknown Shift',
-        employee_id: assignment.employee_id,
-        employee_name: assignment.employee ? `${assignment.employee.first_name} ${assignment.employee.last_name}` : 'Unknown Employee',
-        date: assignment.date,
-        start_time: assignment.start_time,
-        end_time: assignment.end_time,
-        status: assignment.status
-      }))
-      
-      setShiftAssignments(transformedAssignments)
-
-      // Fetch employees for assignment form
-      const employeesResponse = await fetch('/api/employees?is_active=true')
-      let employeesData: any[] = []
+      // Load employees
+      const employeesResponse = await fetch('/api/employees')
       if (employeesResponse.ok) {
-        const json = await employeesResponse.json()
-        employeesData = json.data || json.employees || json || []
-        setEmployees(employeesData)
-      } else {
-        // Fallback data if API fails
-        employeesData = [
-          { id: '1', first_name: 'John', last_name: 'Doe', email: 'john@company.com', department: 'Sales', is_active: true },
-          { id: '2', first_name: 'Jane', last_name: 'Smith', email: 'jane@company.com', department: 'Support', is_active: true },
-          { id: '3', first_name: 'Mike', last_name: 'Johnson', email: 'mike@company.com', department: 'Engineering', is_active: true }
-        ]
-        setEmployees(employeesData)
+        const employeesData = await employeesResponse.json()
+        if (employeesData.data) {
+          const transformedEmployees = employeesData.data.map((emp: any) => ({
+            id: emp.id,
+            name: `${emp.first_name} ${emp.last_name}`,
+            email: emp.email,
+            department: emp.department || 'General',
+            hourlyRate: emp.hourly_rate || 15,
+            maxHoursPerWeek: emp.max_hours_per_week || 40,
+            availability: {},
+            shiftPreferences: [],
+            leaveBalance: { vacation: 15, sick: 5, personal: 3 }
+          }))
+          setEmployees(transformedEmployees)
+          console.log(`📊 Loaded ${transformedEmployees.length} employees for scheduling`)
+        }
       }
+
+      // Load shifts
+      const shiftsResponse = await fetch('/api/shifts/templates')
+      if (shiftsResponse.ok) {
+        const shiftsData = await shiftsResponse.json()
+        if (shiftsData.shifts) {
+          setShifts(shiftsData.shifts)
+        }
+      }
+
+      // Load shift assignments
+      const assignmentsResponse = await fetch('/api/shifts/assignments')
+      if (assignmentsResponse.ok) {
+        const assignmentsData = await assignmentsResponse.json()
+        if (assignmentsData.data) {
+          setShiftAssignments(assignmentsData.data)
+        }
+      }
+
+      // Load swap requests from API
+      const swapRequestsResponse = await fetch('/api/shifts/swap-requests')
+      if (swapRequestsResponse.ok) {
+        const swapRequestsData = await swapRequestsResponse.json()
+        if (swapRequestsData.data) {
+          setSwapRequests(swapRequestsData.data.map((swap: any) => ({
+            id: swap.id,
+            requesterId: swap.requester_id,
+            requesterName: `${swap.requester_first_name} ${swap.requester_last_name}`,
+            targetId: swap.target_id,
+            targetName: `${swap.target_first_name} ${swap.target_last_name}`,
+            originalShift: {
+              date: swap.original_shift_date || '',
+              shiftName: 'Scheduled Shift',
+              time: `${swap.original_shift_start_time || ''} - ${swap.original_shift_end_time || ''}`
+            },
+            targetShift: {
+              date: swap.requested_shift_date || '',
+              shiftName: 'Scheduled Shift',
+              time: `${swap.requested_shift_start_time || ''} - ${swap.requested_shift_end_time || ''}`
+            },
+            reason: swap.reason || '',
+            status: swap.status,
+            submittedAt: swap.created_at
+          })))
+        }
+      }
+
     } catch (error) {
       console.error('Error loading scheduling data:', error)
-      // Set fallback data on error
-      const fallbackEmployees = [
-        { id: '1', first_name: 'John', last_name: 'Doe', email: 'john@company.com', department: 'Sales', is_active: true },
-        { id: '2', first_name: 'Jane', last_name: 'Smith', email: 'jane@company.com', department: 'Support', is_active: true },
-        { id: '3', first_name: 'Mike', last_name: 'Johnson', email: 'mike@company.com', department: 'Engineering', is_active: true }
-      ]
-      setEmployees(fallbackEmployees)
-      toast.error('Failed to load scheduling data - showing fallback data')
+      toast.error('Failed to load scheduling data')
     } finally {
       setIsLoading(false)
     }
@@ -370,12 +387,39 @@ export default function AdminScheduling() {
     )
   }
 
-  const handleSwapRequest = (requestId: string, action: "approve" | "deny") => {
-    setSwapRequests((prev) =>
-      prev.map((request) =>
-        request.id === requestId ? { ...request, status: action === "approve" ? "approved" : "denied" } : request,
-      ),
-    )
+  const handleSwapRequest = async (requestId: string, action: "approve" | "deny") => {
+    try {
+      const response = await fetch(`/api/shifts/swap-requests/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: action === "approve" ? "approved" : "denied",
+          admin_notes: action === "approve" ? "Swap request approved" : "Swap request denied"
+        })
+      })
+
+      if (response.ok) {
+        // Update local state
+        setSwapRequests((prev) =>
+          prev.map((request) =>
+            request.id === requestId ? { ...request, status: action === "approve" ? "approved" : "denied" } : request,
+          ),
+        )
+        
+        toast.success(`Swap request ${action === "approve" ? "approved" : "denied"} successfully`)
+        
+        // Reload data to get updated information
+        loadSchedulingData()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || `Failed to ${action} swap request`)
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing swap request:`, error)
+      toast.error(`Failed to ${action} swap request`)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -424,20 +468,57 @@ export default function AdminScheduling() {
 
   const handleShiftFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate required fields
+    if (!shiftFormData.name || !shiftFormData.start_time || !shiftFormData.end_time) {
+      toast.error('Please fill in all required fields (Name, Start Time, End Time)')
+      return
+    }
+    
+    // Validate time logic
+    if (shiftFormData.start_time >= shiftFormData.end_time) {
+      toast.error('End time must be after start time')
+      return
+    }
+    
     setIsLoading(true)
     try {
-      // 1. Create the shift
+      // Ensure proper data types for API validation
+      const apiData = {
+        ...shiftFormData,
+        required_staff: Number(shiftFormData.required_staff),
+        hourly_rate: Number(shiftFormData.hourly_rate),
+        is_active: Boolean(shiftFormData.is_active)
+      }
+      
+      console.log('Submitting shift form data:', apiData)
+      
+      // 1. Create the shift template
       const shiftRes = await fetch('/api/shifts/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(shiftFormData)
+        body: JSON.stringify(apiData)
       })
-      if (!shiftRes.ok) throw new Error('Failed to create shift')
+      
+      console.log('Shift creation response status:', shiftRes.status)
+      
+      if (!shiftRes.ok) {
+        const errorData = await shiftRes.json()
+        console.error('Shift creation error response:', errorData)
+        throw new Error(errorData.error || 'Failed to create shift')
+      }
+      
       const shiftData = await shiftRes.json()
+      console.log('Shift creation success response:', shiftData)
       const newShiftId = shiftData.shift?.id
+      
+      if (!newShiftId) {
+        throw new Error('Failed to get shift ID from response')
+      }
+      
       // 2. Assign shift to selected employees
       for (const empId of selectedEmployeeIds) {
-        await fetch('/api/shifts/assignments', {
+        const assignmentRes = await fetch('/api/shifts/assignments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -445,16 +526,34 @@ export default function AdminScheduling() {
             employee_id: empId,
             date: selectedDate,
             start_time: shiftFormData.start_time,
-            end_time: shiftFormData.end_time
+            end_time: shiftFormData.end_time,
+            status: 'assigned'
           })
         })
+        
+        if (!assignmentRes.ok) {
+          console.error(`Failed to assign shift to employee ${empId}`)
+        }
       }
+      
       toast.success('Shift created and assigned!')
       setShowAddShift(false)
-      setShiftFormData({ name: '', description: '', start_time: '', end_time: '', department: '', required_staff: '', hourly_rate: '' })
+      setShiftFormData({ 
+        name: '', 
+        description: '', 
+        start_time: '', 
+        end_time: '', 
+        department: '', 
+        required_staff: 1, 
+        hourly_rate: 15.00,
+        color: '#3B82F6',
+        is_active: true
+      })
       setSelectedEmployeeIds([])
+      setSelectedDate(new Date().toISOString().split('T')[0])
       await loadSchedulingData()
     } catch (err) {
+      console.error('Error creating shift:', err)
       toast.error('Failed to create shift')
     } finally {
       setIsLoading(false)
@@ -473,6 +572,23 @@ export default function AdminScheduling() {
       ...prev,
       [field]: value
     }))
+    
+    // Check for conflicts when employee or date changes
+    if (field === 'employee_id' || field === 'date') {
+      const newData = { ...assignmentFormData, [field]: value }
+      if (newData.employee_id && newData.date) {
+        const existingAssignment = shiftAssignments.find(
+          assignment => 
+            assignment.employee_id === newData.employee_id && 
+            assignment.date === newData.date &&
+            assignment.status !== 'cancelled'
+        )
+        
+        if (existingAssignment) {
+          toast.warning(`This employee already has an assignment on ${newData.date}`)
+        }
+      }
+    }
   }
 
   const handleAssignmentFormSubmit = async (e: React.FormEvent) => {
@@ -483,27 +599,53 @@ export default function AdminScheduling() {
       return
     }
 
+    // Check if employee already has an assignment on this date in local state
+    const existingAssignment = shiftAssignments.find(
+      assignment => 
+        assignment.employee_id === assignmentFormData.employee_id && 
+        assignment.date === assignmentFormData.date &&
+        assignment.status !== 'cancelled'
+    )
+    
+    if (existingAssignment) {
+      toast.error(`Employee already has an assignment on ${assignmentFormData.date}. Please select a different date or employee.`)
+      return
+    }
+
     try {
+      const requestBody = {
+        employee_id: assignmentFormData.employee_id,
+        shift_id: assignmentFormData.shift_id,
+        date: assignmentFormData.date,
+        notes: assignmentFormData.notes || undefined,
+        status: 'assigned'
+      }
+      
       const response = await fetch('/api/shifts/assignments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          employee_id: assignmentFormData.employee_id,
-          shift_id: assignmentFormData.shift_id,
-          date: assignmentFormData.date,
-          notes: assignmentFormData.notes || undefined,
-          status: 'assigned'
-        }),
+        body: JSON.stringify(requestBody),
       })
-
+      
       if (!response.ok) {
         const errorData = await response.json()
+        // If it's a conflict error (409), show the specific message
+        if (response.status === 409) {
+          throw new Error(errorData.error || 'Employee already has an assignment on this date')
+        }
         throw new Error(errorData.error || 'Failed to assign shift')
       }
 
-      const { assignment } = await response.json()
+      const responseData = await response.json()
+      
+      // Check if assignment was created successfully
+      if (!responseData.data) {
+        throw new Error('Failed to create assignment - no assignment data returned')
+      }
+      
+      const assignment = responseData.data
       
       // Add the new assignment to the local state
       const newAssignment: ShiftAssignment = {
@@ -530,9 +672,23 @@ export default function AdminScheduling() {
       })
       
       toast.success('Shift assigned successfully!')
+      
+      // Refresh assignments data to ensure we have the latest information
+      await loadSchedulingData()
     } catch (error) {
       console.error('Error assigning shift:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to assign shift')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to assign shift'
+      
+      // Provide more specific error messages
+      if (errorMessage.includes('already has an assignment')) {
+        toast.error('This employee already has a shift assigned on this date. Please select a different date or employee.')
+      } else if (errorMessage.includes('Employee not found')) {
+        toast.error('Selected employee not found. Please refresh the page and try again.')
+      } else if (errorMessage.includes('Shift not found')) {
+        toast.error('Selected shift not found. Please refresh the page and try again.')
+      } else {
+        toast.error(errorMessage)
+      }
     }
   }
 
@@ -776,9 +932,9 @@ export default function AdminScheduling() {
                     <div key={employee.id} className="p-4 border rounded-lg">
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                          <h4 className="font-semibold">{employee.name}</h4>
-                          <p className="text-sm text-gray-600">{employee.department}</p>
-                          <p className="text-sm text-gray-600">Max Hours: {employee.maxHoursPerWeek}/week</p>
+                          <h4 className="font-semibold">{employee.name || `${employee.first_name || ''} ${employee.last_name || ''}`.trim() || 'Unknown Employee'}</h4>
+                          <p className="text-sm text-gray-600">{employee.department || 'No Department'}</p>
+                          <p className="text-sm text-gray-600">Max Hours: {employee.maxHoursPerWeek || 40}/week</p>
                         </div>
                         <Button variant="outline" size="sm">
                           <Edit className="h-4 w-4 mr-2" />
@@ -787,24 +943,27 @@ export default function AdminScheduling() {
                       </div>
 
                       <div className="grid grid-cols-7 gap-2 text-sm">
-                        {Object.entries(employee.availability).map(([day, avail]) => (
-                          <div key={day} className="text-center">
-                            <p className="font-medium capitalize mb-1">{day.slice(0, 3)}</p>
-                            <div
-                              className={`p-2 rounded ${
-                                avail.available ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {avail.available ? `${avail.start}-${avail.end}` : "Unavailable"}
+                        {Object.entries(employee.availability || {}).map(([day, avail]) => {
+                          const availability = avail as { start: string; end: string; available: boolean }
+                          return (
+                            <div key={day} className="text-center">
+                              <p className="font-medium capitalize mb-1">{day.slice(0, 3)}</p>
+                              <div
+                                className={`p-2 rounded ${
+                                  availability.available ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {availability.available ? `${availability.start}-${availability.end}` : "Unavailable"}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
 
                       <div className="mt-4">
                         <p className="text-sm font-medium mb-2">Shift Preferences:</p>
                         <div className="flex space-x-2">
-                          {employee.shiftPreferences.map((pref) => (
+                          {(employee.shiftPreferences || []).map((pref: string) => (
                             <Badge key={pref} variant="outline">
                               {pref}
                             </Badge>
@@ -862,13 +1021,13 @@ export default function AdminScheduling() {
                         <p className="text-sm font-medium mb-1">Current Leave Balance:</p>
                         <div className="flex space-x-4 text-sm">
                           <span>
-                            Vacation: {employees.find((e) => e.id === request.employeeId)?.leaveBalance.vacation || 0}
+                            Vacation: {employees.find((e) => e.id === request.employeeId)?.leaveBalance?.vacation || 0}
                           </span>
                           <span>
-                            Sick: {employees.find((e) => e.id === request.employeeId)?.leaveBalance.sick || 0}
+                            Sick: {employees.find((e) => e.id === request.employeeId)?.leaveBalance?.sick || 0}
                           </span>
                           <span>
-                            Personal: {employees.find((e) => e.id === request.employeeId)?.leaveBalance.personal || 0}
+                            Personal: {employees.find((e) => e.id === request.employeeId)?.leaveBalance?.personal || 0}
                           </span>
                         </div>
                       </div>
@@ -1060,16 +1219,40 @@ export default function AdminScheduling() {
                   <input type="time" className="w-full border rounded px-3 py-2" value={shiftFormData.end_time} onChange={e => setShiftFormData({ ...shiftFormData, end_time: e.target.value })} required />
                 </div>
               </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Department</label>
+                  <input type="text" className="w-full border rounded px-3 py-2" value={shiftFormData.department} onChange={e => setShiftFormData({ ...shiftFormData, department: e.target.value })} />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Required Staff</label>
+                  <input type="number" min="1" className="w-full border rounded px-3 py-2" value={shiftFormData.required_staff} onChange={e => setShiftFormData({ ...shiftFormData, required_staff: parseInt(e.target.value) || 1 })} required />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Hourly Rate</label>
+                  <input type="number" step="0.01" min="0" className="w-full border rounded px-3 py-2" value={shiftFormData.hourly_rate} onChange={e => setShiftFormData({ ...shiftFormData, hourly_rate: parseFloat(e.target.value) || 15.00 })} required />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Color</label>
+                  <input type="color" className="w-full border rounded px-3 py-2 h-10" value={shiftFormData.color} onChange={e => setShiftFormData({ ...shiftFormData, color: e.target.value })} />
+                </div>
+              </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Department</label>
-                <input type="text" className="w-full border rounded px-3 py-2" value={shiftFormData.department} onChange={e => setShiftFormData({ ...shiftFormData, department: e.target.value })} />
+                <label className="block text-sm font-medium mb-1">Assignment Date</label>
+                <input type="date" className="w-full border rounded px-3 py-2" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} required />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Assign Employees</label>
                 <select multiple className="w-full border rounded px-3 py-2 h-32" value={selectedEmployeeIds} onChange={e => setSelectedEmployeeIds(Array.from(e.target.selectedOptions, option => option.value))} required>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>
-                  ))}
+                  {employees.length > 0 ? (
+                    employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name}</option>
+                    ))
+                  ) : (
+                    <option value="" disabled>No employees available. Please add employees first.</option>
+                  )}
                 </select>
               </div>
               <div className="flex justify-end gap-2 mt-4">
@@ -1100,12 +1283,19 @@ export default function AdminScheduling() {
                     onChange={(e) => handleAssignmentInputChange('shift_id', e.target.value)}
                     required
                   >
+
                     <option value="">Select Shift</option>
                     {shifts.filter(s => s.is_active).map(shift => (
                       <option key={shift.id} value={shift.id}>
                         {shift.name} ({formatTime(shift.start_time)} - {formatTime(shift.end_time)})
                       </option>
                     ))}
+                    {shifts.length === 0 && (
+                      <option value="" disabled>No shifts available</option>
+                    )}
+                    {shifts.filter(s => s.is_active).length === 0 && shifts.length > 0 && (
+                      <option value="" disabled>No active shifts available</option>
+                    )}
                   </select>
                 </div>
                 <div>
@@ -1118,11 +1308,15 @@ export default function AdminScheduling() {
                     required
                   >
                     <option value="">Select Employee</option>
-                    {employees.map(employee => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.first_name} {employee.last_name} - {employee.department || 'No Department'}
-                      </option>
-                    ))}
+                    {employees.length > 0 ? (
+                      employees.map(employee => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.name} - {employee.department || 'No Department'}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>No employees available</option>
+                    )}
                   </select>
                 </div>
                 <div>

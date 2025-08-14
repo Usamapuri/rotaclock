@@ -64,27 +64,36 @@ export default function EmployeeProfilePage() {
       router.push("/employee/login")
     } else {
       setCurrentUser(user)
-      fetchProfile(user.id)
+      fetchProfile(user.id, user)
       fetchAvailability(user.id)
     }
   }, [router])
 
-  const fetchProfile = async (id: string) => {
+  const fetchProfile = async (id: string, user?: any) => {
+    console.log('Fetching profile for ID:', id, 'User:', user)
     try {
       // Try to get employee data from the main employees endpoint
       const response = await fetch(`/api/employees/${id}`)
+      console.log('Profile API response status:', response.status)
       if (response.ok) {
-        const data = await response.json()
-        setProfile(data)
-        setTempProfile(data)
+        const responseData = await response.json()
+        console.log('Profile API response data:', responseData)
+        const employeeData = responseData.data // Extract the data property
+        if (employeeData) {
+          console.log('Setting profile data:', employeeData)
+          setProfile(employeeData)
+          setTempProfile(employeeData)
+        } else {
+          throw new Error('No employee data found in response')
+        }
       } else {
         // If that fails, create a mock profile for demo
         const mockProfile: EmployeeProfile = {
           id: id,
           employee_id: `EMP${id}`,
-          first_name: currentUser?.first_name || 'Employee',
-          last_name: currentUser?.last_name || 'User',
-          email: currentUser?.email || 'employee@company.com',
+          first_name: user?.first_name || currentUser?.first_name || 'Employee',
+          last_name: user?.last_name || currentUser?.last_name || 'User',
+          email: user?.email || currentUser?.email || 'employee@company.com',
           department: 'General',
           position: 'Employee',
           hire_date: new Date().toISOString(),
@@ -103,9 +112,9 @@ export default function EmployeeProfilePage() {
       const mockProfile: EmployeeProfile = {
         id: id,
         employee_id: `EMP${id}`,
-        first_name: currentUser?.first_name || 'Employee',
-        last_name: currentUser?.last_name || 'User',
-        email: currentUser?.email || 'employee@company.com',
+        first_name: user?.first_name || currentUser?.first_name || 'Employee',
+        last_name: user?.last_name || currentUser?.last_name || 'User',
+        email: user?.email || currentUser?.email || 'employee@company.com',
         department: 'General',
         position: 'Employee',
         hire_date: new Date().toISOString(),
@@ -123,10 +132,13 @@ export default function EmployeeProfilePage() {
   }
 
   const fetchAvailability = async (id: string) => {
+    console.log('Fetching availability for ID:', id)
     try {
       const response = await fetch(`/api/employees/${id}/availability`)
+      console.log('Availability API response status:', response.status)
       if (response.ok) {
         const data = await response.json()
+        console.log('Availability API response data:', data)
         setAvailability(data.availability || [])
         setTempAvailability(data.availability || [])
       } else {
@@ -308,7 +320,7 @@ export default function EmployeeProfilePage() {
                     <div className="relative">
                       <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                         <span className="text-3xl font-semibold text-gray-600">
-                          {profile ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase() : 'U'}
+                          {profile && profile.first_name && profile.last_name ? `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase() : 'U'}
                         </span>
                       </div>
                       {isEditing && (
@@ -329,10 +341,10 @@ export default function EmployeeProfilePage() {
                       />
                     </div>
                     <div>
-                      <h1 className="text-3xl font-bold">{profile ? `${profile.first_name} ${profile.last_name}` : 'Loading...'}</h1>
+                      <h1 className="text-3xl font-bold">{profile && profile.first_name && profile.last_name ? `${profile.first_name} ${profile.last_name}` : 'Loading...'}</h1>
                       <p className="text-lg text-gray-600">{profile?.position || 'Loading...'}</p>
                       <p className="text-gray-600">{profile?.department || 'Loading...'}</p>
-                      <p className="text-sm text-gray-500">Started: {profile ? new Date(profile.hire_date).toLocaleDateString() : 'Loading...'}</p>
+                      <p className="text-sm text-gray-500">Started: {profile && profile.hire_date ? new Date(profile.hire_date).toLocaleDateString() : 'Loading...'}</p>
                     </div>
                   </div>
                   <div className="flex space-x-2">

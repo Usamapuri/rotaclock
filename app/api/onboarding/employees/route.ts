@@ -1,59 +1,36 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { query } from "@/lib/database"
 
 export async function GET() {
   try {
-    const supabase = createServerSupabaseClient()
+    const employeesResult = await query(`
+      SELECT * FROM employees
+      WHERE is_active = true
+      ORDER BY created_at DESC
+    `)
 
-    const { data: employees, error } = await supabase
-      .from("employees")
-      .select("*")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Error fetching employees:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ employees })
+    return NextResponse.json({ employees: employeesResult.rows })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    console.error("Error fetching employees:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
     const body = await request.json()
 
     const { employee_id, first_name, last_name, email, department, position, hire_date, manager_id } = body
 
-    const { data: employee, error } = await supabase
-      .from("employees")
-      .insert({
-        employee_id,
-        first_name,
-        last_name,
-        email,
-        department,
-        position,
-        hire_date,
-        manager_id,
-        is_active: true,
-      })
-      .select()
-      .single()
+    const employeeResult = await query(`
+      INSERT INTO employees (employee_id, first_name, last_name, email, department, position, hire_date, manager_id, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    `, [employee_id, first_name, last_name, email, department, position, hire_date, manager_id, true])
 
-    if (error) {
-      console.error("Error creating employee:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ employee })
+    return NextResponse.json({ employee: employeeResult.rows[0] })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    console.error("Error creating employee:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

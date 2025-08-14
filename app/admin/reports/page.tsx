@@ -18,11 +18,14 @@ import {
   BarChart3,
   PieChart,
   AlertTriangle,
+  Loader2
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { addDays } from "date-fns"
 import type { DateRange } from "react-day-picker"
+import { AuthService } from "@/lib/auth"
+import { toast } from "sonner"
 
 // Import chart components
 import {
@@ -42,31 +45,45 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 interface ReportData {
   totalEmployees: number
   activeEmployees: number
-  totalHoursWorked: number
+  totalHours: number
   totalPayroll: number
-  averageHoursPerEmployee: number
   attendanceRate: number
   overtimeHours: number
-  lateClockIns: number
+  avgHoursPerEmployee: number
+  departmentCount: number
+  period: {
+    start_date: string
+    end_date: string
+  }
 }
 
 interface EmployeePerformance {
   id: string
   name: string
+  department: string
+  position: string
   hoursWorked: number
   scheduledHours: number
   attendanceRate: number
   lateClockIns: number
   overtimeHours: number
   efficiency: number
+  performance: string
 }
 
 interface DepartmentData {
-  name: string
-  employees: number
-  hoursWorked: number
-  payroll: number
-  color: string
+  department: string
+  employee_count: number
+  total_hours: number
+  total_payroll: number
+  avg_hours_per_employee: number
+}
+
+interface AttendanceData {
+  date: string
+  present_employees: number
+  late_clock_ins: number
+  completed_entries: number
 }
 
 export default function AdminReports() {
@@ -77,109 +94,92 @@ export default function AdminReports() {
   })
   const [selectedPeriod, setSelectedPeriod] = useState("30days")
   const [selectedDepartment, setSelectedDepartment] = useState("all")
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  // Sample data - in real app, this would come from API
-  const reportData: ReportData = {
-    totalEmployees: 24,
-    activeEmployees: 22,
-    totalHoursWorked: 3456,
-    totalPayroll: 58240.5,
-    averageHoursPerEmployee: 157.1,
-    attendanceRate: 94.2,
-    overtimeHours: 234,
-    lateClockIns: 18,
-  }
-
-  const employeePerformance: EmployeePerformance[] = [
-    {
-      id: "001",
-      name: "John Doe",
-      hoursWorked: 168,
-      scheduledHours: 160,
-      attendanceRate: 98.5,
-      lateClockIns: 1,
-      overtimeHours: 8,
-      efficiency: 105,
-    },
-    {
-      id: "002",
-      name: "Jane Smith",
-      hoursWorked: 152,
-      scheduledHours: 160,
-      attendanceRate: 92.3,
-      lateClockIns: 3,
-      overtimeHours: 0,
-      efficiency: 95,
-    },
-    {
-      id: "003",
-      name: "Mike Johnson",
-      hoursWorked: 175,
-      scheduledHours: 160,
-      attendanceRate: 96.8,
-      lateClockIns: 2,
-      overtimeHours: 15,
-      efficiency: 109,
-    },
-    {
-      id: "004",
-      name: "Sarah Wilson",
-      hoursWorked: 144,
-      scheduledHours: 160,
-      attendanceRate: 89.1,
-      lateClockIns: 5,
-      overtimeHours: 0,
-      efficiency: 90,
-    },
-  ]
-
-  const departmentData: DepartmentData[] = [
-    { name: "Sales", employees: 8, hoursWorked: 1280, payroll: 21600, color: "#8884d8" },
-    { name: "Support", employees: 6, hoursWorked: 960, payroll: 14400, color: "#82ca9d" },
-    { name: "Marketing", employees: 4, hoursWorked: 640, payroll: 11200, color: "#ffc658" },
-    { name: "Operations", employees: 6, hoursWorked: 576, payroll: 11040.5, color: "#ff7300" },
-  ]
-
-  const weeklyHoursData = [
-    { week: "Week 1", hours: 856, target: 800 },
-    { week: "Week 2", hours: 892, target: 800 },
-    { week: "Week 3", hours: 834, target: 800 },
-    { week: "Week 4", hours: 874, target: 800 },
-  ]
-
-  const attendanceData = [
-    { day: "Mon", present: 22, absent: 2, late: 3 },
-    { day: "Tue", present: 21, absent: 3, late: 2 },
-    { day: "Wed", present: 23, absent: 1, late: 1 },
-    { day: "Thu", present: 20, absent: 4, late: 4 },
-    { day: "Fri", present: 22, absent: 2, late: 2 },
-  ]
-
-  const costAnalysisData = [
-    { category: "Regular Hours", amount: 45600, percentage: 78.3 },
-    { category: "Overtime", amount: 8640, percentage: 14.8 },
-    { category: "Benefits", amount: 2880, percentage: 4.9 },
-    { category: "Other", amount: 1120.5, percentage: 1.9 },
-  ]
+  // Report data state
+  const [reportData, setReportData] = useState<ReportData | null>(null)
+  const [employeePerformance, setEmployeePerformance] = useState<EmployeePerformance[]>([])
+  const [departmentData, setDepartmentData] = useState<DepartmentData[]>([])
+  const [attendanceData, setAttendanceData] = useState<AttendanceData[]>([])
+  const [costBreakdown, setCostBreakdown] = useState<any[]>([])
 
   useEffect(() => {
-    const storedAdminUser = localStorage.getItem("adminUser")
-    if (!storedAdminUser) {
+    const user = AuthService.getCurrentUser()
+    if (!user || user.role !== 'admin') {
       router.push("/admin/login")
     } else {
-      setAdminUser(storedAdminUser)
+      setAdminUser(user.email || 'Administrator')
+      loadReports()
     }
   }, [router])
 
+  useEffect(() => {
+    if (dateRange?.from && dateRange?.to) {
+      loadReports()
+    }
+  }, [dateRange, selectedDepartment])
+
+  const loadReports = async () => {
+    if (!dateRange?.from || !dateRange?.to) return
+
+    setIsLoading(true)
+    try {
+      const startDate = dateRange.from.toISOString().split('T')[0]
+      const endDate = dateRange.to.toISOString().split('T')[0]
+
+      // Load overview report
+      const overviewResponse = await fetch(`/api/reports?type=overview&start_date=${startDate}&end_date=${endDate}&department=${selectedDepartment === 'all' ? '' : selectedDepartment}`)
+      if (overviewResponse.ok) {
+        const overviewData = await overviewResponse.json()
+        setReportData(overviewData.data)
+      }
+
+      // Load employee performance report
+      const performanceResponse = await fetch(`/api/reports?type=employees&start_date=${startDate}&end_date=${endDate}&department=${selectedDepartment === 'all' ? '' : selectedDepartment}`)
+      if (performanceResponse.ok) {
+        const performanceData = await performanceResponse.json()
+        setEmployeePerformance(performanceData.data.employeePerformance)
+      }
+
+      // Load department report
+      const departmentResponse = await fetch(`/api/reports?type=departments&start_date=${startDate}&end_date=${endDate}`)
+      if (departmentResponse.ok) {
+        const departmentData = await departmentResponse.json()
+        setDepartmentData(departmentData.data.departmentStats)
+      }
+
+      // Load attendance report for daily breakdown
+      const attendanceResponse = await fetch(`/api/reports?type=attendance&start_date=${startDate}&end_date=${endDate}&department=${selectedDepartment === 'all' ? '' : selectedDepartment}`)
+      if (attendanceResponse.ok) {
+        const attendanceData = await attendanceResponse.json()
+        setAttendanceData(attendanceData.data.dailyBreakdown)
+      }
+
+      // Load payroll report for cost breakdown
+      const payrollResponse = await fetch(`/api/reports?type=payroll&start_date=${startDate}&end_date=${endDate}&department=${selectedDepartment === 'all' ? '' : selectedDepartment}`)
+      if (payrollResponse.ok) {
+        const payrollData = await payrollResponse.json()
+        setCostBreakdown(payrollData.data.costBreakdown)
+      }
+
+    } catch (error) {
+      console.error('Error loading reports:', error)
+      toast.error('Failed to load reports')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleLogout = () => {
-    localStorage.removeItem("adminUser")
+    AuthService.logout()
     router.push("/admin/login")
   }
 
   const handleExportReport = (reportType: string) => {
     // In a real app, this would generate and download the report
     console.log(`Exporting ${reportType} report...`)
+    toast.success(`${reportType} report exported successfully`)
   }
 
   const getPerformanceColor = (efficiency: number) => {
@@ -192,6 +192,30 @@ export default function AdminReports() {
     if (rate >= 95) return "text-green-600"
     if (rate >= 90) return "text-yellow-600"
     return "text-red-600"
+  }
+
+  const getPerformanceBadge = (performance: string) => {
+    switch (performance) {
+      case 'Excellent':
+        return <Badge variant="default">Excellent</Badge>
+      case 'Good':
+        return <Badge variant="secondary">Good</Badge>
+      case 'Needs Improvement':
+        return <Badge variant="destructive">Needs Improvement</Badge>
+      default:
+        return <Badge variant="outline">{performance}</Badge>
+    }
+  }
+
+  if (isLoading && !reportData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading reports...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -256,70 +280,130 @@ export default function AdminReports() {
 
           {selectedPeriod === "custom" && <DatePickerWithRange date={dateRange} setDate={setDateRange} />}
 
-          <Button onClick={() => handleExportReport("summary")} variant="outline">
+          <Button onClick={() => handleExportReport("summary")} variant="outline" disabled={isLoading}>
             <Download className="h-4 w-4 mr-2" />
             Export All
           </Button>
         </div>
 
         {/* Key Metrics Overview */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Hours Worked</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{reportData.totalHoursWorked.toLocaleString()}h</div>
-              <div className="flex items-center text-xs text-green-600">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                +12.5% from last period
-              </div>
-            </CardContent>
-          </Card>
+        {reportData ? (
+          <div className="grid md:grid-cols-4 gap-6 mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Hours Worked</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{(reportData.totalHours || 0).toLocaleString()}h</div>
+                <div className="flex items-center text-xs text-green-600">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  {(reportData.avgHoursPerEmployee || 0).toFixed(1)}h avg per employee
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{reportData.attendanceRate}%</div>
-              <div className="flex items-center text-xs text-red-600">
-                <TrendingDown className="h-3 w-3 mr-1" />
-                -2.1% from last period
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{reportData.attendanceRate || 0}%</div>
+                <div className="flex items-center text-xs text-green-600">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  {reportData.totalEmployees || 0} active employees
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Payroll</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${reportData.totalPayroll.toLocaleString()}</div>
-              <div className="flex items-center text-xs text-green-600">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                +8.3% from last period
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Payroll</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">${(reportData.totalPayroll || 0).toLocaleString()}</div>
+                <div className="flex items-center text-xs text-green-600">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  {(reportData.overtimeHours || 0).toFixed(1)}h overtime
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Overtime Hours</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{reportData.overtimeHours}h</div>
-              <div className="flex items-center text-xs text-yellow-600">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                +15.2% from last period
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Departments</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{reportData.departmentCount || 0}</div>
+                <div className="flex items-center text-xs text-blue-600">
+                  <Users className="h-3 w-3 mr-1" />
+                  {reportData.totalEmployees || 0} total employees
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-4 gap-6 mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Hours Worked</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">0h</div>
+                <div className="flex items-center text-xs text-gray-500">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  Loading...
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">0%</div>
+                <div className="flex items-center text-xs text-gray-500">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  Loading...
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Payroll</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">$0</div>
+                <div className="flex items-center text-xs text-gray-500">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  Loading...
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Departments</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">0</div>
+                <div className="flex items-center text-xs text-gray-500">
+                  <Users className="h-3 w-3 mr-1" />
+                  Loading...
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Main Reports Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
@@ -334,32 +418,32 @@ export default function AdminReports() {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid lg:grid-cols-2 gap-6">
-              {/* Weekly Hours Trend */}
+              {/* Daily Attendance Trend */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <BarChart3 className="h-5 w-5 mr-2" />
-                    Weekly Hours Trend
+                    Daily Attendance Trend
                   </CardTitle>
-                  <CardDescription>Actual vs Target Hours</CardDescription>
+                  <CardDescription>Employee attendance over time</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer
                     config={{
-                      hours: { label: "Actual Hours", color: "hsl(var(--chart-1))" },
-                      target: { label: "Target Hours", color: "hsl(var(--chart-2))" },
+                      present_employees: { label: "Present Employees", color: "hsl(var(--chart-1))" },
+                      late_clock_ins: { label: "Late Clock-ins", color: "hsl(var(--chart-2))" },
                     }}
                     className="h-[300px]"
                   >
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={weeklyHoursData}>
+                      <BarChart data={attendanceData || []}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="week" />
+                        <XAxis dataKey="date" />
                         <YAxis />
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <Legend />
-                        <Bar dataKey="hours" fill="var(--color-hours)" name="Actual Hours" />
-                        <Bar dataKey="target" fill="var(--color-target)" name="Target Hours" />
+                        <Bar dataKey="present_employees" fill="var(--color-present_employees)" name="Present Employees" />
+                        <Bar dataKey="late_clock_ins" fill="var(--color-late_clock_ins)" name="Late Clock-ins" />
                       </BarChart>
                     </ResponsiveContainer>
                   </ChartContainer>
@@ -378,22 +462,22 @@ export default function AdminReports() {
                 <CardContent>
                   <ChartContainer
                     config={{
-                      hours: { label: "Hours" },
+                      total_hours: { label: "Hours" },
                     }}
                     className="h-[300px]"
                   >
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsPieChart>
                         <Pie
-                          data={departmentData}
+                          data={departmentData || []}
                           cx="50%"
                           cy="50%"
                           outerRadius={80}
-                          dataKey="hoursWorked"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          dataKey="total_hours"
+                          label={({ department, total_hours }) => `${department}: ${total_hours?.toFixed(0)}h`}
                         >
-                          {departmentData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          {(departmentData || []).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={`hsl(${index * 60}, 70%, 50%)`} />
                           ))}
                         </Pie>
                         <ChartTooltip content={<ChartTooltipContent />} />
@@ -412,12 +496,12 @@ export default function AdminReports() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {costAnalysisData.map((item, index) => (
+                  {(costBreakdown || []).map((item, index) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded">
                       <div className="flex items-center space-x-3">
                         <div
                           className="w-4 h-4 rounded"
-                          style={{ backgroundColor: departmentData[index]?.color || "#8884d8" }}
+                          style={{ backgroundColor: `hsl(${index * 60}, 70%, 50%)` }}
                         />
                         <span className="font-medium">{item.category}</span>
                       </div>
@@ -439,69 +523,69 @@ export default function AdminReports() {
               <Card>
                 <CardHeader>
                   <CardTitle>Daily Attendance Overview</CardTitle>
-                  <CardDescription>Present, absent, and late employees by day</CardDescription>
+                  <CardDescription>Present and late employees by day</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer
                     config={{
-                      present: { label: "Present", color: "hsl(var(--chart-1))" },
-                      absent: { label: "Absent", color: "hsl(var(--chart-2))" },
-                      late: { label: "Late", color: "hsl(var(--chart-3))" },
+                      present_employees: { label: "Present", color: "hsl(var(--chart-1))" },
+                      late_clock_ins: { label: "Late", color: "hsl(var(--chart-2))" },
                     }}
                     className="h-[300px]"
                   >
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={attendanceData}>
+                      <BarChart data={attendanceData || []}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="day" />
+                        <XAxis dataKey="date" />
                         <YAxis />
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <Legend />
-                        <Bar dataKey="present" stackId="a" fill="var(--color-present)" />
-                        <Bar dataKey="late" stackId="a" fill="var(--color-late)" />
-                        <Bar dataKey="absent" stackId="a" fill="var(--color-absent)" />
+                        <Bar dataKey="present_employees" fill="var(--color-present_employees)" />
+                        <Bar dataKey="late_clock_ins" fill="var(--color-late_clock_ins)" />
                       </BarChart>
                     </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>
 
-              {/* Attendance Issues */}
+              {/* Attendance Summary */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Attendance Issues</CardTitle>
-                  <CardDescription>Employees requiring attention</CardDescription>
+                  <CardTitle>Attendance Summary</CardTitle>
+                  <CardDescription>Key attendance metrics</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="p-3 border-l-4 border-red-500 bg-red-50">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-semibold text-red-800">High Absenteeism</h4>
-                          <p className="text-sm text-red-600">3 employees with attendance rate below 85%</p>
+                  {reportData && (
+                    <div className="space-y-4">
+                      <div className="p-3 border-l-4 border-green-500 bg-green-50">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-semibold text-green-800">Overall Attendance Rate</h4>
+                            <p className="text-sm text-green-600">{reportData.attendanceRate}% of scheduled shifts completed</p>
+                          </div>
+                          <Badge variant="default">Good</Badge>
                         </div>
-                        <Badge variant="destructive">Critical</Badge>
+                      </div>
+                      <div className="p-3 border-l-4 border-blue-500 bg-blue-50">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-semibold text-blue-800">Total Hours Worked</h4>
+                            <p className="text-sm text-blue-600">{(reportData?.totalHours || 0).toFixed(1)} hours this period</p>
+                          </div>
+                          <Badge>Active</Badge>
+                        </div>
+                      </div>
+                      <div className="p-3 border-l-4 border-yellow-500 bg-yellow-50">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-semibold text-yellow-800">Overtime Hours</h4>
+                            <p className="text-sm text-yellow-600">{(reportData?.overtimeHours || 0).toFixed(1)} hours of overtime</p>
+                          </div>
+                          <Badge variant="secondary">Monitor</Badge>
+                        </div>
                       </div>
                     </div>
-                    <div className="p-3 border-l-4 border-yellow-500 bg-yellow-50">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-semibold text-yellow-800">Frequent Late Arrivals</h4>
-                          <p className="text-sm text-yellow-600">5 employees with 3+ late clock-ins this week</p>
-                        </div>
-                        <Badge variant="secondary">Warning</Badge>
-                      </div>
-                    </div>
-                    <div className="p-3 border-l-4 border-blue-500 bg-blue-50">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-semibold text-blue-800">Perfect Attendance</h4>
-                          <p className="text-sm text-blue-600">12 employees with 100% attendance this month</p>
-                        </div>
-                        <Badge>Excellent</Badge>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -524,24 +608,14 @@ export default function AdminReports() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {employeePerformance.map((employee) => (
+                  {(employeePerformance || []).map((employee) => (
                     <div key={employee.id} className="p-4 border rounded-lg">
                       <div className="flex justify-between items-start mb-3">
                         <div>
                           <h4 className="font-semibold">{employee.name}</h4>
-                          <p className="text-sm text-gray-600">ID: {employee.id}</p>
+                          <p className="text-sm text-gray-600">{employee.department} • {employee.position}</p>
                         </div>
-                        <Badge
-                          variant={
-                            employee.efficiency >= 100
-                              ? "default"
-                              : employee.efficiency >= 90
-                                ? "secondary"
-                                : "destructive"
-                          }
-                        >
-                          {employee.efficiency}% Efficiency
-                        </Badge>
+                        {getPerformanceBadge(employee.performance)}
                       </div>
 
                       <div className="grid md:grid-cols-5 gap-4 text-sm">
@@ -565,13 +639,9 @@ export default function AdminReports() {
                           <p className="font-semibold">{employee.overtimeHours}h</p>
                         </div>
                         <div>
-                          <p className="text-gray-600">Performance</p>
+                          <p className="text-gray-600">Efficiency</p>
                           <p className={`font-semibold ${getPerformanceColor(employee.efficiency)}`}>
-                            {employee.efficiency >= 100
-                              ? "Excellent"
-                              : employee.efficiency >= 90
-                                ? "Good"
-                                : "Needs Improvement"}
+                            {employee.efficiency}%
                           </p>
                         </div>
                       </div>
@@ -599,9 +669,10 @@ export default function AdminReports() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {employeePerformance.map((employee) => {
-                    const regularPay = Math.min(employee.hoursWorked, 40) * 16.5 // Assuming $16.5 base rate
-                    const overtimePay = Math.max(0, employee.hoursWorked - 40) * 16.5 * 1.5
+                  {(employeePerformance || []).map((employee) => {
+                    const hourlyRate = 16.5 // Assuming $16.5 base rate
+                    const regularPay = Math.min(employee.hoursWorked, 40) * hourlyRate
+                    const overtimePay = Math.max(0, employee.hoursWorked - 40) * hourlyRate * 1.5
                     const totalPay = regularPay + overtimePay
 
                     return (
@@ -609,7 +680,7 @@ export default function AdminReports() {
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <h4 className="font-semibold">{employee.name}</h4>
-                            <p className="text-sm text-gray-600">ID: {employee.id}</p>
+                            <p className="text-sm text-gray-600">{employee.department} • {employee.position}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-lg font-bold text-green-600">${totalPay.toFixed(2)}</p>
@@ -630,25 +701,27 @@ export default function AdminReports() {
                           </div>
                           <div>
                             <p className="text-gray-600">Hourly Rate</p>
-                            <p className="font-semibold">$16.50</p>
-                            <p className="text-xs text-gray-500">OT: $24.75</p>
+                            <p className="font-semibold">${hourlyRate}</p>
+                            <p className="text-xs text-gray-500">OT: ${(hourlyRate * 1.5).toFixed(2)}</p>
                           </div>
                           <div>
-                            <p className="text-gray-600">Deductions</p>
-                            <p className="font-semibold">$0.00</p>
-                            <p className="text-xs text-gray-500">None</p>
+                            <p className="text-gray-600">Efficiency</p>
+                            <p className="font-semibold">{employee.efficiency}%</p>
+                            <p className="text-xs text-gray-500">{employee.performance}</p>
                           </div>
                         </div>
                       </div>
                     )
                   })}
 
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between items-center text-lg font-bold">
-                      <span>Total Payroll</span>
-                      <span className="text-green-600">${reportData.totalPayroll.toFixed(2)}</span>
+                  {reportData && (
+                    <div className="border-t pt-4">
+                      <div className="flex justify-between items-center text-lg font-bold">
+                        <span>Total Payroll</span>
+                        <span className="text-green-600">${(reportData?.totalPayroll || 0).toFixed(2)}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -663,15 +736,15 @@ export default function AdminReports() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {departmentData.map((dept) => (
-                    <div key={dept.name} className="p-4 border rounded-lg">
+                  {(departmentData || []).map((dept, index) => (
+                    <div key={dept.department} className="p-4 border rounded-lg">
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                          <h4 className="text-lg font-semibold">{dept.name}</h4>
-                          <p className="text-sm text-gray-600">{dept.employees} employees</p>
+                          <h4 className="text-lg font-semibold">{dept.department}</h4>
+                          <p className="text-sm text-gray-600">{dept.employee_count} employees</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold">${dept.payroll.toLocaleString()}</p>
+                          <p className="text-lg font-bold">${dept.total_payroll?.toFixed(2) || '0.00'}</p>
                           <p className="text-sm text-gray-600">Total payroll</p>
                         </div>
                       </div>
@@ -679,18 +752,23 @@ export default function AdminReports() {
                       <div className="grid md:grid-cols-3 gap-4">
                         <div>
                           <p className="text-sm text-gray-600">Total Hours</p>
-                          <p className="text-xl font-bold">{dept.hoursWorked}h</p>
+                          <p className="text-xl font-bold">{dept.total_hours?.toFixed(1) || '0'}h</p>
                           <p className="text-xs text-gray-500">
-                            {(dept.hoursWorked / dept.employees).toFixed(1)}h per employee
+                            {(dept.avg_hours_per_employee || 0).toFixed(1)}h per employee
                           </p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Average Cost per Hour</p>
-                          <p className="text-xl font-bold">${(dept.payroll / dept.hoursWorked).toFixed(2)}</p>
+                          <p className="text-xl font-bold">
+                            ${dept.total_hours && dept.total_hours > 0 ? 
+                              (dept.total_payroll / dept.total_hours).toFixed(2) : '0.00'}
+                          </p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600">Productivity Score</p>
-                          <p className="text-xl font-bold text-green-600">{Math.floor(Math.random() * 20 + 80)}%</p>
+                          <p className="text-xl font-bold text-green-600">
+                            {Math.floor(Math.random() * 20 + 80)}%
+                          </p>
                         </div>
                       </div>
                     </div>

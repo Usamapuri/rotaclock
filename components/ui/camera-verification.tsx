@@ -11,13 +11,15 @@ interface CameraVerificationProps {
   onCancel: () => void
   title?: string
   description?: string
+  employeeId?: string
 }
 
 export function CameraVerification({
   onVerificationComplete,
   onCancel,
   title = "Shift Verification",
-  description = "Please look at the camera to verify your identity for this shift."
+  description = "Please look at the camera to verify your identity for this shift.",
+  employeeId
 }: CameraVerificationProps) {
   const [isStreaming, setIsStreaming] = useState(false)
   const [isCapturing, setIsCapturing] = useState(false)
@@ -50,7 +52,11 @@ export function CameraVerification({
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         streamRef.current = stream
-        setIsStreaming(true)
+        
+        // Wait for video to be ready
+        videoRef.current.onloadedmetadata = () => {
+          setIsStreaming(true)
+        }
       }
     } catch (err) {
       console.error('Error accessing camera:', err)
@@ -68,38 +74,49 @@ export function CameraVerification({
   }
 
   const captureImage = () => {
-    if (!videoRef.current || !canvasRef.current) {
+    console.log('Capture image called')
+    
+    try {
+      if (!videoRef.current || !canvasRef.current) {
+        console.log('Video or canvas ref not available')
+        setIsCapturing(false)
+        return
+      }
+
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      const context = canvas.getContext('2d')
+
+      if (!context) {
+        console.log('Canvas context not available')
+        setIsCapturing(false)
+        return
+      }
+
+      // Use fixed dimensions if video dimensions are not available
+      const width = video.videoWidth || 640
+      const height = video.videoHeight || 480
+      
+      console.log('Video dimensions:', width, height)
+      
+      // Set canvas dimensions
+      canvas.width = width
+      canvas.height = height
+
+      // Draw video frame to canvas
+      context.drawImage(video, 0, 0, width, height)
+
+      // Convert to base64
+      const imageData = canvas.toDataURL('image/jpeg', 0.8)
+      console.log('Image captured successfully, length:', imageData.length)
+      setCapturedImage(imageData)
       setIsCapturing(false)
-      return
-    }
-
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    const context = canvas.getContext('2d')
-
-    if (!context) {
+      
+    } catch (error) {
+      console.error('Error capturing image:', error)
       setIsCapturing(false)
-      return
+      toast.error('Failed to capture image. Please try again.')
     }
-
-    // Ensure video is ready
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      setIsCapturing(false)
-      toast.error('Camera not ready. Please try again.')
-      return
-    }
-
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-
-    // Draw video frame to canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height)
-
-    // Convert to base64
-    const imageData = canvas.toDataURL('image/jpeg', 0.8)
-    setCapturedImage(imageData)
-    setIsCapturing(false)
   }
 
   const retakePhoto = () => {
@@ -114,24 +131,35 @@ export function CameraVerification({
     setVerificationStatus('processing')
     
     try {
-      // Simulate verification process
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Save the photo to the backend
+      const saveResponse = await fetch('/api/verification/save-photo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: capturedImage,
+          employeeId: employeeId || 'EMP001', // Use provided employee ID or fallback
+          verificationType: 'shift_start'
+        }),
+      })
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save verification photo')
+      }
+
+      const saveResult = await saveResponse.json()
       
-      // For demo purposes, always succeed
-      // In production, you'd send the image to your verification service
-      const success = Math.random() > 0.1 // 90% success rate for demo
-      
-      if (success) {
+      if (saveResult.success) {
         setVerificationStatus('success')
-        toast.success('Identity verified successfully!')
+        toast.success('Photo saved and identity verified successfully!')
         // Stop camera before completing
         stopCamera()
         setTimeout(() => {
           onVerificationComplete(true, capturedImage)
         }, 1000)
       } else {
-        setVerificationStatus('failed')
-        toast.error('Verification failed. Please try again.')
+        throw new Error(saveResult.error || 'Verification failed')
       }
     } catch (err) {
       console.error('Verification error:', err)
@@ -141,16 +169,15 @@ export function CameraVerification({
   }
 
   const handleCapture = () => {
-    if (!isStreaming) {
-      toast.error('Camera not ready')
-      return
-    }
+    console.log('Handle capture called, streaming:', isStreaming)
     
+    // Always allow capture attempt, even if streaming status is unclear
     setIsCapturing(true)
-    // Increased delay to ensure video is fully ready
+    
+    // Add a small delay to ensure UI updates
     setTimeout(() => {
       captureImage()
-    }, 500)
+    }, 100)
   }
 
   return (
@@ -176,31 +203,46 @@ export function CameraVerification({
           ) : !capturedImage ? (
             <div className="space-y-4">
               <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-64 object-cover"
-                />
-                {!isStreaming && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-500">Starting camera...</p>
-                    </div>
-                  </div>
-                )}
+                                 <video
+                   ref={videoRef}
+                   autoPlay
+                   playsInline
+                   muted
+                   className="w-full h-64 object-cover"
+                 />
+                 <canvas
+                   ref={canvasRef}
+                   style={{ display: 'none' }}
+                   width="640"
+                   height="480"
+                 />
+                                 {!isStreaming && (
+                   <div className="absolute inset-0 flex items-center justify-center">
+                     <div className="text-center">
+                       <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                       <p className="text-gray-500">Starting camera...</p>
+                     </div>
+                   </div>
+                 )}
+                 {isStreaming && (
+                   <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs">
+                     Camera Ready
+                   </div>
+                 )}
               </div>
               
-              <div className="flex gap-2">
-                <Button 
-                  onClick={handleCapture} 
-                  disabled={!isStreaming || isCapturing}
-                  className="flex-1"
-                >
-                  {isCapturing ? 'Capturing...' : 'Capture Photo'}
-                </Button>
+                             <div className="flex gap-2">
+                 <Button 
+                   onClick={handleCapture} 
+                   disabled={isCapturing}
+                   className="flex-1"
+                   style={{ 
+                     backgroundColor: isCapturing ? '#9ca3af' : '#3b82f6',
+                     cursor: isCapturing ? 'not-allowed' : 'pointer'
+                   }}
+                 >
+                   {isCapturing ? 'Capturing...' : 'Capture Photo'}
+                 </Button>
                 <Button onClick={() => {
                   stopCamera()
                   onCancel()

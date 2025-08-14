@@ -18,7 +18,7 @@ interface Message {
   timestamp: string
   read: boolean
   type: "announcement" | "schedule" | "personal" | "urgent"
-  priority: "low" | "normal" | "high" | "urgent"
+  priority: string
 }
 
 interface TeamMessagingProps {
@@ -59,7 +59,7 @@ export function TeamMessaging({ userRole, userId }: TeamMessagingProps) {
     subject: "",
     content: "",
     type: "personal" as const,
-    priority: "normal" as const,
+    priority: "normal" as string,
   })
 
   const handleSendMessage = () => {
@@ -163,7 +163,7 @@ export function TeamMessaging({ userRole, userId }: TeamMessagingProps) {
                   <label className="block text-sm font-medium mb-1">Priority</label>
                   <Select
                     value={newMessage.priority}
-                    onValueChange={(value: "low" | "normal" | "high" | "urgent") =>
+                    onValueChange={(value: string) =>
                       setNewMessage({ ...newMessage, priority: value })
                     }
                   >

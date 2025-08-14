@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { query, getEmployees, createEmployee, updateEmployee, deleteEmployee } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
 
@@ -15,7 +15,8 @@ const createEmployeeSchema = z.object({
   manager_id: z.string().uuid().optional(),
   hourly_rate: z.number().positive().optional(),
   max_hours_per_week: z.number().positive().optional(),
-  is_active: z.boolean().default(true)
+  is_active: z.boolean().default(true),
+  password: z.string().optional()
 })
 
 const updateEmployeeSchema = createEmployeeSchema.partial()
@@ -26,15 +27,6 @@ const updateEmployeeSchema = createEmployeeSchema.partial()
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
-    // Use demo authentication
-    const authMiddleware = createApiAuthMiddleware()
-    const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const department = searchParams.get('department')
@@ -42,46 +34,29 @@ export async function GET(request: NextRequest) {
     const position = searchParams.get('position')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
-    const offset = (page - 1) * limit
 
-    // Build query
-    let query = supabase
-      .from('employees')
-      .select(`
-        *,
-        manager:employees!manager_id(*)
-      `, { count: 'exact' })
+    // Build filters
+    const filters: any = {}
+    if (department) filters.department = department
+    if (is_active !== null) filters.is_active = is_active === 'true'
+    if (position) filters.position = position
 
-    // Apply filters
-    if (department) {
-      query = query.eq('department', department)
-    }
-    if (is_active !== null) {
-      query = query.eq('is_active', is_active === 'true')
-    }
-    if (position) {
-      query = query.eq('position', position)
-    }
+    // Get employees
+    const employees = await getEmployees(filters)
 
     // Apply pagination
-    query = query
-      .order('first_name')
-      .range(offset, offset + limit - 1)
-
-    const { data: employees, error, count } = await query
-
-    if (error) {
-      console.error('Error fetching employees:', error)
-      return NextResponse.json({ error: 'Failed to fetch employees' }, { status: 500 })
-    }
+    const total = employees.length
+    const startIndex = (page - 1) * limit
+    const endIndex = startIndex + limit
+    const paginatedEmployees = employees.slice(startIndex, endIndex)
 
     return NextResponse.json({
-      data: employees,
+      data: paginatedEmployees,
       pagination: {
         page,
         limit,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit)
+        total,
+        totalPages: Math.ceil(total / limit)
       }
     })
 
@@ -97,60 +72,51 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    console.log('POST /api/employees - Request received')
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
     if (!isAuthenticated) {
+      console.log('Authentication failed')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // For demo purposes, allow admin access
     if (user.role !== 'admin') {
+      console.log('User is not admin:', user.role)
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
     // Parse and validate request body
     const body = await request.json()
+    console.log('Request body:', body)
+    
     const validatedData = createEmployeeSchema.parse(body)
+    console.log('Validated data:', validatedData)
 
     // Check if employee_id already exists
-    const { data: existingEmployee } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('employee_id', validatedData.employee_id)
-      .single()
+    const existingEmployeeResult = await query(
+      'SELECT id FROM employees WHERE employee_id = $1',
+      [validatedData.employee_id]
+    )
 
-    if (existingEmployee) {
+    if (existingEmployeeResult.rows.length > 0) {
       return NextResponse.json({ error: 'Employee ID already exists' }, { status: 409 })
     }
 
     // Check if email already exists
-    const { data: existingEmail } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('email', validatedData.email)
-      .single()
+    const existingEmailResult = await query(
+      'SELECT id FROM employees WHERE email = $1',
+      [validatedData.email]
+    )
 
-    if (existingEmail) {
+    if (existingEmailResult.rows.length > 0) {
       return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
     }
 
     // Create employee
-    const { data: employee, error } = await supabase
-      .from('employees')
-      .insert(validatedData)
-      .select(`
-        *,
-        manager:employees!manager_id(*)
-      `)
-      .single()
-
-    if (error) {
-      console.error('Error creating employee:', error)
-      return NextResponse.json({ error: 'Failed to create employee' }, { status: 500 })
-    }
+    const employee = await createEmployee(validatedData)
 
     return NextResponse.json({ 
       data: employee,
@@ -166,6 +132,101 @@ export async function POST(request: NextRequest) {
     }
 
     console.error('Error in POST /api/employees:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+/**
+ * PUT /api/employees
+ * Update an employee
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // For demo purposes, allow admin access
+    if (user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const { id, ...updateData } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 })
+    }
+
+    // Validate update data
+    const validatedData = updateEmployeeSchema.parse(updateData)
+
+    // Update employee
+    const employee = await updateEmployee(id, validatedData)
+
+    return NextResponse.json({ 
+      data: employee,
+      message: 'Employee updated successfully' 
+    })
+
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ 
+        error: 'Validation error', 
+        details: error.errors 
+      }, { status: 400 })
+    }
+
+    if (error instanceof Error && error.message === 'Employee not found') {
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+    }
+
+    console.error('Error in PUT /api/employees:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+/**
+ * DELETE /api/employees
+ * Delete an employee
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    // Use demo authentication
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // For demo purposes, allow admin access
+    if (user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 })
+    }
+
+    // Delete employee
+    await deleteEmployee(id)
+
+    return NextResponse.json({ 
+      message: 'Employee deleted successfully' 
+    })
+
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Employee not found') {
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+    }
+
+    console.error('Error in DELETE /api/employees:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

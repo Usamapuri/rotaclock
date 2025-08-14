@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
 
@@ -21,10 +21,10 @@ const updateProfileSchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -34,14 +34,13 @@ export async function GET(
     }
 
     // Check if user is accessing their own profile or is admin
-    if (user?.role !== 'admin' && user?.id !== params.id) {
+    if (user?.role !== 'admin' && user?.id !== id) {
       return NextResponse.json({ error: 'Forbidden: Can only access own profile' }, { status: 403 })
     }
 
     // Get employee profile
-    const { data: employee, error } = await supabase
-      .from('employees')
-      .select(`
+    const employeeResult = await query(`
+      SELECT 
         id,
         employee_id,
         first_name,
@@ -55,16 +54,16 @@ export async function GET(
         is_active,
         created_at,
         updated_at
-      `)
-      .eq('id', params.id)
-      .single()
+      FROM employees
+      WHERE id = $1
+    `, [id])
 
-    if (error) {
-      console.error('Error fetching employee profile:', error)
+    if (employeeResult.rows.length === 0) {
+      console.error('Error fetching employee profile: Employee not found')
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ employee })
+    return NextResponse.json({ employee: employeeResult.rows[0] })
 
   } catch (error) {
     console.error('Error in GET /api/employees/[id]/profile:', error)
@@ -78,10 +77,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -91,7 +90,7 @@ export async function PUT(
     }
 
     // Check if user is updating their own profile or is admin
-    if (user?.role !== 'admin' && user?.id !== params.id) {
+    if (user?.role !== 'admin' && user?.id !== id) {
       return NextResponse.json({ error: 'Forbidden: Can only update own profile' }, { status: 403 })
     }
 
@@ -109,22 +108,29 @@ export async function PUT(
     const updateData = validationResult.data
 
     // Check if employee exists
-    const { data: existingEmployee, error: fetchError } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('id', params.id)
-      .single()
+    const existingEmployeeResult = await query(`
+      SELECT id FROM employees WHERE id = $1
+    `, [id])
 
-    if (fetchError || !existingEmployee) {
+    if (existingEmployeeResult.rows.length === 0) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
     }
 
+    // Build dynamic update query
+    const updateFields = Object.keys(updateData).filter(key => updateData[key as keyof typeof updateData] !== undefined)
+    if (updateFields.length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    const setClause = updateFields.map((field, index) => `${field} = $${index + 2}`).join(', ')
+    const values = [id, ...updateFields.map(field => updateData[field as keyof typeof updateData])]
+
     // Update employee profile
-    const { data: employee, error: updateError } = await supabase
-      .from('employees')
-      .update(updateData)
-      .eq('id', params.id)
-      .select(`
+    const employeeResult = await query(`
+      UPDATE employees 
+      SET ${setClause}, updated_at = NOW()
+      WHERE id = $1
+      RETURNING 
         id,
         employee_id,
         first_name,
@@ -138,16 +144,10 @@ export async function PUT(
         is_active,
         created_at,
         updated_at
-      `)
-      .single()
-
-    if (updateError) {
-      console.error('Error updating employee profile:', updateError)
-      return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })
-    }
+    `, values)
 
     return NextResponse.json({ 
-      employee,
+      employee: employeeResult.rows[0],
       message: 'Profile updated successfully' 
     })
 

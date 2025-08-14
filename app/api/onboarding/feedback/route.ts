@@ -1,67 +1,53 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { query } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
     const body = await request.json()
 
     const { process_id, step_id, rating, feedback_text, feedback_type, submitted_by } = body
 
-    const { data: feedback, error } = await supabase
-      .from("onboarding_feedback")
-      .insert({
-        process_id,
-        step_id,
-        rating,
-        feedback_text,
-        feedback_type,
-        submitted_by,
-      })
-      .select()
-      .single()
+    const feedbackResult = await query(`
+      INSERT INTO onboarding_feedback (process_id, step_id, rating, feedback_text, feedback_type, submitted_by)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [process_id, step_id, rating, feedback_text, feedback_type, submitted_by])
 
-    if (error) {
-      console.error("Error creating feedback:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ feedback })
+    return NextResponse.json({ feedback: feedbackResult.rows[0] })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    console.error("Error creating feedback:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
     const { searchParams } = new URL(request.url)
     const processId = searchParams.get("process_id")
 
-    let query = supabase
-      .from("onboarding_feedback")
-      .select(`
-        *,
-        onboarding_processes (employee_name),
-        onboarding_steps (title)
-      `)
-      .order("created_at", { ascending: false })
+    let sql = `
+      SELECT 
+        of.*,
+        json_build_object('employee_name', op.employee_name) as onboarding_processes,
+        json_build_object('title', os.title) as onboarding_steps
+      FROM onboarding_feedback of
+      LEFT JOIN onboarding_processes op ON of.process_id = op.id
+      LEFT JOIN onboarding_steps os ON of.step_id = os.id
+    `
 
+    const params: any[] = []
     if (processId) {
-      query = query.eq("process_id", processId)
+      sql += ` WHERE of.process_id = $1`
+      params.push(processId)
     }
 
-    const { data: feedback, error } = await query
+    sql += ` ORDER BY of.created_at DESC`
 
-    if (error) {
-      console.error("Error fetching feedback:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    const feedbackResult = await query(sql, params)
 
-    return NextResponse.json({ feedback })
+    return NextResponse.json({ feedback: feedbackResult.rows })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    console.error("Error fetching feedback:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

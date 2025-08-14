@@ -1,239 +1,184 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { query } from '@/lib/database'
 import { z } from 'zod'
 
-// Validation schema for updates
+// Validation schema for employee updates
 const updateEmployeeSchema = z.object({
-  employee_id: z.string().min(1, 'Employee ID is required').optional(),
-  first_name: z.string().min(1, 'First name is required').optional(),
-  last_name: z.string().min(1, 'Last name is required').optional(),
-  email: z.string().email('Invalid email address').optional(),
-  department: z.string().optional(),
-  position: z.string().optional(),
-  hire_date: z.string().optional(),
-  manager_id: z.string().uuid().optional(),
+  first_name: z.string().min(1).optional(),
+  last_name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  department: z.string().min(1).optional(),
+  position: z.string().min(1).optional(),
   hourly_rate: z.number().positive().optional(),
+  is_active: z.boolean().optional(),
   max_hours_per_week: z.number().positive().optional(),
-  is_active: z.boolean().optional()
 })
 
-/**
- * GET /api/employees/[id]
- * Get a specific employee by ID
- */
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const employeeId = params.id
+    const body = await request.json()
+    
+    // Validate the request body
+    const validatedData = updateEmployeeSchema.parse(body)
+    
+      // Check if employee exists
+      const checkQuery = 'SELECT * FROM employees WHERE id = $1'
+      const checkResult = await query(checkQuery, [employeeId])
+      
+      if (checkResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Employee not found' },
+          { status: 404 }
+        )
+      }
+      
+      const currentEmployee = checkResult.rows[0]
+      
+      // Build dynamic update query
+      const updateFields: string[] = []
+      const updateValues: any[] = []
+      let paramCount = 1
+      
+      // Add fields to update
+      if (validatedData.first_name !== undefined) {
+        updateFields.push(`first_name = $${paramCount}`)
+        updateValues.push(validatedData.first_name)
+        paramCount++
+      }
+      
+      if (validatedData.last_name !== undefined) {
+        updateFields.push(`last_name = $${paramCount}`)
+        updateValues.push(validatedData.last_name)
+        paramCount++
+      }
+      
+      if (validatedData.email !== undefined) {
+        updateFields.push(`email = $${paramCount}`)
+        updateValues.push(validatedData.email)
+        paramCount++
+      }
+      
+      if (validatedData.department !== undefined) {
+        updateFields.push(`department = $${paramCount}`)
+        updateValues.push(validatedData.department)
+        paramCount++
+      }
+      
+      if (validatedData.position !== undefined) {
+        updateFields.push(`position = $${paramCount}`)
+        updateValues.push(validatedData.position)
+        paramCount++
+      }
+      
+      if (validatedData.hourly_rate !== undefined) {
+        updateFields.push(`hourly_rate = $${paramCount}`)
+        updateValues.push(validatedData.hourly_rate)
+        paramCount++
+      }
+      
+      if (validatedData.is_active !== undefined) {
+        updateFields.push(`is_active = $${paramCount}`)
+        updateValues.push(validatedData.is_active)
+        paramCount++
+      }
+      
+      if (validatedData.max_hours_per_week !== undefined) {
+        updateFields.push(`max_hours_per_week = $${paramCount}`)
+        updateValues.push(validatedData.max_hours_per_week)
+        paramCount++
+      }
+      
+      // Add updated_at timestamp
+      updateFields.push(`updated_at = NOW()`)
+      
+      // Add employee ID to values array
+      updateValues.push(employeeId)
+      
+      // Execute update query
+      const updateQuery = `
+        UPDATE employees 
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramCount}
+        RETURNING *
+      `
+      
+      const updateResult = await query(updateQuery, updateValues)
+      const updatedEmployee = updateResult.rows[0]
+      
+      // Log department transfer if it occurred
+      if (validatedData.department && validatedData.department !== currentEmployee.department) {
+        console.log(`Employee ${updatedEmployee.first_name} ${updatedEmployee.last_name} transferred from ${currentEmployee.department} to ${validatedData.department}`)
+      }
+      
+      // Log hourly rate change if it occurred
+      if (validatedData.hourly_rate && validatedData.hourly_rate !== currentEmployee.hourly_rate) {
+        console.log(`Employee ${updatedEmployee.first_name} ${updatedEmployee.last_name} hourly rate changed from $${currentEmployee.hourly_rate} to $${validatedData.hourly_rate}`)
+      }
+      
+      return NextResponse.json({
+        message: 'Employee updated successfully',
+        data: updatedEmployee
+      })
+    
+  } catch (error) {
+    console.error('Error updating employee:', error)
+    
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation error', details: error.errors },
+        { status: 400 }
+      )
+    }
+    
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
+    const employeeId = await params.id
     
-    // Use demo authentication
-    const authMiddleware = createApiAuthMiddleware()
-    const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { id } = params
-
-    // Get employee with related data
-    const { data: employee, error } = await supabase
-      .from('employees')
-      .select(`
-        *,
-        manager:employees!manager_id(*),
-        direct_reports:employees!manager_id(*)
-      `)
-      .eq('id', id)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
-      }
-      console.error('Error fetching employee:', error)
-      return NextResponse.json({ error: 'Failed to fetch employee' }, { status: 500 })
-    }
-
-    // For demo purposes, allow admin access to all employee data
-    const isAdmin = user.role === 'admin'
-    const isOwnData = false // Simplified for demo
-
-    if (!isAdmin && !isOwnData) {
-      return NextResponse.json({ error: 'Forbidden: Access denied' }, { status: 403 })
-    }
-
-    return NextResponse.json({ data: employee })
-
-  } catch (error) {
-    console.error('Error in GET /api/employees/[id]:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-/**
- * PATCH /api/employees/[id]
- * Update a specific employee
- */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const supabase = createServerSupabaseClient()
+    const queryText = `
+      SELECT 
+        e.*,
+        COUNT(DISTINCT sa.id) as total_assignments,
+        COUNT(DISTINCT te.id) as total_time_entries,
+        COALESCE(SUM(te.total_hours), 0) as total_hours_worked
+      FROM employees e
+      LEFT JOIN shift_assignments sa ON e.id = sa.employee_id
+      LEFT JOIN time_entries te ON e.id = te.employee_id
+      WHERE e.id = $1
+      GROUP BY e.id
+    `
     
-    // Use demo authentication
-    const authMiddleware = createApiAuthMiddleware()
-    const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const result = await query(queryText, [employeeId])
+    
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Employee not found' },
+        { status: 404 }
+      )
     }
-
-    const { id } = params
-
-    // For demo purposes, allow admin access
-    const isAdmin = user.role === 'admin'
-    const isOwnData = false // Simplified for demo
-
-    if (!isAdmin && !isOwnData) {
-      return NextResponse.json({ error: 'Forbidden: Access denied' }, { status: 403 })
-    }
-
-    // Parse and validate request body
-    const body = await request.json()
-    const validatedData = updateEmployeeSchema.parse(body)
-
-    // Check if employee exists
-    const { data: existingEmployee } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('id', id)
-      .single()
-
-    if (!existingEmployee) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
-    }
-
-    // Check for unique constraints if updating employee_id or email
-    if (validatedData.employee_id) {
-      const { data: duplicateEmployeeId } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('employee_id', validatedData.employee_id)
-        .neq('id', id)
-        .single()
-
-      if (duplicateEmployeeId) {
-        return NextResponse.json({ error: 'Employee ID already exists' }, { status: 409 })
-      }
-    }
-
-    if (validatedData.email) {
-      const { data: duplicateEmail } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('email', validatedData.email)
-        .neq('id', id)
-        .single()
-
-      if (duplicateEmail) {
-        return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
-      }
-    }
-
-    // Update employee
-    const { data: employee, error } = await supabase
-      .from('employees')
-      .update(validatedData)
-      .eq('id', id)
-      .select(`
-        *,
-        manager:employees!manager_id(*)
-      `)
-      .single()
-
-    if (error) {
-      console.error('Error updating employee:', error)
-      return NextResponse.json({ error: 'Failed to update employee' }, { status: 500 })
-    }
-
-    return NextResponse.json({ 
-      data: employee,
-      message: 'Employee updated successfully' 
+    
+    return NextResponse.json({
+      data: result.rows[0]
     })
-
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      }, { status: 400 })
-    }
-
-    console.error('Error in PATCH /api/employees/[id]:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-/**
- * DELETE /api/employees/[id]
- * Delete a specific employee (soft delete by setting is_active to false)
- */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const supabase = createServerSupabaseClient()
     
-    // Use demo authentication
-    const authMiddleware = createApiAuthMiddleware()
-    const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { id } = params
-
-    // For demo purposes, allow admin access
-    if (user.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
-    }
-
-    // Check if employee exists
-    const { data: existingEmployee } = await supabase
-      .from('employees')
-      .select('id, is_active')
-      .eq('id', id)
-      .single()
-
-    if (!existingEmployee) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
-    }
-
-    if (!existingEmployee.is_active) {
-      return NextResponse.json({ error: 'Employee is already inactive' }, { status: 400 })
-    }
-
-    // Soft delete by setting is_active to false
-    const { error } = await supabase
-      .from('employees')
-      .update({ is_active: false })
-      .eq('id', id)
-
-    if (error) {
-      console.error('Error deactivating employee:', error)
-      return NextResponse.json({ error: 'Failed to deactivate employee' }, { status: 500 })
-    }
-
-    return NextResponse.json({ 
-      message: 'Employee deactivated successfully' 
-    })
-
   } catch (error) {
-    console.error('Error in DELETE /api/employees/[id]:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error fetching employee:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 } 

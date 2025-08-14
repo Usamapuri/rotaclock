@@ -1,54 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { query } from "@/lib/database"
 
 export async function GET() {
   try {
-    const supabase = createServerSupabaseClient()
+    const documentsResult = await query(`
+      SELECT * FROM onboarding_documents
+      ORDER BY created_at DESC
+    `)
 
-    const { data: documents, error } = await supabase
-      .from("onboarding_documents")
-      .select("*")
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Error fetching documents:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ documents })
+    return NextResponse.json({ documents: documentsResult.rows })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    console.error("Error fetching documents:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
     const body = await request.json()
 
     const { name, type, file_url, required, uploaded_by } = body
 
-    const { data: document, error } = await supabase
-      .from("onboarding_documents")
-      .insert({
-        name,
-        type,
-        file_url,
-        required,
-        uploaded_by,
-      })
-      .select()
-      .single()
+    const documentResult = await query(`
+      INSERT INTO onboarding_documents (name, type, file_url, required, uploaded_by)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `, [name, type, file_url, required, uploaded_by])
 
-    if (error) {
-      console.error("Error creating document:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ document })
+    return NextResponse.json({ document: documentResult.rows[0] })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    console.error("Error creating document:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
 
@@ -22,8 +22,6 @@ const createShiftTemplateSchema = z.object({
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -39,36 +37,39 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit
 
     // Build query
-    let query = supabase
-      .from('shifts')
-      .select('*', { count: 'exact' })
+    let queryText = 'SELECT * FROM shifts WHERE 1=1'
+    const params: any[] = []
+    let paramIndex = 1
 
-    // Apply filters
     if (department) {
-      query = query.eq('department', department)
+      queryText += ` AND department = $${paramIndex++}`
+      params.push(department)
     }
     if (is_active !== null) {
-      query = query.eq('is_active', is_active === 'true')
+      queryText += ` AND is_active = $${paramIndex++}`
+      params.push(is_active === 'true')
     }
+
+    // Get total count
+    const countQuery = queryText.replace('SELECT *', 'SELECT COUNT(*) as total')
+    const countResult = await query(countQuery, params)
+    const total = parseInt(countResult.rows[0].total)
 
     // Apply pagination and ordering
-    const { data: shifts, error, count } = await query
-      .order('name', { ascending: true })
-      .range(offset, offset + limit - 1)
+    queryText += ' ORDER BY name ASC LIMIT $' + paramIndex + ' OFFSET $' + (paramIndex + 1)
+    params.push(limit, offset)
 
-    if (error) {
-      console.error('Error fetching shift templates:', error)
-      return NextResponse.json({ error: 'Failed to fetch shift templates' }, { status: 500 })
-    }
+    const result = await query(queryText, params)
+    const shifts = result.rows
 
-    const totalPages = count ? Math.ceil(count / limit) : 0
+    const totalPages = Math.ceil(total / limit)
 
     return NextResponse.json({
       shifts: shifts || [],
       pagination: {
         page,
         limit,
-        total: count || 0,
+        total,
         totalPages
       }
     })
@@ -85,8 +86,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -118,27 +117,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Create shift template
-    const { data: shift, error: insertError } = await supabase
-      .from('shifts')
-      .insert({
-        name: shiftData.name,
-        description: shiftData.description,
-        start_time: shiftData.start_time,
-        end_time: shiftData.end_time,
-        department: shiftData.department,
-        required_staff: shiftData.required_staff,
-        hourly_rate: shiftData.hourly_rate,
-        color: shiftData.color || '#3B82F6',
-        is_active: shiftData.is_active,
-        created_by: user?.id // This will be null for demo auth, but that's okay
-      })
-      .select()
-      .single()
+    const result = await query(`
+      INSERT INTO shifts (
+        name, description, start_time, end_time, department, 
+        required_staff, hourly_rate, color, is_active, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `, [
+      shiftData.name,
+      shiftData.description,
+      shiftData.start_time,
+      shiftData.end_time,
+      shiftData.department,
+      shiftData.required_staff,
+      shiftData.hourly_rate,
+      shiftData.color || '#3B82F6',
+      shiftData.is_active,
+      user?.id || null
+    ])
 
-    if (insertError) {
-      console.error('Error creating shift template:', insertError)
-      return NextResponse.json({ error: 'Failed to create shift template' }, { status: 500 })
-    }
+    const shift = result.rows[0]
 
     return NextResponse.json({ 
       shift,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
 
@@ -21,10 +21,10 @@ const updateAvailabilitySchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -34,14 +34,13 @@ export async function GET(
     }
 
     // Check if user is accessing their own availability or is admin
-    if (user?.role !== 'admin' && user?.id !== params.id) {
+    if (user?.role !== 'admin' && user?.id !== id) {
       return NextResponse.json({ error: 'Forbidden: Can only access own availability' }, { status: 403 })
     }
 
     // Get employee availability
-    const { data: availability, error } = await supabase
-      .from('employee_availability')
-      .select(`
+    const availabilityResult = await query(`
+      SELECT 
         id,
         employee_id,
         day_of_week,
@@ -50,16 +49,12 @@ export async function GET(
         is_available,
         created_at,
         updated_at
-      `)
-      .eq('employee_id', params.id)
-      .order('day_of_week')
+      FROM employee_availability
+      WHERE employee_id = $1
+      ORDER BY day_of_week
+    `, [id])
 
-    if (error) {
-      console.error('Error fetching employee availability:', error)
-      return NextResponse.json({ error: 'Failed to fetch availability' }, { status: 500 })
-    }
-
-    return NextResponse.json({ availability })
+    return NextResponse.json({ availability: availabilityResult.rows })
 
   } catch (error) {
     console.error('Error in GET /api/employees/[id]/availability:', error)
@@ -73,10 +68,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -86,7 +81,7 @@ export async function PUT(
     }
 
     // Check if user is updating their own availability or is admin
-    if (user?.role !== 'admin' && user?.id !== params.id) {
+    if (user?.role !== 'admin' && user?.id !== id) {
       return NextResponse.json({ error: 'Forbidden: Can only update own availability' }, { status: 403 })
     }
 
@@ -104,58 +99,56 @@ export async function PUT(
     const { availability } = validationResult.data
 
     // Check if employee exists
-    const { data: existingEmployee, error: fetchError } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('id', params.id)
-      .single()
+    const existingEmployeeResult = await query(`
+      SELECT id FROM employees WHERE id = $1
+    `, [id])
 
-    if (fetchError || !existingEmployee) {
+    if (existingEmployeeResult.rows.length === 0) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
     }
 
     // Delete existing availability records for this employee
-    const { error: deleteError } = await supabase
-      .from('employee_availability')
-      .delete()
-      .eq('employee_id', params.id)
-
-    if (deleteError) {
-      console.error('Error deleting existing availability:', deleteError)
-      return NextResponse.json({ error: 'Failed to update availability' }, { status: 500 })
-    }
+    await query(`
+      DELETE FROM employee_availability WHERE employee_id = $1
+    `, [id])
 
     // Insert new availability records
-    const availabilityData = availability.map(avail => ({
-      employee_id: params.id,
-      day_of_week: avail.day_of_week,
-      start_time: avail.start_time,
-      end_time: avail.end_time,
-      is_available: avail.is_available
-    }))
+    if (availability.length > 0) {
+      const values = availability.map((avail, index) => {
+        const baseIndex = index * 4
+        return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4})`
+      }).join(', ')
 
-    const { data: newAvailability, error: insertError } = await supabase
-      .from('employee_availability')
-      .insert(availabilityData)
-      .select(`
+      const params = availability.flatMap(avail => [
         id,
-        employee_id,
-        day_of_week,
-        start_time,
-        end_time,
-        is_available,
-        created_at,
-        updated_at
-      `)
+        avail.day_of_week,
+        avail.start_time,
+        avail.is_available
+      ])
 
-    if (insertError) {
-      console.error('Error inserting new availability:', insertError)
-      return NextResponse.json({ error: 'Failed to update availability' }, { status: 500 })
+      const insertResult = await query(`
+        INSERT INTO employee_availability (employee_id, day_of_week, start_time, is_available)
+        VALUES ${values}
+        RETURNING 
+          id,
+          employee_id,
+          day_of_week,
+          start_time,
+          end_time,
+          is_available,
+          created_at,
+          updated_at
+      `, params)
+
+      return NextResponse.json({ 
+        availability: insertResult.rows,
+        message: 'Availability updated successfully' 
+      })
     }
 
     return NextResponse.json({ 
-      availability: newAvailability,
-      message: 'Availability updated successfully' 
+      availability: [],
+      message: 'Availability cleared successfully' 
     })
 
   } catch (error) {

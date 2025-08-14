@@ -27,7 +27,7 @@ export default function AdminLogin() {
       if (user) {
         router.push("/admin/dashboard")
       } else {
-        alert("Invalid credentials. Use: admin / admin123")
+        alert("Invalid credentials. Please try again.")
       }
     } catch (error) {
       alert("Login failed. Please try again.")

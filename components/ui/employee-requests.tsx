@@ -1,21 +1,20 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarX, Calendar, FileText, Send, X } from "lucide-react"
+import { FileText, Calendar, CalendarX, Clock, AlertCircle } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 interface Request {
   id: string
-  type: "timeoff" | "reschedule"
+  type: "timeoff" | "reschedule" | "vacation" | "sick" | "personal" | "bereavement" | "jury-duty" | "other"
   startDate: string
   endDate?: string
   currentShiftDate?: string
@@ -25,6 +24,7 @@ interface Request {
   submittedAt: string
   respondedAt?: string
   adminNotes?: string
+  days_requested?: number
 }
 
 interface EmployeeRequestsProps {
@@ -42,58 +42,125 @@ export function EmployeeRequests({ employeeId }: EmployeeRequestsProps) {
     reason: "",
     urgency: "normal",
   })
+  const [requests, setRequests] = useState<Request[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(true)
 
-  // Sample existing requests
-  const [requests] = useState<Request[]>([
-    {
-      id: "1",
-      type: "timeoff",
-      startDate: "2024-01-15",
-      endDate: "2024-01-17",
-      reason: "Family emergency",
-      status: "pending",
-      submittedAt: "2024-01-10T10:00:00Z",
-    },
-    {
-      id: "2",
-      type: "reschedule",
-      currentShiftDate: "2024-01-10",
-      newShiftDate: "2024-01-12",
-      reason: "Medical appointment",
-      status: "approved",
-      submittedAt: "2024-01-08T14:30:00Z",
-      respondedAt: "2024-01-09T09:15:00Z",
-    },
-    {
-      id: "3",
-      type: "timeoff",
-      startDate: "2024-01-05",
-      endDate: "2024-01-05",
-      reason: "Personal day",
-      status: "denied",
-      submittedAt: "2024-01-03T16:20:00Z",
-      respondedAt: "2024-01-04T11:45:00Z",
-      adminNotes: "Insufficient coverage for that date",
-    },
-  ])
+  useEffect(() => {
+    loadRequests()
+  }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadRequests = async () => {
+    try {
+      setIsLoadingData(true)
+      const response = await fetch(`/api/leave-requests?employee_id=${employeeId}`)
+      if (response.ok) {
+        const data = await response.json()
+        const formattedRequests = (data.data || []).map((request: any) => ({
+          id: request.id,
+          type: request.type,
+          startDate: request.start_date,
+          endDate: request.end_date,
+          reason: request.reason,
+          status: request.status,
+          submittedAt: request.created_at,
+          respondedAt: request.updated_at,
+          adminNotes: request.admin_notes,
+          days_requested: request.days_requested
+        }))
+        setRequests(formattedRequests)
+      }
+    } catch (error) {
+      console.error('Error loading requests:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load requests",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real app, this would submit to an API
-    console.log("Submitting request:", { type: requestType, ...formData })
+    
+    const startDate = formData.startDate
+    const endDate = formData.endDate
+    if (!startDate || !endDate || !formData.reason) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+    if (startDate > endDate) {
+      toast({
+        title: "Error",
+        description: "Start date cannot be after end date",
+        variant: "destructive",
+      })
+      return
+    }
 
-    // Reset form
-    setFormData({
-      startDate: "",
-      endDate: "",
-      currentShiftDate: "",
-      newShiftDate: "",
-      reason: "",
-      urgency: "normal",
-    })
+    setIsLoading(true)
+    try {
+      // Calculate days requested
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      const daysRequested = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
-    // Show success message or redirect
-    alert("Request submitted successfully!")
+      const response = await fetch('/api/leave-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'vacation', // Default to vacation for time off requests
+          start_date: startDate,
+          end_date: endDate,
+          days_requested: daysRequested,
+          reason: formData.reason,
+        }),
+      })
+
+      if (response.ok) {
+        const newRequest = await response.json()
+        setRequests(prev => [newRequest, ...prev])
+        
+        // Reset form
+        setFormData({
+          startDate: "",
+          endDate: "",
+          currentShiftDate: "",
+          newShiftDate: "",
+          reason: "",
+          urgency: "normal",
+        })
+        
+        toast({
+          title: "Success",
+          description: "Request submitted successfully!",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.message || "Failed to submit request",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error submitting request:', error)
+      toast({
+        title: "Error",
+        description: "Failed to submit request",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -190,9 +257,9 @@ export function EmployeeRequests({ employeeId }: EmployeeRequestsProps) {
                 ) : (
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="current-shift">Current Shift Date</Label>
+                      <Label htmlFor="current-shift-date">Current Shift Date</Label>
                       <Input
-                        id="current-shift"
+                        id="current-shift-date"
                         type="date"
                         value={formData.currentShiftDate}
                         onChange={(e) => setFormData({ ...formData, currentShiftDate: e.target.value })}
@@ -200,9 +267,9 @@ export function EmployeeRequests({ employeeId }: EmployeeRequestsProps) {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="new-shift">Preferred New Date</Label>
+                      <Label htmlFor="new-shift-date">New Shift Date</Label>
                       <Input
-                        id="new-shift"
+                        id="new-shift-date"
                         type="date"
                         value={formData.newShiftDate}
                         onChange={(e) => setFormData({ ...formData, newShiftDate: e.target.value })}
@@ -213,120 +280,80 @@ export function EmployeeRequests({ employeeId }: EmployeeRequestsProps) {
                 )}
 
                 <div>
-                  <Label htmlFor="urgency">Urgency Level</Label>
-                  <Select
-                    value={formData.urgency}
-                    onValueChange={(value) => setFormData({ ...formData, urgency: value })}
-                  >
+                  <Label htmlFor="reason">Reason</Label>
+                  <Textarea
+                    id="reason"
+                    placeholder="Please provide a reason for your request..."
+                    value={formData.reason}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="urgency">Urgency</Label>
+                  <Select value={formData.urgency} onValueChange={(value) => setFormData({ ...formData, urgency: value })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="high">High Priority</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
                       <SelectItem value="urgent">Urgent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="reason">Reason for Request</Label>
-                  <Textarea
-                    id="reason"
-                    placeholder={
-                      requestType === "timeoff"
-                        ? "Please explain why you need time off..."
-                        : "Please explain why you need to reschedule..."
-                    }
-                    value={formData.reason}
-                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                    required
-                    className="min-h-[100px]"
-                  />
-                </div>
-
-                <div className="flex space-x-2">
-                  <Button type="submit" className="flex-1">
-                    <Send className="h-4 w-4 mr-2" />
-                    Submit Request
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      setFormData({
-                        startDate: "",
-                        endDate: "",
-                        currentShiftDate: "",
-                        newShiftDate: "",
-                        reason: "",
-                        urgency: "normal",
-                      })
-                    }
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Clear
-                  </Button>
-                </div>
+                <Button type="submit" disabled={isLoading} className="w-full">
+                  {isLoading ? "Submitting..." : "Submit Request"}
+                </Button>
               </form>
             </div>
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
-            <div className="space-y-3">
-              {requests.map((request) => (
-                <div key={request.id} className="p-4 border rounded-lg space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center space-x-2">
-                      {request.type === "timeoff" ? (
-                        <CalendarX className="h-4 w-4 text-blue-600" />
-                      ) : (
-                        <Calendar className="h-4 w-4 text-green-600" />
+            {isLoadingData ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p>Loading requests...</p>
+              </div>
+            ) : requests.length > 0 ? (
+              <div className="space-y-4">
+                {requests.map((request) => (
+                  <div key={request.id} className="p-4 border rounded-lg">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-semibold capitalize">{request.type} Request</h4>
+                        <p className="text-sm text-gray-600">
+                          {request.startDate} {request.endDate && `- ${request.endDate}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant={getStatusColor(request.status)}>{request.status}</Badge>
+                        <Badge variant={getUrgencyColor(formData.urgency)}>{formData.urgency}</Badge>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-2">{request.reason}</p>
+                    <div className="flex justify-between items-center text-xs text-gray-500">
+                      <span>Submitted: {new Date(request.submittedAt).toLocaleDateString()}</span>
+                      {request.respondedAt && (
+                        <span>Responded: {new Date(request.respondedAt).toLocaleDateString()}</span>
                       )}
-                      <span className="font-medium">
-                        {request.type === "timeoff" ? "Time Off Request" : "Shift Reschedule"}
-                      </span>
                     </div>
-                    <Badge variant={getStatusColor(request.status)}>
-                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                    </Badge>
+                    {request.adminNotes && (
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                        <strong>Admin Notes:</strong> {request.adminNotes}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="grid md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-600">{request.type === "timeoff" ? "Dates Requested" : "Shift Change"}</p>
-                      <p className="font-medium">
-                        {request.type === "timeoff"
-                          ? `${new Date(request.startDate).toLocaleDateString()} - ${new Date(request.endDate!).toLocaleDateString()}`
-                          : `${new Date(request.currentShiftDate!).toLocaleDateString()} → ${new Date(request.newShiftDate!).toLocaleDateString()}`}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Submitted</p>
-                      <p className="font-medium">{new Date(request.submittedAt).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-600 text-sm">Reason</p>
-                    <p className="text-sm">{request.reason}</p>
-                  </div>
-
-                  {request.adminNotes && (
-                    <div className="bg-gray-50 p-3 rounded">
-                      <p className="text-gray-600 text-sm font-medium">Admin Notes</p>
-                      <p className="text-sm">{request.adminNotes}</p>
-                    </div>
-                  )}
-
-                  {request.respondedAt && (
-                    <div className="text-xs text-gray-500">
-                      Responded on {new Date(request.respondedAt).toLocaleDateString()}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No requests found</p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
