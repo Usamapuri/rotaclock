@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,13 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    const user = AuthService.getCurrentUser()
+    if (user?.role === 'team_lead') {
+      router.replace('/team-lead/login')
+    }
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -105,8 +112,16 @@ export default function AdminLogin() {
               Employee Login
             </Link>
           </p>
+          <p className="text-sm text-gray-600 mt-2">
+            Team Lead?{" "}
+            <Link href="/team-lead/login" className="text-purple-600 hover:underline">
+              Team Lead Login
+            </Link>
+          </p>
         </div>
       </div>
     </div>
   )
 }
+
+

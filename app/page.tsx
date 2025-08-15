@@ -16,9 +16,15 @@ export default function LandingPage() {
               <Clock className="h-8 w-8 text-blue-600 mr-2" />
               <span className="text-2xl font-bold text-gray-900">ShiftTracker</span>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex space-x-2">
               <Link href="/employee/login">
                 <Button variant="outline">Employee Login</Button>
+              </Link>
+              <Link href="/team-lead/login">
+                <Button variant="secondary">Team Lead Login</Button>
+              </Link>
+              <Link href="/project-manager/login">
+                <Button variant="secondary">PM Login</Button>
               </Link>
               <Link href="/admin/login">
                 <Button>Admin Login</Button>
@@ -42,9 +48,11 @@ export default function LandingPage() {
                 Start Free Trial
               </Button>
             </Link>
-            <Button variant="outline" size="lg" className="px-8 py-3 bg-transparent">
-              Watch Demo
-            </Button>
+            <Link href="/team-lead/login">
+              <Button variant="outline" size="lg" className="px-8 py-3 bg-transparent">
+                Team Lead Demo
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -105,21 +113,53 @@ export default function LandingPage() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Two Powerful Portals</h2>
-            <p className="text-lg text-gray-600">Separate interfaces designed for employees and administrators</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Three Powerful Portals</h2>
+            <p className="text-lg text-gray-600">Separate interfaces designed for employees, team leads, and administrators</p>
           </div>
 
           <Tabs defaultValue="employee" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="employee" className="flex items-center">
                 <User className="h-4 w-4 mr-2" />
                 Employee Portal
+              </TabsTrigger>
+              <TabsTrigger value="teamlead" className="flex items-center">
+                <Shield className="h-4 w-4 mr-2" />
+                Team Lead Portal
               </TabsTrigger>
               <TabsTrigger value="admin" className="flex items-center">
                 <Shield className="h-4 w-4 mr-2" />
                 Admin Portal
               </TabsTrigger>
             </TabsList>
+            <TabsContent value="teamlead" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Team Lead Features</CardTitle>
+                  <CardDescription>Live monitoring, team management, quality and training</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">✓ Team Overview & Live</h4>
+                      <p className="text-sm text-gray-600">Real-time presence and queue stats</p>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">✓ Performance & Quality</h4>
+                      <p className="text-sm text-gray-600">Metrics, CSAT, FCR with charts</p>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">✓ Training & Communications</h4>
+                      <p className="text-sm text-gray-600">Assign training and broadcast updates</p>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">✓ Role-based Access</h4>
+                      <p className="text-sm text-gray-600">Scoped to your team only</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="employee" className="mt-6">
               <Card>

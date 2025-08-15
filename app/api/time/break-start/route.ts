@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createBreakLog, getShiftLogs, getCurrentBreak } from '@/lib/database'
+import { createBreakLog, getShiftLogs, getCurrentBreak, query, getTimeEntries } from '@/lib/database'
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,6 +57,23 @@ export async function POST(request: NextRequest) {
       break_type: 'lunch',
       status: 'active'
     })
+
+    // FIX: Also update legacy time_entries system if it exists
+    // Check if there's an active time entry for this employee
+    const timeEntries = await getTimeEntries({
+      employee_id: employee_id,
+      status: 'in-progress'
+    })
+
+    if (timeEntries.length > 0) {
+      const activeTimeEntry = timeEntries[0]
+      // Update the time entry to show break status
+      await query(`
+        UPDATE time_entries 
+        SET break_start = $1, status = 'break', updated_at = NOW()
+        WHERE id = $2
+      `, [breakStartTime.toISOString(), activeTimeEntry.id])
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,4 +1,31 @@
-const { createNotification, sendBroadcastToAllEmployees } = require('../lib/notification-service')
+// Import compiled runtime via ts-node transpile or use dynamic import fallback
+let createNotification, sendBroadcastToAllEmployees
+try {
+  ({ createNotification, sendBroadcastToAllEmployees } = require('../lib/notification-service'))
+} catch (e) {
+  // Fallback to API calls if module cannot be required in Node directly
+  const fetch = require('node-fetch')
+  createNotification = async (payload) => {
+    const res = await fetch('http://localhost:3000/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'authorization': 'Bearer demo' },
+      body: JSON.stringify(payload)
+    })
+    const body = await res.json()
+    if (!res.ok) throw new Error(body.error || 'Failed to create notification')
+    return body.data
+  }
+  sendBroadcastToAllEmployees = async (message) => {
+    const res = await fetch('http://localhost:3000/api/notifications/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'authorization': 'Bearer demo' },
+      body: JSON.stringify({ message, sendToAll: true })
+    })
+    const body = await res.json()
+    if (!res.ok) throw new Error(body.error || 'Failed to send broadcast')
+    return body.notifications || []
+  }
+}
 
 async function testNotifications() {
   try {
@@ -12,10 +39,10 @@ async function testNotifications() {
     // Test 2: Create individual notifications
     console.log('\n🔔 Testing individual notifications...')
     
-    // Get some employee IDs (you'll need to replace these with actual IDs from your database)
+    // Use known seeded employee IDs (EMP001, EMP002)
     const employeeIds = [
-      '550e8400-e29b-41d4-a716-446655440000', // Replace with actual employee ID
-      '550e8400-e29b-41d4-a716-446655440001'  // Replace with actual employee ID
+      '3a6f7885-143e-40f0-80f9-a37605744fe1',
+      '047a2a7d-7ef2-4f6a-9823-86ca9a88fa32'
     ]
 
     for (const employeeId of employeeIds) {

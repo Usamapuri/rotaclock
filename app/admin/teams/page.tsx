@@ -74,7 +74,7 @@ export default function AdminTeamsPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [departmentFilter, setDepartmentFilter] = useState("")
+  const [departmentFilter, setDepartmentFilter] = useState("all")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [newTeam, setNewTeam] = useState({
     name: "",
@@ -188,12 +188,12 @@ export default function AdminTeamsPage() {
                          team.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          `${team.team_lead_first_name} ${team.team_lead_last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const matchesDepartment = !departmentFilter || team.department === departmentFilter
+    const matchesDepartment = departmentFilter === 'all' || team.department === departmentFilter
     
     return matchesSearch && matchesDepartment
   })
 
-  const departments = [...new Set(teams.map(team => team.department))]
+  const departments = [...new Set(teams.map(team => team.department).filter(Boolean))]
 
   const stats = {
     totalTeams: teams.length,
@@ -209,79 +209,12 @@ export default function AdminTeamsPage() {
           <h1 className="text-3xl font-bold">Team Management</h1>
           <p className="text-gray-600">Manage teams and team leads</p>
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Team
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Team</DialogTitle>
-              <DialogDescription>
-                Create a new team and assign a team lead.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Team Name</Label>
-                <Input
-                  id="name"
-                  value={newTeam.name}
-                  onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
-                  placeholder="Enter team name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="department">Department</Label>
-                <Input
-                  id="department"
-                  value={newTeam.department}
-                  onChange={(e) => setNewTeam({ ...newTeam, department: e.target.value })}
-                  placeholder="Enter department"
-                />
-              </div>
-              <div>
-                <Label htmlFor="team_lead">Team Lead</Label>
-                <Select
-                  value={newTeam.team_lead_id}
-                  onValueChange={(value) => setNewTeam({ ...newTeam, team_lead_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select team lead" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees
-                      .filter(emp => emp.position.toLowerCase().includes('lead') || emp.position.toLowerCase().includes('manager'))
-                      .map(employee => (
-                        <SelectItem key={employee.id} value={employee.id}>
-                          {employee.first_name} {employee.last_name} - {employee.position}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Input
-                  id="description"
-                  value={newTeam.description}
-                  onChange={(e) => setNewTeam({ ...newTeam, description: e.target.value })}
-                  placeholder="Enter team description"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateTeam} disabled={isCreating}>
-                {isCreating ? 'Creating...' : 'Create Team'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Link href="/admin/teams/new">
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Team
+          </Button>
+        </Link>
       </div>
 
       {/* Stats Cards */}
@@ -351,7 +284,7 @@ export default function AdminTeamsPage() {
                   <SelectValue placeholder="All departments" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All departments</SelectItem>
+                  <SelectItem value="all">All departments</SelectItem>
                   {departments.map(dept => (
                     <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                   ))}

@@ -21,10 +21,10 @@ const updateProfileSchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
+    const { id } = params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -77,10 +77,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
+    const { id } = params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()

@@ -2,8 +2,8 @@
 export interface AuthUser {
   id: string
   email: string
-  role: 'admin' | 'employee'
-  employeeId?: string
+  role: 'admin' | 'team_lead' | 'project_manager' | 'employee'
+  employeeId?: string // legacy: human-readable employee code
 }
 
 export class AuthService {
@@ -54,14 +54,16 @@ export class AuthService {
       const data = await response.json()
       
       if (data.success && data.employee) {
+        const normalizedRole = (data.employee.role === 'team_lead' ? 'team_lead' : (data.employee.role === 'project_manager' ? 'project_manager' : 'employee')) as AuthUser['role']
         const user: AuthUser = {
           id: data.employee.id,
           email: data.employee.email,
-          role: 'employee',
+          role: normalizedRole,
           employeeId: data.employee.employee_id
         }
         
         if (typeof window !== 'undefined') {
+          // Store human-readable employee code for legacy use, but use UUID for auth
           localStorage.setItem(this.EMPLOYEE_KEY, employeeId)
           localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
         }
@@ -101,6 +103,16 @@ export class AuthService {
   static isEmployee(): boolean {
     const user = this.getCurrentUser()
     return user?.role === 'employee'
+  }
+
+  static isTeamLead(): boolean {
+    const user = this.getCurrentUser()
+    return user?.role === 'team_lead'
+  }
+
+  static isProjectManager(): boolean {
+    const user = this.getCurrentUser()
+    return user?.role === 'project_manager'
   }
 
   static logout(): void {

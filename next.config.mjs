@@ -9,8 +9,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Disable static optimization completely
-  output: 'standalone',
+  // Use default output so next start serves static assets locally
+  // output: 'standalone',
   // Updated for Next.js 15
   serverExternalPackages: [],
   // Ensure proper handling of dynamic routes

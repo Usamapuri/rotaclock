@@ -146,7 +146,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const employeeId = await params.id
+    const employeeIdParam = params.id
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeIdParam)
     
     const queryText = `
       SELECT 
@@ -157,11 +158,11 @@ export async function GET(
       FROM employees e
       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id
       LEFT JOIN time_entries te ON e.id = te.employee_id
-      WHERE e.id = $1
+      WHERE ${isUuid ? 'e.id' : 'e.employee_id'} = $1
       GROUP BY e.id
     `
     
-    const result = await query(queryText, [employeeId])
+    const result = await query(queryText, [employeeIdParam])
     
     if (result.rows.length === 0) {
       return NextResponse.json(

@@ -17,6 +17,8 @@ A comprehensive employee management system built with Next.js, TypeScript, and P
 ### User Roles
 - **Admin**: Full system access with employee management and reporting
 - **Employee**: Self-service features including time tracking and leave requests
+- **Team Lead**: Live monitoring and team management
+- **Project Manager**: Multi-team oversight with project-scoped dashboards, scheduling, and transfers
 
 ## 🛠️ Technology Stack
 
@@ -83,6 +85,15 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+Project Manager area:
+- Login: `/project-manager/login` (e.g., EMP300 / password123 from seed)
+- Dashboard: `/project-manager/dashboard`
+- Projects: `/project-manager/projects`
+- Teams: `/project-manager/teams`
+- Live: `/project-manager/live`
+- Performance: `/project-manager/performance`
+- Scheduling: `/project-manager/scheduling`
 
 ## 📁 Project Structure
 
@@ -214,6 +225,12 @@ The `lib/api-service.ts` file provides a centralized API service with:
 1. Connect your GitHub repository to Vercel
 2. Configure environment variables
 3. Deploy with automatic CI/CD
+
+## 📚 Team Lead Docs
+
+- Team Lead APIs: docs/teamlead-apis.md
+- Team Lead User Guide: docs/teamlead-user-guide.md
+- Deployment & Rollback Notes: docs/deployment-notes.md
 
 ## 🧪 Testing
 

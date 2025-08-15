@@ -1,4 +1,5 @@
 import { Pool, PoolClient } from 'pg'
+import bcrypt from 'bcryptjs'
 
 // Connection pool configuration for high concurrency
 const pool = new Pool({
@@ -89,6 +90,8 @@ export interface Employee {
   hourly_rate?: number
   max_hours_per_week?: number
   password_hash?: string
+  role?: 'admin' | 'team_lead' | 'project_manager' | 'employee'
+  team_id?: string | null
   created_at: string
   updated_at: string
   manager?: Employee
@@ -453,14 +456,23 @@ export async function getEmployees(filters?: {
  */
 // Simple password hashing function (in production, use bcrypt or similar)
 function hashPassword(password: string): string {
-  // This is a simple hash for demo purposes
-  // In production, use a proper hashing library like bcrypt
-  return Buffer.from(password).toString('base64')
+  try {
+    const salt = bcrypt.genSaltSync(10)
+    return bcrypt.hashSync(password, salt)
+  } catch {
+    return Buffer.from(password).toString('base64')
+  }
 }
 
 // Verify password against hash
 function verifyPassword(password: string, hash: string): boolean {
-  return hashPassword(password) === hash
+  if (!password || !hash) return false
+  try {
+    return bcrypt.compareSync(password, hash)
+  } catch {
+    // Fallback for legacy base64 hashes
+    return Buffer.from(password).toString('base64') === hash
+  }
 }
 
 // Authenticate employee by employee_id and password
@@ -1055,8 +1067,14 @@ export async function getLeaveRequests(filters?: {
   let paramIndex = 1
 
   if (filters?.employee_id) {
-    queryText += ` WHERE lr.employee_id = $${paramIndex}`
-    params.push(filters.employee_id)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filters.employee_id)
+    if (isUuid) {
+      queryText += ` WHERE lr.employee_id = $${paramIndex}`
+      params.push(filters.employee_id)
+    } else {
+      queryText += ` WHERE e.employee_id = $${paramIndex}`
+      params.push(filters.employee_id)
+    }
     paramIndex++
   }
   if (filters?.status) {
@@ -1467,9 +1485,16 @@ export async function getShiftLogs(filters: {
   let paramCount = 0;
   
   if (filters.employee_id) {
+    // Accept UUID or employee_id string
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filters.employee_id);
     paramCount++;
-    conditions.push(`sl.employee_id = $${paramCount}`);
-    params.push(filters.employee_id);
+    if (isUuid) {
+      conditions.push(`sl.employee_id = $${paramCount}`);
+      params.push(filters.employee_id);
+    } else {
+      conditions.push(`e.employee_id = $${paramCount}`);
+      params.push(filters.employee_id);
+    }
   }
   
   if (filters.start_date) {
