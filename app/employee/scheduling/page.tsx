@@ -36,8 +36,8 @@ interface ShiftAssignment {
   employee_id: string
   shift_id: string
   date: string
-  start_time: string
-  end_time: string
+  shift_start_time: string
+  shift_end_time: string
   status: 'assigned' | 'confirmed' | 'completed' | 'cancelled' | 'swap-requested'
   shift_name?: string
   shift_description?: string
@@ -387,7 +387,7 @@ export default function EmployeeScheduling() {
                                       {getStatusBadge(shift.status)}
                                     </div>
                                     <div className="text-sm text-gray-600">
-                                      {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                      {formatTime(shift.shift_start_time)} - {formatTime(shift.shift_end_time)}
                                     </div>
                                   </div>
                                   
