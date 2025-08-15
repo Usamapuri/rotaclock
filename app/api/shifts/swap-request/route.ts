@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/auth'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 const authMiddleware = createApiAuthMiddleware()
 
