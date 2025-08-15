@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS shift_logs (
     is_no_show BOOLEAN DEFAULT FALSE,
     late_minutes INTEGER DEFAULT 0,
     status VARCHAR(20) DEFAULT 'active', -- active, completed, cancelled
+    -- Shift remarks and performance data
+    total_calls_taken INTEGER DEFAULT 0,
+    leads_generated INTEGER DEFAULT 0,
+    shift_remarks TEXT,
+    performance_rating INTEGER CHECK (performance_rating >= 1 AND performance_rating <= 5),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

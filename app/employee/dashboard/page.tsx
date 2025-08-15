@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { CameraVerification } from '@/components/ui/camera-verification'
+import { ShiftRemarksDialog, ShiftRemarksData } from '@/components/ui/shift-remarks-dialog'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -294,6 +295,10 @@ export default function EmployeeDashboard() {
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [verificationFailed, setVerificationFailed] = useState(false)
   
+  // Shift remarks dialog state
+  const [showShiftRemarksDialog, setShowShiftRemarksDialog] = useState(false)
+  const [isSubmittingShiftRemarks, setIsSubmittingShiftRemarks] = useState(false)
+  
   // Leave request state
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([])
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
@@ -460,6 +465,15 @@ export default function EmployeeDashboard() {
     return sunday.toISOString().split('T')[0]
   }
 
+  const formatShiftDuration = (clockInTime: string) => {
+    const startTime = new Date(clockInTime)
+    const now = new Date()
+    const durationMs = now.getTime() - startTime.getTime()
+    const hours = Math.floor(durationMs / (1000 * 60 * 60))
+    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+  }
+
   const handleClockIn = async () => {
     try {
       setIsLoading(true)
@@ -491,9 +505,14 @@ export default function EmployeeDashboard() {
     }
   }
 
-  const handleClockOut = async () => {
+  const handleClockOut = () => {
+    // Show shift remarks dialog instead of directly clocking out
+    setShowShiftRemarksDialog(true)
+  }
+
+  const handleShiftRemarksSubmit = async (remarksData: ShiftRemarksData) => {
     try {
-      setIsLoading(true)
+      setIsSubmittingShiftRemarks(true)
       const user = AuthService.getCurrentUser()
       if (!user) return
 
@@ -502,15 +521,19 @@ export default function EmployeeDashboard() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ employee_id: user.id }),
+        body: JSON.stringify({ 
+          employee_id: user.id,
+          ...remarksData
+        }),
       })
 
       const data = await response.json()
       if (data.success) {
-        toast.success('Successfully clocked out!')
+        toast.success('Successfully clocked out with shift details!')
         setCurrentShiftLog(null)
         setCurrentBreak(null)
         setCurrentTimeEntry(null)
+        setShowShiftRemarksDialog(false)
         loadDashboardData()
       } else {
         toast.error(data.error || 'Failed to clock out')
@@ -519,7 +542,7 @@ export default function EmployeeDashboard() {
       console.error('Error in clock out:', error)
       toast.error('Failed to clock out')
     } finally {
-      setIsLoading(false)
+      setIsSubmittingShiftRemarks(false)
     }
   }
 
@@ -595,7 +618,10 @@ export default function EmployeeDashboard() {
     setShowCamera(false)
     if (success) {
       setVerificationFailed(false)
-      handleClockIn()
+      // Verification now automatically clocks in the employee
+      // Just refresh the dashboard data to show the updated status
+      loadDashboardData()
+      toast.success('Verification successful! You are now clocked in.')
     } else {
       setVerificationFailed(true)
       toast.error('Verification failed. Please try again.')
@@ -1279,9 +1305,20 @@ export default function EmployeeDashboard() {
           onCancel={() => setShowCamera(false)}
           title="Shift Verification"
           description="Please verify your identity to start your shift."
-          employeeId={currentUser?.employeeId}
+          employeeId={currentUser?.id}
         />
       )}
+
+      {/* Shift Remarks Dialog */}
+      <ShiftRemarksDialog
+        isOpen={showShiftRemarksDialog}
+        onClose={() => setShowShiftRemarksDialog(false)}
+        onSubmit={handleShiftRemarksSubmit}
+        isLoading={isSubmittingShiftRemarks}
+        shiftDuration={currentShiftLog?.clock_in_time ? 
+          formatShiftDuration(currentShiftLog.clock_in_time) : undefined}
+        clockInTime={currentShiftLog?.clock_in_time}
+      />
     </div>
   )
 }

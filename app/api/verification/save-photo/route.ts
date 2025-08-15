@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeFileSync, appendFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { AuthService } from '@/lib/auth'
+import { query, createShiftLog, getShiftAssignments, isEmployeeClockedIn } from '@/lib/database'
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,11 +65,63 @@ export async function POST(request: NextRequest) {
 
     console.log(`Verification photo saved for employee ${employeeId} at ${timestamp}`)
 
+    // If this is a shift start verification, automatically clock in the employee
+    let clockInResult = null
+    if (verificationType === 'shift_start') {
+      try {
+        // Check if employee is already clocked in
+        const isClockedIn = await isEmployeeClockedIn(employeeId)
+        if (!isClockedIn) {
+          // Get today's date
+          const today = new Date().toISOString().split('T')[0]
+          
+          // Find today's shift assignment for this employee
+          const shiftAssignments = await getShiftAssignments({
+            start_date: today,
+            end_date: today,
+            employee_id: employeeId
+          })
+
+          let shift_assignment_id = null
+          if (shiftAssignments.length > 0) {
+            shift_assignment_id = shiftAssignments[0].id
+          }
+
+          // Create shift log (clock in)
+          clockInResult = await createShiftLog({
+            employee_id: employeeId,
+            shift_assignment_id,
+            clock_in_time: timestamp,
+            break_time_used: 0,
+            max_break_allowed: 1.0,
+            is_late: false,
+            is_no_show: false,
+            late_minutes: 0,
+            status: 'active'
+          })
+
+          // Update employee online status
+          await query(`
+            UPDATE employees 
+            SET is_online = true, last_online = NOW()
+            WHERE id = $1
+          `, [employeeId])
+
+          console.log(`Employee ${employeeId} automatically clocked in after verification`)
+        }
+      } catch (clockInError) {
+        console.error('Error during automatic clock in:', clockInError)
+        // Don't fail the verification if clock in fails
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Verification photo saved successfully',
       verification_id: `${employeeId}_${Date.now()}`,
-      timestamp: timestamp
+      timestamp: timestamp,
+      clocked_in: !!clockInResult,
+      shift_log: clockInResult
     })
 
   } catch (error) {
