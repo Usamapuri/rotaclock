@@ -131,6 +131,8 @@ export function CameraVerification({
     setVerificationStatus('processing')
     
     try {
+      console.log('🔍 Starting verification process...')
+      
       // Save the photo to the backend
       const saveResponse = await fetch('/api/verification/save-photo', {
         method: 'POST',
@@ -144,15 +146,20 @@ export function CameraVerification({
         }),
       })
 
+      console.log('🔍 Verification response status:', saveResponse.status)
+
       if (!saveResponse.ok) {
-        throw new Error('Failed to save verification photo')
+        const errorData = await saveResponse.json().catch(() => ({}))
+        console.error('❌ Verification API error:', errorData)
+        throw new Error(errorData.error || `HTTP ${saveResponse.status}: ${saveResponse.statusText}`)
       }
 
       const saveResult = await saveResponse.json()
+      console.log('✅ Verification result:', saveResult)
       
       if (saveResult.success) {
         setVerificationStatus('success')
-        toast.success('Photo saved and identity verified successfully!')
+        toast.success('Verification successful! You are now clocked in.')
         // Stop camera before completing
         stopCamera()
         setTimeout(() => {
@@ -162,9 +169,10 @@ export function CameraVerification({
         throw new Error(saveResult.error || 'Verification failed')
       }
     } catch (err) {
-      console.error('Verification error:', err)
+      console.error('❌ Verification error:', err)
       setVerificationStatus('failed')
-      toast.error('Verification failed. Please try again.')
+      const errorMessage = err instanceof Error ? err.message : 'Verification failed. Please try again.'
+      toast.error(errorMessage)
     }
   }
 

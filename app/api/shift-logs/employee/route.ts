@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getShiftLogs } from '@/lib/database'
+import { query } from '@/lib/database'
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const employeeId = searchParams.get('employee_id')
-    const status = searchParams.get('status')
-    const limit = parseInt(searchParams.get('limit') || '10')
 
     if (!employeeId) {
       return NextResponse.json(
@@ -15,66 +13,39 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const filters: any = { employee_id: employeeId }
-    if (status) {
-      filters.status = status
-    }
+    // Get shift logs for the employee
+    const result = await query(`
+      SELECT 
+        id,
+        employee_id,
+        shift_assignment_id,
+        clock_in_time,
+        clock_out_time,
+        total_shift_hours,
+        break_time_used,
+        max_break_allowed,
+        is_late,
+        is_no_show,
+        late_minutes,
+        status,
+        total_calls_taken,
+        leads_generated,
+        performance_rating,
+        shift_remarks,
+        created_at,
+        updated_at
+      FROM shift_logs 
+      WHERE employee_id = $1
+      ORDER BY clock_in_time DESC
+      LIMIT 50
+    `, [employeeId])
 
-    const shiftLogs = await getShiftLogs(filters)
-
-    // Add timer information to each shift log
-    const shiftLogsWithTimers = shiftLogs.slice(0, limit).map(shiftLog => {
-      const now = new Date()
-      const clockInTime = new Date(shiftLog.clock_in_time)
-      
-      let elapsedTime = 0
-      let isActive = false
-      let endTimeFormatted = null
-      
-      if (shiftLog.status === 'active') {
-        elapsedTime = (now.getTime() - clockInTime.getTime()) / 1000 // seconds
-        isActive = true
-      } else if (shiftLog.clock_out_time) {
-        const clockOutTime = new Date(shiftLog.clock_out_time)
-        elapsedTime = (clockOutTime.getTime() - clockInTime.getTime()) / 1000 // seconds
-        endTimeFormatted = clockOutTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-
-      // Format elapsed time
-      const hours = Math.floor(elapsedTime / 3600)
-      const minutes = Math.floor((elapsedTime % 3600) / 60)
-      const seconds = Math.floor(elapsedTime % 60)
-      
-      const formattedTime = hours > 0 
-        ? `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-        : `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-
-      return {
-        ...shiftLog,
-        elapsedTime: {
-          seconds: Math.floor(elapsedTime),
-          formatted: formattedTime,
-          isActive: isActive
-        },
-        startTimeFormatted: clockInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        endTimeFormatted: endTimeFormatted,
-        // Calculate work hours properly
-        total_shift_hours: shiftLog.clock_out_time 
-          ? (new Date(shiftLog.clock_out_time).getTime() - clockInTime.getTime()) / (1000 * 60 * 60)
-          : (now.getTime() - clockInTime.getTime()) / (1000 * 60 * 60)
-      }
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: shiftLogsWithTimers,
-      total: shiftLogs.length
-    })
+    return NextResponse.json(result.rows)
 
   } catch (error) {
-    console.error('Error getting employee shift logs:', error)
+    console.error('Error fetching employee shift logs:', error)
     return NextResponse.json(
-      { error: 'Failed to get shift logs' },
+      { error: 'Failed to fetch shift logs' },
       { status: 500 }
     )
   }

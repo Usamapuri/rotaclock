@@ -412,10 +412,10 @@ export default function AdminEmployees() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEditEmployee(employee)}
+                        onClick={() => router.push(`/admin/employees/${employee.id}`)}
                       >
                         <Edit className="h-4 w-4 mr-2" />
-                        Edit
+                        Manage
                       </Button>
                     </TableCell>
                   </TableRow>

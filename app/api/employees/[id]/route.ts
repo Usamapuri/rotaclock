@@ -151,7 +151,24 @@ export async function GET(
     
     const queryText = `
       SELECT 
-        e.*,
+        e.id,
+        e.employee_id,
+        e.first_name,
+        e.last_name,
+        e.email,
+        e.department,
+        e.position,
+        e.hire_date,
+        e.hourly_rate,
+        e.is_active,
+        e.is_online,
+        e.last_online,
+        e.role,
+        e.team_id,
+        e.manager_id,
+        e.max_hours_per_week,
+        e.created_at,
+        e.updated_at,
         COUNT(DISTINCT sa.id) as total_assignments,
         COUNT(DISTINCT te.id) as total_time_entries,
         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
@@ -159,7 +176,7 @@ export async function GET(
       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id
       LEFT JOIN time_entries te ON e.id = te.employee_id
       WHERE ${isUuid ? 'e.id' : 'e.employee_id'} = $1
-      GROUP BY e.id
+      GROUP BY e.id, e.employee_id, e.first_name, e.last_name, e.email, e.department, e.position, e.hire_date, e.hourly_rate, e.is_active, e.is_online, e.last_online, e.role, e.team_id, e.manager_id, e.max_hours_per_week, e.created_at, e.updated_at
     `
     
     const result = await query(queryText, [employeeIdParam])

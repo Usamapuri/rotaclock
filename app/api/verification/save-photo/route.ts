@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFileSync, appendFileSync, existsSync } from 'fs'
-import { join } from 'path'
-import { AuthService } from '@/lib/auth'
 import { query, createShiftLogByEmail, getShiftAssignmentsByEmail, isEmployeeClockedInByEmail, getEmployeeByEmail } from '@/lib/database'
 
 export async function POST(request: NextRequest) {
@@ -18,17 +15,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get current user info
-    const currentUser = AuthService.getCurrentUser()
-    if (!currentUser && !employeeId) {
-      return NextResponse.json(
-        { error: 'User not authenticated' },
-        { status: 401 }
-      )
-    }
-
     // Determine the email to use for verification
-    let email = currentUser?.email
+    let email = employeeId
     
     // If employeeId is provided and it's an email, use it
     if (employeeId && employeeId.includes('@')) {
@@ -63,44 +51,26 @@ export async function POST(request: NextRequest) {
     // Create timestamp for all operations
     const timestamp = new Date().toISOString()
     
-    // Create verification data
-    const verificationData = {
-      employee_id: employee.employee_id,
-      user_id: currentUser?.id || employee.id,
-      verification_type: verificationType,
-      timestamp: timestamp,
-      image_data: imageData,
-      status: 'verified'
+    // Store verification record in database instead of file system
+    try {
+      await query(`
+        INSERT INTO verification_logs (
+          employee_id, verification_type, timestamp, status, image_data_length
+        ) VALUES ($1, $2, $3, $4, $5)
+      `, [
+        employee.employee_id,
+        verificationType,
+        timestamp,
+        'verified',
+        imageData.length
+      ])
+      console.log('✅ Verification log stored in database')
+    } catch (dbError) {
+      console.log('⚠️ Could not store verification log in database, continuing...', dbError.message)
+      // Continue even if verification log fails
     }
 
-    // Save to CSV file
-    const csvPath = join(process.cwd(), 'verification_logs.csv')
-    const csvHeader = 'employee_id,user_id,verification_type,timestamp,status\n'
-    const csvRow = `${verificationData.employee_id},${verificationData.user_id},${verificationData.verification_type},${verificationData.timestamp},${verificationData.status}\n`
-
-    // Create file with header if it doesn't exist
-    if (!existsSync(csvPath)) {
-      writeFileSync(csvPath, csvHeader)
-    }
-
-    // Append the verification record
-    appendFileSync(csvPath, csvRow)
-
-    // Save the actual image data to a separate file (base64 encoded)
-    const imageFileName = `verification_${employee.employee_id}_${Date.now()}.txt`
-    const imageDir = join(process.cwd(), 'verification_images')
-    const imagePath = join(imageDir, imageFileName)
-    
-    // Ensure the directory exists
-    if (!existsSync(imageDir)) {
-      const fs = require('fs')
-      fs.mkdirSync(imageDir, { recursive: true })
-    }
-
-    // Save the base64 image data
-    writeFileSync(imagePath, imageData)
-
-    console.log(`Verification photo saved for employee ${employee.employee_id} (${email}) at ${timestamp}`)
+    console.log(`Verification photo processed for employee ${employee.employee_id} (${email}) at ${timestamp}`)
 
     // If this is a shift start verification, automatically clock in the employee
     let clockInResult = null
@@ -168,7 +138,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Verification photo saved successfully',
+      message: 'Verification successful',
       verification_id: `${employee.employee_id}_${Date.now()}`,
       timestamp: timestamp,
       clocked_in: !!clockInResult,
@@ -182,16 +152,15 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error saving verification photo:', error)
+    console.error('Error in verification API:', error)
     console.error('Error details:', {
       message: error.message,
       stack: error.stack,
       employeeId,
-      email,
       verificationType
     })
     return NextResponse.json(
-      { error: 'Failed to save verification photo', details: error.message },
+      { error: 'Verification failed', details: error.message },
       { status: 500 }
     )
   }
