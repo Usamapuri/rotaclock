@@ -17,17 +17,8 @@ export default function LandingPage() {
               <span className="text-2xl font-bold text-gray-900">ShiftTracker</span>
             </div>
             <div className="flex space-x-2">
-              <Link href="/employee/login">
-                <Button variant="outline">Employee Login</Button>
-              </Link>
-              <Link href="/team-lead/login">
-                <Button variant="secondary">Team Lead Login</Button>
-              </Link>
-              <Link href="/project-manager/login">
-                <Button variant="secondary">PM Login</Button>
-              </Link>
-              <Link href="/admin/login">
-                <Button>Admin Login</Button>
+              <Link href="/login">
+                <Button>Sign In</Button>
               </Link>
             </div>
           </div>
@@ -43,14 +34,14 @@ export default function LandingPage() {
             break management, and comprehensive payroll tracking.
           </p>
           <div className="flex justify-center space-x-4">
-            <Link href="/admin/login">
+            <Link href="/login">
               <Button size="lg" className="px-8 py-3">
-                Start Free Trial
+                Get Started
               </Button>
             </Link>
-            <Link href="/team-lead/login">
+            <Link href="/login">
               <Button variant="outline" size="lg" className="px-8 py-3 bg-transparent">
-                Team Lead Demo
+                Try Demo
               </Button>
             </Link>
           </div>

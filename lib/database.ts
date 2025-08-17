@@ -499,6 +499,30 @@ export async function authenticateEmployee(employeeId: string, password: string)
   return null
 }
 
+// Authenticate employee by email and password
+export async function authenticateEmployeeByEmail(email: string, password: string): Promise<Employee | null> {
+  const result = await query(`
+    SELECT * FROM employees 
+    WHERE email = $1 AND is_active = true
+  `, [email])
+
+  if (result.rows.length === 0) {
+    return null
+  }
+
+  const employee = result.rows[0]
+  
+  if (!employee.password_hash) {
+    return null
+  }
+
+  if (verifyPassword(password, employee.password_hash)) {
+    return employee
+  }
+
+  return null
+}
+
 export async function createEmployee(employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'> & { password?: string }) {
   console.log('createEmployee called with:', employeeData)
   

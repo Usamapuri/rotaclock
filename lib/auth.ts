@@ -77,6 +77,46 @@ export class AuthService {
     }
   }
 
+  static async unifiedLogin(email: string, password: string): Promise<AuthUser | null> {
+    try {
+      const response = await fetch('/api/auth/unified-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Login failed')
+      }
+
+      const data = await response.json()
+      
+      if (data.success && data.employee) {
+        const normalizedRole = (data.employee.role === 'team_lead' ? 'team_lead' : (data.employee.role === 'project_manager' ? 'project_manager' : 'employee')) as AuthUser['role']
+        const user: AuthUser = {
+          id: data.employee.id,
+          email: data.employee.email,
+          role: normalizedRole,
+          employeeId: data.employee.employee_id
+        }
+        
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(this.EMPLOYEE_KEY, data.employee.employee_id)
+          localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
+        }
+        
+        return user
+      }
+      return null
+    } catch (error) {
+      console.error('Unified login error:', error)
+      return null
+    }
+  }
+
   static getCurrentUser(): AuthUser | null {
     if (typeof window === 'undefined') return null
     
