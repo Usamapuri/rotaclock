@@ -91,17 +91,17 @@ Use these credentials to test the unified login system:
 
 | Role | Email | Password |
 |------|-------|----------|
-| **Admin** | `admin@rotacloud.com` | `admin123` |
-| **Project Manager** | `sarah.johnson@rotacloud.com` | `sarah123` |
-| **Team Lead** | `david.wilson@rotacloud.com` | `david123` |
-| **Employee** | `john.smith@rotacloud.com` | `john123` |
+| **Admin** | `admin@rotacloud.com` | `password123` |
+| **Project Manager** | `sarah.johnson@rotacloud.com` | `password123` |
+| **Team Lead** | `david.wilson@rotacloud.com` | `password123` |
+| **Employee** | `john.smith@rotacloud.com` | `password123` |
 
 **Additional Employee Accounts:**
-- `emma.davis@rotacloud.com` / `emma123`
-- `alex.brown@rotacloud.com` / `alex123`
-- `maria.rodriguez@rotacloud.com` / `maria123`
-- `james.taylor@rotacloud.com` / `james123`
-- `sophia.anderson@rotacloud.com` / `sophia123`
+- `emma.davis@rotacloud.com` / `password123`
+- `alex.brown@rotacloud.com` / `password123`
+- `maria.rodriguez@rotacloud.com` / `password123`
+- `james.taylor@rotacloud.com` / `password123`
+- `sophia.anderson@rotacloud.com` / `password123`
 
 ### 2. Test Key Features
 
