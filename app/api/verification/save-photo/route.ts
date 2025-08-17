@@ -6,9 +6,12 @@ import { query, createShiftLogByEmail, getShiftAssignmentsByEmail, isEmployeeClo
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔍 Verification API called with:', { employeeId, verificationType })
+    
     const { imageData, employeeId, verificationType = 'shift_start' } = await request.json()
 
     if (!imageData || !employeeId) {
+      console.log('❌ Missing required data:', { hasImageData: !!imageData, hasEmployeeId: !!employeeId })
       return NextResponse.json(
         { error: 'Image data and employee ID are required' },
         { status: 400 }
@@ -46,16 +49,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Get employee details for logging
+    console.log('🔍 Looking up employee by email:', email)
     const employee = await getEmployeeByEmail(email)
     if (!employee) {
+      console.log('❌ Employee not found for email:', email)
       return NextResponse.json(
         { error: 'Employee not found' },
         { status: 404 }
       )
     }
+    console.log('✅ Employee found:', { id: employee.id, employee_id: employee.employee_id, name: `${employee.first_name} ${employee.last_name}` })
 
-    // Create verification data
+    // Create timestamp for all operations
     const timestamp = new Date().toISOString()
+    
+    // Create verification data
     const verificationData = {
       employee_id: employee.employee_id,
       user_id: currentUser?.id || employee.id,
@@ -98,11 +106,16 @@ export async function POST(request: NextRequest) {
     let clockInResult = null
     if (verificationType === 'shift_start') {
       try {
+        console.log('🔍 Starting shift start verification process...')
+        
         // Check if employee is already clocked in
         const isClockedIn = await isEmployeeClockedInByEmail(email)
+        console.log('   Already clocked in:', isClockedIn)
+        
         if (!isClockedIn) {
           // Get today's date
           const today = new Date().toISOString().split('T')[0]
+          console.log('   Checking shift assignments for:', today)
           
           // Find today's shift assignment for this employee
           const shiftAssignments = await getShiftAssignmentsByEmail({
@@ -111,18 +124,26 @@ export async function POST(request: NextRequest) {
             email: email
           })
 
+          console.log('   Found shift assignments:', shiftAssignments.length)
+
           let shift_assignment_id = null
           if (shiftAssignments.length > 0) {
             shift_assignment_id = shiftAssignments[0].id
+            console.log('   Using shift assignment ID:', shift_assignment_id)
+          } else {
+            console.log('   No shift assignments found - will create shift log without assignment')
           }
 
-          // Create shift log (clock in)
+          // Create shift log (clock in) - even without shift assignment
+          console.log('   Creating shift log...')
           clockInResult = await createShiftLogByEmail({
             email: email,
             shift_assignment_id,
             clock_in_time: timestamp,
             max_break_allowed: 1.0
           })
+
+          console.log('   Shift log created:', clockInResult?.id)
 
           // Update employee online status
           await query(`
@@ -132,9 +153,15 @@ export async function POST(request: NextRequest) {
           `, [email])
 
           console.log(`Employee ${employee.employee_id} (${email}) automatically clocked in after verification`)
+        } else {
+          console.log('   Employee already clocked in, skipping clock-in process')
         }
       } catch (clockInError) {
         console.error('Error during automatic clock in:', clockInError)
+        console.error('Clock-in error details:', {
+          message: clockInError.message,
+          stack: clockInError.stack
+        })
         // Don't fail the verification if clock in fails
       }
     }
@@ -156,8 +183,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error saving verification photo:', error)
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      employeeId,
+      email,
+      verificationType
+    })
     return NextResponse.json(
-      { error: 'Failed to save verification photo' },
+      { error: 'Failed to save verification photo', details: error.message },
       { status: 500 }
     )
   }

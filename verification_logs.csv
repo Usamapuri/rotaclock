@@ -30,3 +30,8 @@ EMP420,EMP420,shift_start,2025-08-11T15:41:00.498Z,verified
 EMP200,EMP200,shift_start,2025-08-13T15:13:37.838Z,verified
 EMP001,EMP001,shift_start,2025-08-14T10:19:06.585Z,verified
 EMP001,EMP001,shift_start,2025-08-14T14:51:12.690Z,verified
+TEST001,test-user,test-verification,2025-08-17T15:45:00.000Z,verified
+AG005,65c602bf-cb7d-4b17-b44b-ecdc8ff283ac,shift_start,2025-08-17T15:46:42.712Z,verified
+AG005,65c602bf-cb7d-4b17-b44b-ecdc8ff283ac,shift_start,2025-08-17T15:47:32.607Z,verified
+AG005,65c602bf-cb7d-4b17-b44b-ecdc8ff283ac,shift_start,2025-08-17T15:48:09.258Z,verified
+AG005,65c602bf-cb7d-4b17-b44b-ecdc8ff283ac,shift_start,2025-08-17T15:49:14.464Z,verified
