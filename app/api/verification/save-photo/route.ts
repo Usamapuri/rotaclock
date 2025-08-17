@@ -6,9 +6,9 @@ import { query, createShiftLogByEmail, getShiftAssignmentsByEmail, isEmployeeClo
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔍 Verification API called with:', { employeeId, verificationType })
-    
     const { imageData, employeeId, verificationType = 'shift_start' } = await request.json()
+    
+    console.log('🔍 Verification API called with:', { employeeId, verificationType })
 
     if (!imageData || !employeeId) {
       console.log('❌ Missing required data:', { hasImageData: !!imageData, hasEmployeeId: !!employeeId })

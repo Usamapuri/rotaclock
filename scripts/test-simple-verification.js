@@ -13,7 +13,7 @@ async function testSimpleVerification() {
     
     console.log('📤 Sending request...');
     
-    const response = await fetch('http://localhost:3000/api/verification/save-photo', {
+    const response = await fetch('http://localhost:3001/api/verification/save-photo', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
