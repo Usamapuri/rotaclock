@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeFileSync, appendFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { AuthService } from '@/lib/auth'
-import { query, createShiftLog, getShiftAssignments, isEmployeeClockedIn } from '@/lib/database'
+import { query, createShiftLogByEmail, getShiftAssignmentsByEmail, isEmployeeClockedInByEmail, getEmployeeByEmail } from '@/lib/database'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get current user info - for demo purposes, allow if employeeId is provided
+    // Get current user info
     const currentUser = AuthService.getCurrentUser()
     if (!currentUser && !employeeId) {
       return NextResponse.json(
@@ -24,26 +24,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Determine if employeeId is a UUID or employee ID string for logging
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeId)
-    let employeeIdString = employeeId
+    // Determine the email to use for verification
+    let email = currentUser?.email
     
-    if (isUuid) {
-      // If it's a UUID, get the employee ID string for logging
-      const employeeResult = await query(`
-        SELECT employee_id FROM employees WHERE id = $1
-      `, [employeeId])
-      
-      if (employeeResult.rows.length > 0) {
-        employeeIdString = employeeResult.rows[0].employee_id
+    // If employeeId is provided and it's an email, use it
+    if (employeeId && employeeId.includes('@')) {
+      email = employeeId
+    } else if (employeeId && !email) {
+      // If employeeId is not an email but we need to find the employee
+      const employee = await getEmployeeByEmail(employeeId)
+      if (employee) {
+        email = employee.email
       }
     }
-    
+
+    if (!email) {
+      return NextResponse.json(
+        { error: 'Valid email is required for verification' },
+        { status: 400 }
+      )
+    }
+
+    // Get employee details for logging
+    const employee = await getEmployeeByEmail(email)
+    if (!employee) {
+      return NextResponse.json(
+        { error: 'Employee not found' },
+        { status: 404 }
+      )
+    }
+
     // Create verification data
     const timestamp = new Date().toISOString()
     const verificationData = {
-      employee_id: employeeIdString,
-      user_id: currentUser?.id || employeeId,
+      employee_id: employee.employee_id,
+      user_id: currentUser?.id || employee.id,
       verification_type: verificationType,
       timestamp: timestamp,
       image_data: imageData,
@@ -64,13 +79,12 @@ export async function POST(request: NextRequest) {
     appendFileSync(csvPath, csvRow)
 
     // Save the actual image data to a separate file (base64 encoded)
-    const imageFileName = `verification_${employeeId}_${Date.now()}.txt`
+    const imageFileName = `verification_${employee.employee_id}_${Date.now()}.txt`
     const imageDir = join(process.cwd(), 'verification_images')
     const imagePath = join(imageDir, imageFileName)
     
     // Ensure the directory exists
     if (!existsSync(imageDir)) {
-      // Create directory recursively
       const fs = require('fs')
       fs.mkdirSync(imageDir, { recursive: true })
     }
@@ -78,52 +92,23 @@ export async function POST(request: NextRequest) {
     // Save the base64 image data
     writeFileSync(imagePath, imageData)
 
-    console.log(`Verification photo saved for employee ${employeeId} at ${timestamp}`)
+    console.log(`Verification photo saved for employee ${employee.employee_id} (${email}) at ${timestamp}`)
 
     // If this is a shift start verification, automatically clock in the employee
     let clockInResult = null
     if (verificationType === 'shift_start') {
       try {
-        // Determine if employeeId is a UUID or employee ID string
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeId)
-        
-        let employeeUuid = employeeId
-        let employeeIdString = employeeId
-        
-        // If it's not a UUID, we need to get the UUID from the database
-        if (!isUuid) {
-          const employeeResult = await query(`
-            SELECT id, employee_id FROM employees WHERE employee_id = $1
-          `, [employeeId])
-          
-          if (employeeResult.rows.length > 0) {
-            employeeUuid = employeeResult.rows[0].id
-            employeeIdString = employeeResult.rows[0].employee_id
-          } else {
-            throw new Error('Employee not found')
-          }
-        } else {
-          // If it's a UUID, get the employee ID string for logging
-          const employeeResult = await query(`
-            SELECT employee_id FROM employees WHERE id = $1
-          `, [employeeId])
-          
-          if (employeeResult.rows.length > 0) {
-            employeeIdString = employeeResult.rows[0].employee_id
-          }
-        }
-        
         // Check if employee is already clocked in
-        const isClockedIn = await isEmployeeClockedIn(employeeUuid)
+        const isClockedIn = await isEmployeeClockedInByEmail(email)
         if (!isClockedIn) {
           // Get today's date
           const today = new Date().toISOString().split('T')[0]
           
           // Find today's shift assignment for this employee
-          const shiftAssignments = await getShiftAssignments({
+          const shiftAssignments = await getShiftAssignmentsByEmail({
             start_date: today,
             end_date: today,
-            employee_id: employeeUuid
+            email: email
           })
 
           let shift_assignment_id = null
@@ -132,26 +117,21 @@ export async function POST(request: NextRequest) {
           }
 
           // Create shift log (clock in)
-          clockInResult = await createShiftLog({
-            employee_id: employeeUuid,
+          clockInResult = await createShiftLogByEmail({
+            email: email,
             shift_assignment_id,
             clock_in_time: timestamp,
-            break_time_used: 0,
-            max_break_allowed: 1.0,
-            is_late: false,
-            is_no_show: false,
-            late_minutes: 0,
-            status: 'active'
+            max_break_allowed: 1.0
           })
 
           // Update employee online status
           await query(`
             UPDATE employees 
             SET is_online = true, last_online = NOW()
-            WHERE id = $1
-          `, [employeeUuid])
+            WHERE email = $1
+          `, [email])
 
-          console.log(`Employee ${employeeIdString} (${employeeUuid}) automatically clocked in after verification`)
+          console.log(`Employee ${employee.employee_id} (${email}) automatically clocked in after verification`)
         }
       } catch (clockInError) {
         console.error('Error during automatic clock in:', clockInError)
@@ -162,10 +142,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Verification photo saved successfully',
-      verification_id: `${employeeId}_${Date.now()}`,
+      verification_id: `${employee.employee_id}_${Date.now()}`,
       timestamp: timestamp,
       clocked_in: !!clockInResult,
-      shift_log: clockInResult
+      shift_log: clockInResult,
+      employee: {
+        id: employee.id,
+        employee_id: employee.employee_id,
+        email: employee.email,
+        name: `${employee.first_name} ${employee.last_name}`
+      }
     })
 
   } catch (error) {

@@ -1733,3 +1733,129 @@ export async function getAttendanceSummary(filters: {
   
   return result.rows;
 }
+
+/**
+ * Check if an employee is currently clocked in (by email)
+ */
+export async function isEmployeeClockedInByEmail(email: string) {
+  const result = await query(`
+    SELECT sl.id FROM shift_logs sl
+    JOIN employees e ON sl.employee_id = e.id
+    WHERE e.email = $1 
+    AND sl.status = 'active'
+  `, [email])
+
+  return result.rows.length > 0
+}
+
+/**
+ * Get shift assignments by email
+ */
+export async function getShiftAssignmentsByEmail(filters: {
+  start_date: string
+  end_date: string
+  email: string
+  status?: string
+}) {
+  let queryText = `
+    SELECT 
+      sa.*,
+      e.first_name as employee_first_name,
+      e.last_name as employee_last_name,
+      e.email as employee_email,
+      s.name as shift_name,
+      s.start_time as shift_start_time,
+      s.end_time as shift_end_time,
+      aba.first_name as assigned_by_first_name,
+      aba.last_name as assigned_by_last_name,
+      aba.email as assigned_by_email
+    FROM shift_assignments sa
+    LEFT JOIN employees e ON sa.employee_id = e.id
+    LEFT JOIN shifts s ON sa.shift_id = s.id
+    LEFT JOIN employees aba ON sa.assigned_by = aba.id
+    WHERE sa.date >= $1 AND sa.date <= $2 AND e.email = $3
+  `
+  const params: any[] = [filters.start_date, filters.end_date, filters.email]
+  let paramIndex = 4
+
+  if (filters.status) {
+    queryText += ` AND sa.status = $${paramIndex}`
+    params.push(filters.status)
+  }
+
+  queryText += ' ORDER BY sa.date'
+
+  const result = await query(queryText, params)
+  return result.rows
+}
+
+/**
+ * Create a shift log by email
+ */
+export async function createShiftLogByEmail(shiftLogData: {
+  email: string
+  shift_assignment_id?: string
+  clock_in_time: string
+  max_break_allowed?: number
+}) {
+  const { email, shift_assignment_id, clock_in_time, max_break_allowed = 1.0 } = shiftLogData;
+  
+  // Get employee UUID by email
+  const employeeResult = await query(`
+    SELECT id FROM employees WHERE email = $1
+  `, [email])
+  
+  if (employeeResult.rows.length === 0) {
+    throw new Error('Employee not found')
+  }
+  
+  const employee_id = employeeResult.rows[0].id
+  
+  // Get the assigned shift to check for lateness
+  let is_late = false;
+  let is_no_show = false;
+  let late_minutes = 0;
+  
+  if (shift_assignment_id) {
+    const shiftAssignment = await query(
+      'SELECT sa.*, s.start_time FROM shift_assignments sa JOIN shifts s ON sa.shift_id = s.id WHERE sa.id = $1',
+      [shift_assignment_id]
+    );
+    
+    if (shiftAssignment.rows.length > 0) {
+      const assignment = shiftAssignment.rows[0];
+      const shiftStartTime = new Date(`${assignment.date}T${assignment.start_time || assignment.shift_start_time}`);
+      const clockInTime = new Date(clock_in_time);
+      const minutesLate = Math.floor((clockInTime.getTime() - shiftStartTime.getTime()) / (1000 * 60));
+      
+      if (minutesLate > 30) {
+        is_no_show = true;
+        late_minutes = minutesLate;
+      } else if (minutesLate > 5) {
+        is_late = true;
+        late_minutes = minutesLate;
+      }
+    }
+  }
+  
+  const result = await query(
+    `INSERT INTO shift_logs (
+      employee_id, shift_assignment_id, clock_in_time, max_break_allowed, 
+      is_late, is_no_show, late_minutes
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [employee_id, shift_assignment_id, clock_in_time, max_break_allowed, is_late, is_no_show, late_minutes]
+  );
+  
+  return result.rows[0];
+}
+
+/**
+ * Get employee by email
+ */
+export async function getEmployeeByEmail(email: string) {
+  const result = await query(`
+    SELECT * FROM employees WHERE email = $1 AND is_active = true
+  `, [email])
+  
+  return result.rows[0] || null
+}

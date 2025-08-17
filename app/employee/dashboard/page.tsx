@@ -1305,7 +1305,7 @@ export default function EmployeeDashboard() {
           onCancel={() => setShowCamera(false)}
           title="Shift Verification"
           description="Please verify your identity to start your shift."
-          employeeId={currentUser?.id}
+          employeeId={currentUser?.email}
         />
       )}
 
