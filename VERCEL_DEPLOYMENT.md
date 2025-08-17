@@ -85,27 +85,23 @@ my-super-secret-key-for-nextauth-2024
 
 ### 1. Test Login Credentials
 
-Use these credentials to test the system:
+Use these credentials to test the unified login system:
 
-**Admin:**
-- URL: `https://your-domain.vercel.app/admin/login`
-- ID: `ADM001`
-- Password: `password123`
+**Unified Login URL:** `https://your-domain.vercel.app/login`
 
-**Project Manager:**
-- URL: `https://your-domain.vercel.app/project-manager/login`
-- ID: `PM001` or `PM002`
-- Password: `password123`
+| Role | Email | Password |
+|------|-------|----------|
+| **Admin** | `admin@rotacloud.com` | `admin123` |
+| **Project Manager** | `sarah.johnson@rotacloud.com` | `sarah123` |
+| **Team Lead** | `david.wilson@rotacloud.com` | `david123` |
+| **Employee** | `john.smith@rotacloud.com` | `john123` |
 
-**Team Lead:**
-- URL: `https://your-domain.vercel.app/team-lead/login`
-- ID: `TL001` or `TL002`
-- Password: `password123`
-
-**Employee:**
-- URL: `https://your-domain.vercel.app/employee/login`
-- ID: `AG001`, `AG002`, `AG003`, `AG004`, `AG005`, `AG006`
-- Password: `password123`
+**Additional Employee Accounts:**
+- `emma.davis@rotacloud.com` / `emma123`
+- `alex.brown@rotacloud.com` / `alex123`
+- `maria.rodriguez@rotacloud.com` / `maria123`
+- `james.taylor@rotacloud.com` / `james123`
+- `sophia.anderson@rotacloud.com` / `sophia123`
 
 ### 2. Test Key Features
 
@@ -188,6 +184,9 @@ Once deployed, your application will be available at:
 `https://your-project-name.vercel.app`
 
 The system includes:
+- ✅ **Unified Login System** - Single login page for all user types
+- ✅ **Email-Based Authentication** - Modern, intuitive login experience
+- ✅ **Automatic Role Routing** - Users automatically directed to appropriate dashboards
 - ✅ Complete role-based authentication
 - ✅ Real-time team monitoring
 - ✅ Shift management system
