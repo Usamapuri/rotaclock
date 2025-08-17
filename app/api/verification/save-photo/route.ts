@@ -24,10 +24,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Determine if employeeId is a UUID or employee ID string for logging
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeId)
+    let employeeIdString = employeeId
+    
+    if (isUuid) {
+      // If it's a UUID, get the employee ID string for logging
+      const employeeResult = await query(`
+        SELECT employee_id FROM employees WHERE id = $1
+      `, [employeeId])
+      
+      if (employeeResult.rows.length > 0) {
+        employeeIdString = employeeResult.rows[0].employee_id
+      }
+    }
+    
     // Create verification data
     const timestamp = new Date().toISOString()
     const verificationData = {
-      employee_id: employeeId,
+      employee_id: employeeIdString,
       user_id: currentUser?.id || employeeId,
       verification_type: verificationType,
       timestamp: timestamp,
@@ -69,8 +84,37 @@ export async function POST(request: NextRequest) {
     let clockInResult = null
     if (verificationType === 'shift_start') {
       try {
+        // Determine if employeeId is a UUID or employee ID string
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeId)
+        
+        let employeeUuid = employeeId
+        let employeeIdString = employeeId
+        
+        // If it's not a UUID, we need to get the UUID from the database
+        if (!isUuid) {
+          const employeeResult = await query(`
+            SELECT id, employee_id FROM employees WHERE employee_id = $1
+          `, [employeeId])
+          
+          if (employeeResult.rows.length > 0) {
+            employeeUuid = employeeResult.rows[0].id
+            employeeIdString = employeeResult.rows[0].employee_id
+          } else {
+            throw new Error('Employee not found')
+          }
+        } else {
+          // If it's a UUID, get the employee ID string for logging
+          const employeeResult = await query(`
+            SELECT employee_id FROM employees WHERE id = $1
+          `, [employeeId])
+          
+          if (employeeResult.rows.length > 0) {
+            employeeIdString = employeeResult.rows[0].employee_id
+          }
+        }
+        
         // Check if employee is already clocked in
-        const isClockedIn = await isEmployeeClockedIn(employeeId)
+        const isClockedIn = await isEmployeeClockedIn(employeeUuid)
         if (!isClockedIn) {
           // Get today's date
           const today = new Date().toISOString().split('T')[0]
@@ -79,7 +123,7 @@ export async function POST(request: NextRequest) {
           const shiftAssignments = await getShiftAssignments({
             start_date: today,
             end_date: today,
-            employee_id: employeeId
+            employee_id: employeeUuid
           })
 
           let shift_assignment_id = null
@@ -89,7 +133,7 @@ export async function POST(request: NextRequest) {
 
           // Create shift log (clock in)
           clockInResult = await createShiftLog({
-            employee_id: employeeId,
+            employee_id: employeeUuid,
             shift_assignment_id,
             clock_in_time: timestamp,
             break_time_used: 0,
@@ -105,9 +149,9 @@ export async function POST(request: NextRequest) {
             UPDATE employees 
             SET is_online = true, last_online = NOW()
             WHERE id = $1
-          `, [employeeId])
+          `, [employeeUuid])
 
-          console.log(`Employee ${employeeId} automatically clocked in after verification`)
+          console.log(`Employee ${employeeIdString} (${employeeUuid}) automatically clocked in after verification`)
         }
       } catch (clockInError) {
         console.error('Error during automatic clock in:', clockInError)
