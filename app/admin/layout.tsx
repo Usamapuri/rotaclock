@@ -14,11 +14,12 @@ import {
   BarChart3,
   Clock,
   FolderKanban,
+  DollarSign,
 } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const [role, setRole] = useState<'admin' | 'team_lead' | 'employee' | null>(null)
+  const [role, setRole] = useState<'admin' | 'team_lead' | 'employee' | 'project_manager' | null>(null)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -35,6 +36,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       { href: "/admin/reports", label: "Reports", icon: <BarChart3 /> },
       { href: "/admin/timesheet", label: "Timesheet", icon: <Clock /> },
       { href: "/admin/onboarding", label: "Onboarding", icon: <Users /> },
+      { href: "/admin/payroll", label: "Payroll", icon: <DollarSign /> },
     ]
     if (role === 'team_lead') {
       // Hide admin-only sections for team leads
