@@ -16,14 +16,14 @@ export async function POST(request: NextRequest) {
     const result = await query(`
       INSERT INTO payroll_bonuses (
         employee_id,
-        payroll_period_id,
         amount,
         reason,
         bonus_type,
-        applied_by
-      ) VALUES ($1, $2, $3, $4, $5, 'admin')
+        applied_by,
+        applied_date
+      ) VALUES ($1, $2, $3, $4, 'admin', NOW())
       RETURNING *
-    `, [employee_id, payroll_period_id, amount, reason, bonus_type || 'performance'])
+    `, [employee_id, amount, reason, bonus_type || 'performance'])
 
     // Update the payroll record to reflect the new bonus
     await query(`
@@ -32,17 +32,17 @@ export async function POST(request: NextRequest) {
         bonus_amount = (
           SELECT COALESCE(SUM(amount), 0)
           FROM payroll_bonuses
-          WHERE employee_id = $1 AND payroll_period_id = $2
+          WHERE employee_id = $1
         ),
         gross_pay = base_salary + hourly_pay + overtime_pay + (
           SELECT COALESCE(SUM(amount), 0)
           FROM payroll_bonuses
-          WHERE employee_id = $1 AND payroll_period_id = $2
+          WHERE employee_id = $1
         ),
         net_pay = (base_salary + hourly_pay + overtime_pay + (
           SELECT COALESCE(SUM(amount), 0)
           FROM payroll_bonuses
-          WHERE employee_id = $1 AND payroll_period_id = $2
+          WHERE employee_id = $1
         )) - deductions_amount,
         updated_at = NOW()
       WHERE employee_id = $1 AND payroll_period_id = $2
