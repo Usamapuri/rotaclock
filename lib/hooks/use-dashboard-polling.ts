@@ -74,7 +74,7 @@ export function useDashboardPolling(adminId: string, pollInterval: number = 1500
 
     const requestPromise = (async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/dashboard/data', {
+        const response = await fetch('/api/dashboard/data', {
           headers: {
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
