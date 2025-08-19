@@ -164,6 +164,10 @@ export async function GET(
         e.is_online,
         e.last_online,
         e.role,
+        r.display_name as role_display_name,
+        r.description as role_description,
+        r.permissions as role_permissions,
+        r.dashboard_access as role_dashboard_access,
         e.team_id,
         e.manager_id,
         e.max_hours_per_week,
@@ -173,10 +177,11 @@ export async function GET(
         COUNT(DISTINCT te.id) as total_time_entries,
         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
       FROM employees e
+      LEFT JOIN roles r ON e.role = r.name
       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id
       LEFT JOIN time_entries te ON e.id = te.employee_id
       WHERE ${isUuid ? 'e.id' : 'e.employee_id'} = $1
-      GROUP BY e.id, e.employee_id, e.first_name, e.last_name, e.email, e.department, e.position, e.hire_date, e.hourly_rate, e.is_active, e.is_online, e.last_online, e.role, e.team_id, e.manager_id, e.max_hours_per_week, e.created_at, e.updated_at
+      GROUP BY e.id, e.employee_id, e.first_name, e.last_name, e.email, e.department, e.position, e.hire_date, e.hourly_rate, e.is_active, e.is_online, e.last_online, e.role, r.display_name, r.description, r.permissions, r.dashboard_access, e.team_id, e.manager_id, e.max_hours_per_week, e.created_at, e.updated_at
     `
     
     const result = await query(queryText, [employeeIdParam])

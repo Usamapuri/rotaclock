@@ -73,11 +73,35 @@ interface Employee {
   address?: string
   emergency_contact?: string
   role?: string
+  role_display_name?: string
+  role_description?: string
   team_id?: string
   manager_id?: string
   max_hours_per_week?: number
   created_at: string
   updated_at: string
+}
+
+interface Role {
+  id: number
+  name: string
+  display_name: string
+  description: string
+  permissions: any
+  dashboard_access: string[]
+  is_active: boolean
+}
+
+interface RoleAssignment {
+  id: number
+  employee_id: string
+  employee_email: string
+  old_role: string
+  new_role: string
+  assigned_by: string
+  reason: string
+  effective_date: string
+  created_at: string
 }
 
 interface ShiftLog {
@@ -139,15 +163,20 @@ export default function EmployeeDetailPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [teamLeads, setTeamLeads] = useState<TeamLead[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
+  const [roleHistory, setRoleHistory] = useState<RoleAssignment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState<Partial<Employee>>({})
   const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false)
   const [showAssignProjectDialog, setShowAssignProjectDialog] = useState(false)
   const [showAssignTeamDialog, setShowAssignTeamDialog] = useState(false)
+  const [showRoleAssignmentDialog, setShowRoleAssignmentDialog] = useState(false)
   const [selectedProject, setSelectedProject] = useState("")
   const [selectedTeam, setSelectedTeam] = useState("")
   const [selectedTeamLead, setSelectedTeamLead] = useState("")
+  const [selectedRole, setSelectedRole] = useState("")
+  const [roleAssignmentReason, setRoleAssignmentReason] = useState("")
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -247,6 +276,28 @@ export default function EmployeeDetailPage() {
       } else {
         console.error('Failed to load team leads:', teamLeadsResponse.status)
         setTeamLeads([])
+      }
+
+      // Load roles
+      const rolesResponse = await fetch('/api/admin/roles')
+      if (rolesResponse.ok) {
+        const rolesData = await rolesResponse.json()
+        setRoles(rolesData)
+      } else {
+        console.error('Failed to load roles:', rolesResponse.status)
+        setRoles([])
+      }
+
+      // Load role history if employee exists
+      if (employee) {
+        const roleHistoryResponse = await fetch(`/api/admin/employees/${employee.email}/role-history`)
+        if (roleHistoryResponse.ok) {
+          const roleHistoryData = await roleHistoryResponse.json()
+          setRoleHistory(roleHistoryData)
+        } else {
+          console.error('Failed to load role history:', roleHistoryResponse.status)
+          setRoleHistory([])
+        }
       }
 
     } catch (error) {
@@ -390,6 +441,38 @@ export default function EmployeeDetailPage() {
     } catch (error) {
       console.error('Error assigning team:', error)
       toast.error('Failed to assign team')
+    }
+  }
+
+  const handleRoleAssignment = async () => {
+    if (!employee || !selectedRole) return
+
+    try {
+      const response = await fetch(`/api/admin/employees/${employee.email}/role`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          new_role: selectedRole,
+          reason: roleAssignmentReason || 'Role assignment',
+          assigned_by: adminUser
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        toast.success(`Role updated successfully from ${result.old_role} to ${result.new_role}`)
+        setShowRoleAssignmentDialog(false)
+        setSelectedRole("")
+        setRoleAssignmentReason("")
+        loadEmployeeData() // Refresh data
+      } else {
+        toast.error('Failed to update role')
+      }
+    } catch (error) {
+      console.error('Error updating role:', error)
+      toast.error('Failed to update role')
     }
   }
 
@@ -639,6 +722,14 @@ export default function EmployeeDetailPage() {
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"
+                  onClick={() => setShowRoleAssignmentDialog(true)}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Assign Role
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
                   onClick={() => setShowAssignProjectDialog(true)}
                 >
                   <Building className="h-4 w-4 mr-2" />
@@ -664,6 +755,10 @@ export default function EmployeeDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span>Current Role</span>
+                  <span className="font-semibold">{employee.role_display_name || employee.role || 'Not Assigned'}</span>
+                </div>
                 <div className="flex justify-between">
                   <span>Total Hours Worked</span>
                   <span className="font-semibold">{safeToFixed(calculateTotalHours())}h</span>
@@ -973,6 +1068,118 @@ export default function EmployeeDetailPage() {
               Assign Team
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Assignment Dialog */}
+      <Dialog open={showRoleAssignmentDialog} onOpenChange={setShowRoleAssignmentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Role</DialogTitle>
+            <DialogDescription>
+              Change {employee.first_name}'s role. This will update their permissions and dashboard access.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="current-role">Current Role</Label>
+              <div className="p-3 bg-gray-50 rounded-md">
+                <span className="font-medium">{employee.role_display_name || employee.role || 'Not Assigned'}</span>
+                {employee.role_description && (
+                  <p className="text-sm text-gray-600 mt-1">{employee.role_description}</p>
+                )}
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="new-role">New Role</Label>
+              <Select value={selectedRole} onValueChange={setSelectedRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a new role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.name}>
+                      <div>
+                        <div className="font-medium">{role.display_name}</div>
+                        <div className="text-sm text-gray-500">{role.description}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="reason">Reason for Change</Label>
+              <Input
+                id="reason"
+                placeholder="e.g., Promotion, Role change, etc."
+                value={roleAssignmentReason}
+                onChange={(e) => setRoleAssignmentReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRoleAssignmentDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRoleAssignment} disabled={!selectedRole}>
+              <Shield className="h-4 w-4 mr-2" />
+              Assign Role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role History Dialog */}
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="outline" className="w-full justify-start">
+            <FileText className="h-4 w-4 mr-2" />
+            View Role History
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Role Assignment History</DialogTitle>
+            <DialogDescription>
+              Complete history of role changes for {employee.first_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Old Role</TableHead>
+                  <TableHead>New Role</TableHead>
+                  <TableHead>Assigned By</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {roleHistory.map((assignment) => (
+                  <TableRow key={assignment.id}>
+                    <TableCell>{formatDate(assignment.created_at)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{assignment.old_role || 'None'}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="default">{assignment.new_role}</Badge>
+                    </TableCell>
+                    <TableCell>{assignment.assigned_by}</TableCell>
+                    <TableCell>{assignment.reason}</TableCell>
+                  </TableRow>
+                ))}
+                {roleHistory.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-gray-500">
+                      No role history available
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
