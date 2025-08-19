@@ -47,6 +47,7 @@ Vercel will automatically detect this is a Next.js project. The build settings s
 - **Output Directory**: `.next`
 - **Install Command**: `npm install`
 
+
 ### 4. Deploy
 
 1. Click "Deploy" in Vercel

@@ -90,7 +90,7 @@ export interface Employee {
   hourly_rate?: number
   max_hours_per_week?: number
   password_hash?: string
-  role?: 'admin' | 'team_lead' | 'project_manager' | 'employee'
+  role?: 'admin' | 'team_lead' | 'project_manager' | 'agent' | 'sales_agent'
   team_id?: string | null
   created_at: string
   updated_at: string
@@ -532,8 +532,8 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
   const result = await query(`
     INSERT INTO employees (
       employee_id, first_name, last_name, email, department, position, 
-      hire_date, manager_id, is_active, hourly_rate, max_hours_per_week, password_hash
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      hire_date, manager_id, is_active, hourly_rate, max_hours_per_week, password_hash, role
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *
   `, [
     employeeData.employee_id,
@@ -547,7 +547,8 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
     employeeData.is_active,
     employeeData.hourly_rate,
     employeeData.max_hours_per_week,
-    passwordHash
+    passwordHash,
+    employeeData.role || 'agent' // Default to 'agent' role
   ])
 
   console.log('Employee created successfully:', result.rows[0])
