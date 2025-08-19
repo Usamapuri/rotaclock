@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isAdmin } from '@/lib/api-auth'
 
 export async function GET(
 	request: NextRequest,
@@ -9,8 +9,9 @@ export async function GET(
 	try {
 		const auth = createApiAuthMiddleware()
 		const { user, isAuthenticated } = await auth(request)
-		if (!isAuthenticated) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-		if (user?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+		if (!isAuthenticated || !isAdmin(user)) {
+			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+		}
 
 		const teamId = params.id
 		const result = await query(
@@ -36,8 +37,9 @@ export async function PUT(
 	try {
 		const auth = createApiAuthMiddleware()
 		const { user, isAuthenticated } = await auth(request)
-		if (!isAuthenticated) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-		if (user?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+		if (!isAuthenticated || !isAdmin(user)) {
+			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+		}
 
 		const teamId = params.id
 		const body = await request.json()
@@ -71,8 +73,9 @@ export async function DELETE(
 	try {
 		const auth = createApiAuthMiddleware()
 		const { user, isAuthenticated } = await auth(request)
-		if (!isAuthenticated) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-		if (user?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+		if (!isAuthenticated || !isAdmin(user)) {
+			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+		}
 
 		const teamId = params.id
 		const result = await query(`UPDATE teams SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING id`, [teamId])

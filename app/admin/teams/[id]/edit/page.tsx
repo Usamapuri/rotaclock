@@ -144,7 +144,7 @@ export default function EditTeamPage() {
       const membersData = await membersRes.json()
       
       // Load available employees (not in any team)
-      const employeesRes = await fetch('/api/admin/employees', {
+      const employeesRes = await fetch('/api/employees', {
         headers: { 'authorization': `Bearer ${user?.id || ''}` }
       })
       const employeesData = await employeesRes.json()
