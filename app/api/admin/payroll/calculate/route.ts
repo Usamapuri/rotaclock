@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       SELECT 
         e.id,
         e.employee_id,
+        e.email,
         e.first_name,
         e.last_name,
         e.hourly_rate,
@@ -95,18 +96,18 @@ export async function POST(request: NextRequest) {
         bonuses += 1000 // PKR 1000 bonus for high performance
       }
 
-      // Get existing deductions and bonuses from database using string employee_id
+      // Get existing deductions and bonuses from database using email
       const deductionsResult = await query(`
         SELECT COALESCE(SUM(amount), 0) as total_deductions
         FROM payroll_deductions
-        WHERE employee_id = $1
-      `, [employee.employee_id])
+        WHERE employee_email = $1
+      `, [employee.email])
 
       const bonusesResult = await query(`
         SELECT COALESCE(SUM(amount), 0) as total_bonuses
         FROM payroll_bonuses
-        WHERE employee_id = $1
-      `, [employee.employee_id])
+        WHERE employee_email = $1
+      `, [employee.email])
 
       const manualDeductions = deductionsResult.rows[0].total_deductions
       const manualBonuses = bonusesResult.rows[0].total_bonuses
@@ -116,10 +117,11 @@ export async function POST(request: NextRequest) {
       const totalDeductions = parseFloat(deductions) + parseFloat(manualDeductions)
       const netPay = grossPay - totalDeductions
 
-      // Insert or update payroll record using string employee_id
+      // Insert or update payroll record using both employee_id and email
       await query(`
         INSERT INTO payroll_records (
           employee_id,
+          employee_email,
           payroll_period_id,
           base_salary,
           hours_worked,
@@ -131,9 +133,10 @@ export async function POST(request: NextRequest) {
           gross_pay,
           net_pay,
           payment_status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending')
         ON CONFLICT (employee_id, payroll_period_id) 
         DO UPDATE SET
+          employee_email = EXCLUDED.employee_email,
           base_salary = EXCLUDED.base_salary,
           hours_worked = EXCLUDED.hours_worked,
           hourly_pay = EXCLUDED.hourly_pay,
@@ -146,6 +149,7 @@ export async function POST(request: NextRequest) {
           updated_at = NOW()
       `, [
         employee.employee_id,
+        employee.email,
         periodId,
         employee.base_salary,
         totalHours,

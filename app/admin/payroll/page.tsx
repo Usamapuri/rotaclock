@@ -245,7 +245,7 @@ export default function PayrollDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          employee_id: selectedEmployee,
+          employee_email: selectedEmployee,
           payroll_period_id: selectedPeriod,
           amount: parseFloat(deductionAmount),
           reason: deductionReason,
@@ -282,7 +282,7 @@ export default function PayrollDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          employee_id: selectedEmployee,
+          employee_email: selectedEmployee,
           payroll_period_id: selectedPeriod,
           amount: parseFloat(bonusAmount),
           reason: bonusReason,
@@ -707,8 +707,8 @@ export default function PayrollDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.first_name} {employee.last_name} ({employee.employee_id})
+                    <SelectItem key={employee.id} value={employee.email}>
+                      {employee.first_name} {employee.last_name} ({employee.email})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -764,8 +764,8 @@ export default function PayrollDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.first_name} {employee.last_name} ({employee.employee_id})
+                    <SelectItem key={employee.id} value={employee.email}>
+                      {employee.first_name} {employee.last_name} ({employee.email})
                     </SelectItem>
                   ))}
                 </SelectContent>
