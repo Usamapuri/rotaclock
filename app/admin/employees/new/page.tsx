@@ -183,11 +183,11 @@ export default function NewEmployee() {
       }
 
       const result = await response.json()
-      toast.success(`Employee ${formData.first_name} ${formData.last_name} created successfully!`)
+             toast.success(`Agent ${formData.first_name} ${formData.last_name} created successfully!`)
       router.push('/admin/employees')
     } catch (error) {
       console.error('Error creating employee:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to create employee')
+             toast.error(error instanceof Error ? error.message : 'Failed to create agent')
     } finally {
       setIsLoading(false)
     }
@@ -207,19 +207,19 @@ export default function NewEmployee() {
               <Link href="/admin/employees">
                 <Button variant="ghost" size="sm">
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Employees
+                                     Back to Agents
                 </Button>
               </Link>
               <div className="bg-blue-100 p-2 rounded-full">
                 <UserPlus className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  Add New Employee
-                </h1>
-                <p className="text-sm text-gray-500">
-                  Create a new employee account
-                </p>
+                                 <h1 className="text-xl font-semibold text-gray-900">
+                   Add New Agent
+                 </h1>
+                 <p className="text-sm text-gray-500">
+                   Create a new agent account
+                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -235,10 +235,10 @@ export default function NewEmployee() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <CardHeader>
-            <CardTitle>Employee Information</CardTitle>
-            <CardDescription>
-              Fill in the employee details below. All fields marked with * are required.
-            </CardDescription>
+                       <CardTitle>Agent Information</CardTitle>
+           <CardDescription>
+             Fill in the agent details below. All fields marked with * are required.
+           </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -246,7 +246,7 @@ export default function NewEmployee() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="employee_id">Employee ID *</Label>
+                                         <Label htmlFor="employee_id">Agent ID *</Label>
                     <div className="flex space-x-2">
                       <Input
                         id="employee_id"
@@ -472,7 +472,7 @@ export default function NewEmployee() {
                   disabled={isLoading}
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  {isLoading ? 'Creating...' : 'Create Employee'}
+                                     {isLoading ? 'Creating...' : 'Create Agent'}
                 </Button>
               </div>
             </form>

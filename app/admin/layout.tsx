@@ -30,7 +30,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const links = useMemo(() => {
     const base = [
       { href: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
-      { href: "/admin/employees", label: "Employees", icon: <Users /> },
+                { href: "/admin/employees", label: "Agents", icon: <Users /> },
       { href: "/admin/teams", label: "Teams", icon: <FolderKanban /> },
       { href: "/admin/team-leads", label: "Team Leads", icon: <UserPlus /> },
       { href: "/admin/projects", label: "Projects", icon: <Briefcase /> },

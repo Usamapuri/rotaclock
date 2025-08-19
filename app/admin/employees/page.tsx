@@ -220,7 +220,7 @@ export default function AdminEmployees() {
                   <span className="text-xl font-bold text-gray-900">ShiftTracker Admin</span>
                 </div>
               </Link>
-              <Badge variant="outline">Employee Management</Badge>
+                              <Badge variant="outline">Agent Management</Badge>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Welcome, {adminUser}</span>
@@ -237,7 +237,7 @@ export default function AdminEmployees() {
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Agents</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -271,7 +271,7 @@ export default function AdminEmployees() {
                 ${(employees.reduce((sum, emp) => sum + emp.hourly_rate, 0) / employees.length || 0).toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">
-                Across all employees
+                Across all agents
               </p>
             </CardContent>
           </Card>
@@ -297,7 +297,7 @@ export default function AdminEmployees() {
           <div className="flex items-center space-x-2">
             <Search className="h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search employees..."
+              placeholder="Search agents..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-64"
@@ -335,7 +335,7 @@ export default function AdminEmployees() {
           <Link href="/admin/employees/new">
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Add Employee
+              Add Agent
             </Button>
           </Link>
         </div>
@@ -343,16 +343,16 @@ export default function AdminEmployees() {
         {/* Employees Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Employee Directory</CardTitle>
+            <CardTitle>Agent Directory</CardTitle>
             <CardDescription>
-              Manage employee information, departments, and hourly rates
+              Manage agent information, departments, and hourly rates
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee</TableHead>
+                  <TableHead>Agent</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Position</TableHead>
                   <TableHead>Hourly Rate</TableHead>

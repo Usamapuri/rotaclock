@@ -247,7 +247,7 @@ export default function AdminDashboard() {
         if (data.data) {
           employeesData = data.data
           setEmployees(employeesData)
-          console.log(`📊 Loaded ${employeesData.length} employees`)
+          console.log(`📊 Loaded ${employeesData.length} agents`)
         }
       }
 
@@ -377,7 +377,7 @@ export default function AdminDashboard() {
       
       const onlineEmployees = employeeStatusesData.filter(s => s.status === 'online').length
       const onBreakEmployees = employeeStatusesData.filter(s => s.status === 'break').length
-      console.log(`📊 Calculated statuses for ${employeeStatusesData.length} employees: ${onlineEmployees} online, ${onBreakEmployees} on break`)
+      console.log(`📊 Calculated statuses for ${employeeStatusesData.length} agents: ${onlineEmployees} online, ${onBreakEmployees} on break`)
 
       setStats({
         totalEmployees: employeesData.length,
@@ -786,7 +786,7 @@ export default function AdminDashboard() {
               </Button>
               <Button onClick={() => router.push('/admin/employees')} variant="outline" size="sm">
                 <UserPlus className="h-4 w-4 mr-2" />
-                Manage Employees
+                Manage Agents
               </Button>
               <Button onClick={() => router.push('/admin/timesheet')} variant="outline" size="sm">
                 <FileText className="h-4 w-4 mr-2" />
@@ -808,7 +808,7 @@ export default function AdminDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Employees</p>
+                  <p className="text-sm font-medium text-gray-600">Total Agents</p>
                   <p className="text-2xl font-bold">{stats.totalEmployees}</p>
                   <p className="text-xs text-gray-500">{stats.activeEmployees} active</p>
                 </div>
@@ -864,7 +864,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="attendance">Attendance</TabsTrigger>
             <TabsTrigger value="swap-requests">Swap Requests</TabsTrigger>
             <TabsTrigger value="leave-requests">Leave Requests</TabsTrigger>
-            <TabsTrigger value="employees">Employees</TabsTrigger>
+                            <TabsTrigger value="employees">Agents</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -873,8 +873,8 @@ export default function AdminDashboard() {
               {/* Active Employees */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Active Employees</CardTitle>
-                  <CardDescription>Currently active employees</CardDescription>
+                                  <CardTitle>Active Agents</CardTitle>
+                <CardDescription>Currently active agents</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -900,7 +900,7 @@ export default function AdminDashboard() {
                       ))}
                     {employees.filter(emp => emp.is_active).length === 0 && (
                       <div className="text-center py-4 text-gray-500">
-                        No active employees found
+                        No active agents found
                       </div>
                     )}
                   </div>
@@ -951,7 +951,7 @@ export default function AdminDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Current Attendance</CardTitle>
-                <CardDescription>Employees currently clocked in</CardDescription>
+                <CardDescription>Agents currently clocked in</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -988,7 +988,7 @@ export default function AdminDashboard() {
                    timeEntries.filter(entry => entry.status === 'in-progress').length === 0 && (
                     <div className="text-center py-8">
                       <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No employees currently clocked in</p>
+                      <p className="text-gray-600">No agents currently clocked in</p>
                     </div>
                   )}
                 </div>
@@ -1138,7 +1138,7 @@ export default function AdminDashboard() {
           <TabsContent value="employees" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>All Employees</CardTitle>
+                <CardTitle>All Agents</CardTitle>
                 <CardDescription>Manage employee information and status</CardDescription>
               </CardHeader>
               <CardContent>
@@ -1203,7 +1203,7 @@ export default function AdminDashboard() {
                       onChange={() => setBroadcastToAll(true)}
                       className="mr-2"
                     />
-                    Send to all employees
+                    Send to all agents
                   </label>
                   <label className="flex items-center">
                     <input
@@ -1212,14 +1212,14 @@ export default function AdminDashboard() {
                       onChange={() => setBroadcastToAll(false)}
                       className="mr-2"
                     />
-                    Select specific employees
+                    Select specific agents
                   </label>
                 </div>
               </div>
               
               {!broadcastToAll && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Select Employees</label>
+                  <label className="block text-sm font-medium mb-2">Select Agents</label>
                   <select
                     multiple
                     value={selectedEmployeeIds}
