@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate payroll for each employee
     for (const employee of employees) {
-      // Get shift logs for this employee in the period
+      // Get shift logs for this employee in the period using UUID
       const shiftLogsResult = await query(`
         SELECT 
           COALESCE(total_shift_hours, 0) as hours_worked,
@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
         WHERE employee_id = $1 
         AND clock_in_time >= $2 
         AND clock_in_time <= $3
+        AND status = 'completed'
       `, [employee.id, period.start_date, period.end_date])
 
       const shiftLogs = shiftLogsResult.rows
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
         bonuses += 1000 // PKR 1000 bonus for high performance
       }
 
-      // Get existing deductions and bonuses from database
+      // Get existing deductions and bonuses from database using string employee_id
       const deductionsResult = await query(`
         SELECT COALESCE(SUM(amount), 0) as total_deductions
         FROM payroll_deductions
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
       const totalDeductions = parseFloat(deductions) + parseFloat(manualDeductions)
       const netPay = grossPay - totalDeductions
 
-      // Insert or update payroll record
+      // Insert or update payroll record using string employee_id
       await query(`
         INSERT INTO payroll_records (
           employee_id,
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
           net_pay = EXCLUDED.net_pay,
           updated_at = NOW()
       `, [
-        employee.id,
+        employee.employee_id,
         periodId,
         employee.base_salary,
         totalHours,
