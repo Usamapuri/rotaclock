@@ -90,7 +90,7 @@ export interface Employee {
   hourly_rate?: number
   max_hours_per_week?: number
   password_hash?: string
-  role?: 'admin' | 'team_lead' | 'project_manager' | 'employee'
+  role?: 'admin' | 'team_lead' | 'project_manager' | 'agent' | 'sales_agent'
   team_id?: string | null
   created_at: string
   updated_at: string
