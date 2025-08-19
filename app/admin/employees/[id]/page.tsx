@@ -290,7 +290,7 @@ export default function EmployeeDetailPage() {
 
       // Load role history if employee exists
       if (employee) {
-        const roleHistoryResponse = await fetch(`/api/admin/employees/${employee.email}/role-history`)
+        const roleHistoryResponse = await fetch(`/api/admin/employees/${employee.id}/role-history`)
         if (roleHistoryResponse.ok) {
           const roleHistoryData = await roleHistoryResponse.json()
           setRoleHistory(roleHistoryData)
@@ -448,7 +448,7 @@ export default function EmployeeDetailPage() {
     if (!employee || !selectedRole) return
 
     try {
-      const response = await fetch(`/api/admin/employees/${employee.email}/role`, {
+      const response = await fetch(`/api/admin/employees/${employee.id}/role`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

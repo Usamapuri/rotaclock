@@ -3,10 +3,11 @@ import { query } from '@/lib/database'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { email: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { email } = params
+    const { id } = params
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
     const result = await query(`
       SELECT 
@@ -21,8 +22,8 @@ export async function GET(
         r.dashboard_access
       FROM employees e
       LEFT JOIN roles r ON e.role = r.name
-      WHERE e.email = $1
-    `, [email])
+      WHERE ${isUuid ? 'e.id' : 'e.email'} = $1
+    `, [id])
 
     if (result.rows.length === 0) {
       return NextResponse.json(
@@ -43,11 +44,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { email: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { email } = params
+    const { id } = params
     const { new_role, reason, assigned_by } = await request.json()
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
     if (!new_role) {
       return NextResponse.json(
@@ -58,8 +60,8 @@ export async function PUT(
 
     // Get current role
     const currentRoleResult = await query(`
-      SELECT role FROM employees WHERE email = $1
-    `, [email])
+      SELECT role, email FROM employees WHERE ${isUuid ? 'id' : 'email'} = $1
+    `, [id])
 
     if (currentRoleResult.rows.length === 0) {
       return NextResponse.json(
@@ -69,13 +71,14 @@ export async function PUT(
     }
 
     const old_role = currentRoleResult.rows[0].role
+    const email = currentRoleResult.rows[0].email
 
     // Update employee role
     await query(`
       UPDATE employees 
       SET role = $1, updated_at = NOW()
-      WHERE email = $2
-    `, [new_role, email])
+      WHERE ${isUuid ? 'id' : 'email'} = $2
+    `, [new_role, id])
 
     // Record role assignment history
     await query(`
@@ -87,14 +90,14 @@ export async function PUT(
         assigned_by,
         reason
       ) VALUES (
-        (SELECT employee_id FROM employees WHERE email = $1),
-        $1,
+        (SELECT employee_id FROM employees WHERE ${isUuid ? 'id' : 'email'} = $1),
         $2,
         $3,
         $4,
-        $5
+        $5,
+        $6
       )
-    `, [email, old_role, new_role, assigned_by || 'admin', reason || 'Role update'])
+    `, [id, email, old_role, new_role, assigned_by || 'admin', reason || 'Role update'])
 
     // Get updated employee info
     const result = await query(`
@@ -110,8 +113,8 @@ export async function PUT(
         r.dashboard_access
       FROM employees e
       LEFT JOIN roles r ON e.role = r.name
-      WHERE e.email = $1
-    `, [email])
+      WHERE ${isUuid ? 'e.id' : 'e.email'} = $1
+    `, [id])
 
     return NextResponse.json({
       success: true,
