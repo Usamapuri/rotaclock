@@ -115,6 +115,21 @@ export default function EditTeamPage() {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null)
   const [selectedEmployee, setSelectedEmployee] = useState("")
   const [newTeamLead, setNewTeamLead] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
+
+  // Filter employees based on search query
+  const filteredEmployees = availableEmployees.filter((employee) => {
+    if (!searchQuery) return true
+    
+    const query = searchQuery.toLowerCase()
+    return (
+      employee.first_name.toLowerCase().includes(query) ||
+      employee.last_name.toLowerCase().includes(query) ||
+      employee.employee_id.toLowerCase().includes(query) ||
+      employee.position.toLowerCase().includes(query) ||
+      employee.department.toLowerCase().includes(query)
+    )
+  })
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -143,15 +158,16 @@ export default function EditTeamPage() {
       })
       const membersData = await membersRes.json()
       
-      // Load available employees (not in any team)
-      const employeesRes = await fetch('/api/employees', {
-        headers: { 'authorization': `Bearer ${user?.id || ''}` }
-      })
-      const employeesData = await employeesRes.json()
-      
-      setTeam(teamData.data)
-      setTeamMembers(membersData.data || [])
-      setAvailableEmployees(employeesData.data?.filter((emp: Employee) => !emp.team_id) || [])
+             // Load all employees (including those already in teams)
+       const employeesRes = await fetch('/api/employees', {
+         headers: { 'authorization': `Bearer ${user?.id || ''}` }
+       })
+       const employeesData = await employeesRes.json()
+       
+       setTeam(teamData.data)
+       setTeamMembers(membersData.data || [])
+       // Show all employees, but mark which ones are already in teams
+       setAvailableEmployees(employeesData.data || [])
       
       // Set form data
       setTeamData({
@@ -212,12 +228,13 @@ export default function EditTeamPage() {
         body: JSON.stringify({ employee_id: selectedEmployee })
       })
 
-      if (res.ok) {
-        toast.success('Team member added successfully')
-        setShowAddMemberDialog(false)
-        setSelectedEmployee("")
-        loadTeamData() // Reload data
-      } else {
+             if (res.ok) {
+         toast.success('Team member added successfully')
+         setShowAddMemberDialog(false)
+         setSelectedEmployee("")
+         setSearchQuery("")
+         loadTeamData() // Reload data
+       } else {
         const error = await res.json()
         toast.error(error.error || 'Failed to add team member')
       }
@@ -382,13 +399,22 @@ export default function EditTeamPage() {
                   <Users className="h-5 w-5" />
                   <span>Team Members ({teamMembers.length})</span>
                 </CardTitle>
-                <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="flex items-center space-x-2">
-                      <UserPlus className="h-4 w-4" />
-                      Add Member
-                    </Button>
-                  </DialogTrigger>
+                                 <Dialog 
+                   open={showAddMemberDialog} 
+                   onOpenChange={(open) => {
+                     setShowAddMemberDialog(open)
+                     if (open) {
+                       setSelectedEmployee("")
+                       setSearchQuery("")
+                     }
+                   }}
+                 >
+                   <DialogTrigger asChild>
+                     <Button size="sm" className="flex items-center space-x-2">
+                       <UserPlus className="h-4 w-4" />
+                       Add Member
+                     </Button>
+                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Add Team Member</DialogTitle>
@@ -396,23 +422,70 @@ export default function EditTeamPage() {
                         Select an employee to add to this team
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="employee">Select Employee</Label>
-                        <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Choose an employee" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableEmployees.map((employee) => (
-                              <SelectItem key={employee.id} value={employee.id}>
-                                {employee.first_name} {employee.last_name} ({employee.employee_id})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                                       <div className="space-y-4">
+                     <div>
+                       <Label htmlFor="employee">Select Employee</Label>
+                       <div className="space-y-3">
+                         {/* Search Input */}
+                         <Input
+                           placeholder="Search by name, employee ID, or role..."
+                           value={searchQuery}
+                           onChange={(e) => setSearchQuery(e.target.value)}
+                           className="w-full"
+                         />
+                         
+                         {/* Employee List */}
+                         <div className="max-h-60 overflow-y-auto border rounded-md">
+                           {filteredEmployees.length === 0 ? (
+                             <div className="p-4 text-center text-gray-500">
+                               No employees found matching your search
+                             </div>
+                           ) : (
+                             <div className="divide-y">
+                               {filteredEmployees.map((employee) => (
+                                 <div
+                                   key={employee.id}
+                                   className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                                     selectedEmployee === employee.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                                   } ${employee.team_id ? 'opacity-60' : ''}`}
+                                   onClick={() => !employee.team_id && setSelectedEmployee(employee.id)}
+                                 >
+                                   <div className="flex items-center justify-between">
+                                     <div className="flex-1">
+                                       <div className="font-medium">
+                                         {employee.first_name} {employee.last_name}
+                                       </div>
+                                       <div className="text-sm text-gray-600">
+                                         {employee.employee_id} • {employee.position}
+                                       </div>
+                                       <div className="text-xs text-gray-500">
+                                         {employee.department}
+                                       </div>
+                                       {employee.team_id && (
+                                         <div className="text-xs text-orange-600 mt-1">
+                                           ⚠️ Already assigned to a team
+                                         </div>
+                                       )}
+                                     </div>
+                                     <div className="flex items-center space-x-2">
+                                       {employee.team_id && (
+                                         <Badge variant="secondary" className="text-xs">
+                                           In Team
+                                         </Badge>
+                                       )}
+                                       {selectedEmployee === employee.id && (
+                                         <CheckCircle className="h-5 w-5 text-blue-600" />
+                                       )}
+                                     </div>
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     </div>
+                   </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setShowAddMemberDialog(false)}>
                         Cancel
