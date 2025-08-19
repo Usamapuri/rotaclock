@@ -531,9 +531,9 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
   
   const result = await query(`
     INSERT INTO employees (
-      employee_id, first_name, last_name, email, department, position, 
+      employee_id, first_name, last_name, email, department, position, role,
       hire_date, manager_id, is_active, hourly_rate, max_hours_per_week, password_hash
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *
   `, [
     employeeData.employee_id,
@@ -542,6 +542,7 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
     employeeData.email,
     employeeData.department,
     employeeData.position,
+    employeeData.role || 'employee',
     employeeData.hire_date,
     employeeData.manager_id,
     employeeData.is_active,
