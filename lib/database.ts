@@ -542,7 +542,7 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
     employeeData.email,
     employeeData.department,
     employeeData.position,
-    employeeData.role || 'employee',
+    employeeData.role || 'agent',
     employeeData.hire_date,
     employeeData.manager_id,
     employeeData.is_active,

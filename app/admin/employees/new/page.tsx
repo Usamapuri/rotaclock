@@ -59,7 +59,7 @@ const positions = [
 ]
 
 const roles = [
-  "employee",
+  "agent",
   "team_lead", 
   "project_manager",
   "admin"
@@ -73,7 +73,7 @@ export default function NewEmployee() {
     email: "",
     department: "",
     position: "",
-    role: "employee",
+    role: "agent",
     hire_date: new Date().toISOString().split('T')[0],
     hourly_rate: 0,
     max_hours_per_week: 40,
@@ -360,11 +360,11 @@ export default function NewEmployee() {
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                        {roles.map((role) => (
-                          <SelectItem key={role} value={role}>
-                            {role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
-                          </SelectItem>
-                        ))}
+                                                 {roles.map((role) => (
+                           <SelectItem key={role} value={role}>
+                             {role === 'agent' ? 'Agent' : role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
+                           </SelectItem>
+                         ))}
                       </SelectContent>
                     </Select>
                   </div>
