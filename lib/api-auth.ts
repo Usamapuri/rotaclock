@@ -1,0 +1,62 @@
+import { NextRequest } from 'next/server'
+import { query } from '@/lib/database'
+
+type ApiUser = {
+  id: string
+  email?: string
+  role: 'admin' | 'team_lead' | 'project_manager' | 'employee'
+  employeeId?: string
+}
+
+export function createApiAuthMiddleware() {
+  return async (request: NextRequest) => {
+    const authHeader = request.headers.get('authorization')
+    const employeeHeader = request.headers.get('x-employee-id')
+
+    // Try to resolve user from headers
+    let employeeIdOrUuid: string | null = null
+    if (authHeader?.toLowerCase().startsWith('bearer ')) {
+      employeeIdOrUuid = authHeader.split(' ')[1]?.trim() || null
+    } else if (employeeHeader) {
+      employeeIdOrUuid = employeeHeader.trim()
+    }
+
+    let user: ApiUser | null = null
+    if (employeeIdOrUuid) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeIdOrUuid)
+      const sql = isUuid
+        ? 'SELECT id, employee_id, email, role FROM employees WHERE id = $1 AND is_active = true'
+        : 'SELECT id, employee_id, email, role FROM employees WHERE employee_id = $1 AND is_active = true'
+      const res = await query(sql, [employeeIdOrUuid])
+      if (res.rows.length > 0) {
+        const e = res.rows[0]
+        user = { id: e.id, email: e.email, role: e.role || 'employee', employeeId: e.id }
+      }
+    }
+
+    // Demo fallback (allowed unless DEMO_AUTH is explicitly set to 'false')
+    const allowDemo = (process.env.DEMO_AUTH ?? 'true').toLowerCase() !== 'false'
+    if (!user && allowDemo) {
+      user = { id: '3cae45f4-f119-41d2-b24f-66a7249cf974', email: 'demo@local', role: 'admin', employeeId: 'EMP200' }
+    }
+
+    const isAuthenticated = !!user
+    return { user, isAuthenticated }
+  }
+}
+
+export function isAdmin(user: ApiUser | null): boolean {
+  return !!user && user.role === 'admin'
+}
+
+export function isTeamLead(user: ApiUser | null): boolean {
+  return !!user && user.role === 'team_lead'
+}
+
+export function isEmployee(user: ApiUser | null): boolean {
+  return !!user && user.role === 'employee'
+}
+
+export function isProjectManager(user: ApiUser | null): boolean {
+  return !!user && user.role === 'project_manager'
+}
