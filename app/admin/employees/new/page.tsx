@@ -20,6 +20,7 @@ interface EmployeeFormData {
   email: string
   department: string
   position: string
+  role: string
   hire_date: string
   hourly_rate: number
   max_hours_per_week: number
@@ -57,6 +58,13 @@ const positions = [
   "Intern"
 ]
 
+const roles = [
+  "employee",
+  "team_lead", 
+  "project_manager",
+  "admin"
+]
+
 export default function NewEmployee() {
   const [formData, setFormData] = useState<EmployeeFormData>({
     employee_id: "",
@@ -65,6 +73,7 @@ export default function NewEmployee() {
     email: "",
     department: "",
     position: "",
+    role: "employee",
     hire_date: new Date().toISOString().split('T')[0],
     hourly_rate: 0,
     max_hours_per_week: 40,
@@ -130,6 +139,10 @@ export default function NewEmployee() {
     }
     if (!formData.position) {
       toast.error("Position is required")
+      return false
+    }
+    if (!formData.role) {
+      toast.error("Role is required")
       return false
     }
     if (!formData.hire_date) {
@@ -331,6 +344,25 @@ export default function NewEmployee() {
                         {positions.map((pos) => (
                           <SelectItem key={pos} value={pos}>
                             {pos}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="role">Role *</Label>
+                    <Select
+                      value={formData.role}
+                      onValueChange={(value) => handleInputChange('role', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
                           </SelectItem>
                         ))}
                       </SelectContent>
