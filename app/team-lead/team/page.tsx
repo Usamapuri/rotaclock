@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
-import { User, Clock, Calendar, FileText, MessageSquare, Star, TrendingUp, Send, Plus, Eye, Filter } from "lucide-react"
+import { User, Clock, Calendar, FileText, MessageSquare, Star, TrendingUp, Send, Plus, Eye, Filter, DollarSign } from "lucide-react"
 
 type Member = {
   id: string
@@ -458,6 +458,12 @@ export default function TeamLeadTeamOverviewPage() {
         <div>
           <h1 className="text-2xl font-bold">Team Management</h1>
           <p className="text-muted-foreground">Manage your team members, swap requests, leave requests, and meeting notes</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push('/team-lead/requests')}>
+            <DollarSign className="h-4 w-4 mr-2" />
+            Dock & Bonus Requests
+          </Button>
         </div>
       </div>
 
