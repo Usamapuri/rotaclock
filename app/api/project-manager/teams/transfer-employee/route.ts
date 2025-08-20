@@ -4,7 +4,7 @@ import { createApiAuthMiddleware, isProjectManager } from '@/lib/api-auth'
 import { z } from 'zod'
 
 const transferSchema = z.object({
-  employee_id: z.string().uuid('Invalid employee ID'),
+  employee_email: z.string().email('Invalid employee email'),
   target_team_id: z.string().uuid('Invalid team ID')
 })
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { employee_id, target_team_id } = transferSchema.parse(body)
+    const { employee_email, target_team_id } = transferSchema.parse(body)
 
     // Ensure target team is within PM domain (either direct team mapping or via managed project)
     const targetInScope = await query(
@@ -32,9 +32,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: target team not in your domain' }, { status: 403 })
     }
 
-    // Ensure current employee team is within PM domain (or employee unassigned)
-    const empRes = await query('SELECT id, team_id FROM employees WHERE id = $1 AND is_active = true', [employee_id])
+    // Get employee by email and ensure current employee team is within PM domain (or employee unassigned)
+    const empRes = await query('SELECT id, team_id FROM employees WHERE email = $1 AND is_active = true', [employee_email])
     if (empRes.rows.length === 0) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+    const employee_id = empRes.rows[0].id
     const currentTeamId = empRes.rows[0].team_id as string | null
     if (currentTeamId) {
       const currentInScope = await query(
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
          ON CONFLICT (employee_id, team_id, assigned_date) DO UPDATE SET is_active = true, updated_at = NOW()`,
         [employee_id, target_team_id]
       )
-      return { employee_id, target_team_id }
+      return { employee_id, target_team_id, employee_email }
     })
 
     return NextResponse.json({ success: true, data: result })

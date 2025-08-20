@@ -40,7 +40,7 @@ export default function PMTeamsPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [transfer, setTransfer] = useState<{ employeeId: string; targetTeamId: string }>({ employeeId: '', targetTeamId: '' })
+  const [transfer, setTransfer] = useState<{ employeeEmail: string; targetTeamId: string }>({ employeeEmail: '', targetTeamId: '' })
   const [assign, setAssign] = useState<{ teamId: string; projectId: string }>({ teamId: '', projectId: '' })
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [createForm, setCreateForm] = useState({
@@ -58,7 +58,7 @@ export default function PMTeamsPage() {
       
              try {
          const [teamsRes, projectsRes, employeesRes] = await Promise.all([
-           fetch(`/api/teams/by-manager?managerId=${user.id}`),
+           fetch(`/api/project-manager/teams`, { headers: { 'authorization': `Bearer ${user.id}` } }),
            fetch(`/api/project-manager/projects`, { headers: { 'authorization': `Bearer ${user.id}` } }),
            fetch(`/api/employees`, { headers: { 'authorization': `Bearer ${user.id}` } })
          ])
@@ -94,10 +94,10 @@ export default function PMTeamsPage() {
          toast.success('Team created successfully')
          setIsCreateDialogOpen(false)
          setCreateForm({ name: '', department: '', description: '', project_id: '', team_lead_id: '' })
-        // Reload teams
-        const teamsRes = await fetch(`/api/teams/by-manager?managerId=${user?.id}`)
-        const teamsData = await teamsRes.json()
-        setTeams(teamsData?.data || [])
+                 // Reload teams
+         const teamsRes = await fetch(`/api/project-manager/teams`, { headers: { 'authorization': `Bearer ${user?.id}` } })
+         const teamsData = await teamsRes.json()
+         setTeams(teamsData?.data || [])
       } else {
         const error = await res.json()
         toast.error(error.error || 'Failed to create team')
@@ -108,8 +108,8 @@ export default function PMTeamsPage() {
   }
 
   async function transferEmployee() {
-    if (!transfer.employeeId || !transfer.targetTeamId) {
-      toast.error('Please fill in both employee ID and target team')
+    if (!transfer.employeeEmail || !transfer.targetTeamId) {
+      toast.error('Please fill in both employee email and target team')
       return
     }
     
@@ -122,14 +122,14 @@ export default function PMTeamsPage() {
           'authorization': `Bearer ${user?.id || ''}`
         },
         body: JSON.stringify({ 
-          employee_id: transfer.employeeId, 
+          employee_email: transfer.employeeEmail, 
           target_team_id: transfer.targetTeamId 
         })
       })
       
       if (res.ok) {
         toast.success('Employee transferred successfully')
-        setTransfer({ employeeId: '', targetTeamId: '' })
+        setTransfer({ employeeEmail: '', targetTeamId: '' })
       } else {
         const error = await res.json()
         toast.error(error.error || 'Failed to transfer employee')
@@ -292,24 +292,24 @@ export default function PMTeamsPage() {
                 <span>{team.member_count || 0} members</span>
               </div>
 
-              {/* Transfer Employee Section */}
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Transfer Employee to this Team</div>
-                <Input 
-                  placeholder="Employee UUID" 
-                  value={transfer.employeeId} 
-                  onChange={e => setTransfer(s => ({ ...s, employeeId: e.target.value }))} 
-                />
-                <Button 
-                  size="sm" 
-                  onClick={transferEmployee}
-                  disabled={!transfer.employeeId}
-                  className="w-full"
-                >
-                  <UserPlus className="w-4 h-4 mr-1" />
-                  Transfer
-                </Button>
-              </div>
+                             {/* Transfer Employee Section */}
+               <div className="space-y-2">
+                 <div className="text-sm font-medium">Transfer Employee to this Team</div>
+                 <Input 
+                   placeholder="Employee Email" 
+                   value={transfer.employeeEmail} 
+                   onChange={e => setTransfer(s => ({ ...s, employeeEmail: e.target.value }))} 
+                 />
+                 <Button 
+                   size="sm" 
+                   onClick={transferEmployee}
+                   disabled={!transfer.employeeEmail}
+                   className="w-full"
+                 >
+                   <UserPlus className="w-4 h-4 mr-1" />
+                   Transfer
+                 </Button>
+               </div>
 
               {/* Assign Team to Project Section */}
               <div className="space-y-2">
