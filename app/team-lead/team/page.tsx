@@ -93,7 +93,7 @@ export default function TeamLeadTeamOverviewPage() {
   // Filter states
   const [employeeFilter, setEmployeeFilter] = useState("")
   const [dateFilter, setDateFilter] = useState("")
-  const [hasRemarksFilter, setHasRemarksFilter] = useState("")
+  const [hasRemarksFilter, setHasRemarksFilter] = useState("all")
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -248,6 +248,7 @@ export default function TeamLeadTeamOverviewPage() {
     } else if (hasRemarksFilter === 'false') {
       filtered = filtered.filter(note => !note.shift_remarks || note.shift_remarks.trim() === '')
     }
+    // If hasRemarksFilter is 'all' or empty, don't filter
 
     return filtered
   }, [meetingNotes, employeeFilter, dateFilter, hasRemarksFilter])
@@ -683,7 +684,7 @@ export default function TeamLeadTeamOverviewPage() {
                         <SelectValue placeholder="All notes" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All notes</SelectItem>
+                        <SelectItem value="all">All notes</SelectItem>
                         <SelectItem value="true">With remarks</SelectItem>
                         <SelectItem value="false">Without remarks</SelectItem>
                       </SelectContent>
