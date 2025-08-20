@@ -1860,3 +1860,105 @@ export async function getEmployeeByEmail(email: string) {
   
   return result.rows[0] || null
 }
+
+// =====================================================
+// TEAM LEAD HELPER FUNCTIONS
+// =====================================================
+
+/**
+ * Get team by team lead ID
+ */
+export async function getTeamByLead(leadId: string) {
+  const result = await query(`
+    SELECT t.* 
+    FROM teams t 
+    WHERE t.team_lead_id = $1 AND t.is_active = true
+    ORDER BY t.created_at ASC
+    LIMIT 1
+  `, [leadId])
+  
+  return result.rows[0] || null
+}
+
+/**
+ * Get team members by team ID
+ */
+export async function getTeamMembers(teamId: string) {
+  const result = await query(`
+    SELECT e.*, ta.assigned_date, ta.is_active as assignment_active
+    FROM employees e
+    JOIN team_assignments ta ON e.id = ta.employee_id
+    WHERE ta.team_id = $1 AND ta.is_active = true AND e.is_active = true
+    ORDER BY e.first_name, e.last_name
+  `, [teamId])
+  
+  return result.rows
+}
+
+/**
+ * Check if employee belongs to team lead's team
+ */
+export async function isEmployeeInTeamLeadTeam(leadId: string, employeeId: string) {
+  const result = await query(`
+    SELECT 1 
+    FROM teams t
+    JOIN team_assignments ta ON t.id = ta.team_id
+    WHERE t.team_lead_id = $1 
+      AND ta.employee_id = $2 
+      AND t.is_active = true 
+      AND ta.is_active = true
+    LIMIT 1
+  `, [leadId, employeeId])
+  
+  return result.rows.length > 0
+}
+
+/**
+ * Add employee to team (for team lead operations)
+ */
+export async function addEmployeeToTeam(teamId: string, employeeId: string) {
+  // Check if employee is already in the team
+  const existingResult = await query(`
+    SELECT 1 FROM team_assignments 
+    WHERE team_id = $1 AND employee_id = $2 AND is_active = true
+  `, [teamId, employeeId])
+  
+  if (existingResult.rows.length > 0) {
+    throw new Error('Employee is already a member of this team')
+  }
+  
+  // Add to team_assignments
+  await query(`
+    INSERT INTO team_assignments (team_id, employee_id, assigned_date, is_active)
+    VALUES ($1, $2, CURRENT_DATE, true)
+  `, [teamId, employeeId])
+  
+  // Update employee's team_id
+  await query(`
+    UPDATE employees SET team_id = $1, updated_at = NOW()
+    WHERE id = $2
+  `, [teamId, employeeId])
+  
+  return true
+}
+
+/**
+ * Remove employee from team (for team lead operations)
+ */
+export async function removeEmployeeFromTeam(teamId: string, employeeId: string) {
+  // Deactivate team assignment
+  await query(`
+    UPDATE team_assignments 
+    SET is_active = false, updated_at = NOW()
+    WHERE team_id = $1 AND employee_id = $2
+  `, [teamId, employeeId])
+  
+  // Clear employee's team_id if it matches
+  await query(`
+    UPDATE employees 
+    SET team_id = NULL, updated_at = NOW()
+    WHERE id = $2 AND team_id = $1
+  `, [teamId, employeeId])
+  
+  return true
+}
