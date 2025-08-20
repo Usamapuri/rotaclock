@@ -92,28 +92,49 @@ export default function TeamLeadTeamOverviewPage() {
     ;(async () => {
       try {
         setError(null)
-        const byLead = await fetch(`/api/teams/by-lead?leadId=${user.id}`)
-        if (!byLead.ok) throw new Error("Failed to resolve team")
-        const byLeadJson = await byLead.json()
-        const team = (byLeadJson.data || [])[0]
-        if (!team) {
-          setTeamId(null)
-          setMembers([])
-          setLoading(false)
-          return
-        }
-        setTeamId(team.id)
+        console.log('🔍 Loading team data for user:', user.id)
         
-        // Load all data in parallel
+        // Use the Team Lead-specific API endpoints that have proper authentication
+        console.log('🔄 Loading team data using Team Lead APIs...')
+        
         const [membersRes, swapRes, leaveRes] = await Promise.all([
-          fetch(`/api/teams/${team.id}/members`),
-          fetch(`/api/team-lead/shifts/swap-requests`),
-          fetch(`/api/team-lead/leave-requests`)
+          fetch(`/api/team-lead/team/members`, {
+            headers: {
+              'Authorization': `Bearer ${user.id}`
+            }
+          }),
+          fetch(`/api/team-lead/shifts/swap-requests`, {
+            headers: {
+              'Authorization': `Bearer ${user.id}`
+            }
+          }),
+          fetch(`/api/team-lead/leave-requests`, {
+            headers: {
+              'Authorization': `Bearer ${user.id}`
+            }
+          })
         ])
         
-        if (!membersRes.ok) throw new Error("Failed to load members")
-        if (!swapRes.ok) throw new Error("Failed to load swap requests")
-        if (!leaveRes.ok) throw new Error("Failed to load leave requests")
+        // Check each response individually
+        if (!membersRes.ok) {
+          const errorText = await membersRes.text()
+          console.error('❌ Failed to load members:', membersRes.status, errorText)
+          throw new Error(`Failed to load members: ${membersRes.status}`)
+        }
+        
+        if (!swapRes.ok) {
+          const errorText = await swapRes.text()
+          console.error('❌ Failed to load swap requests:', swapRes.status, errorText)
+          throw new Error(`Failed to load swap requests: ${swapRes.status}`)
+        }
+        
+        if (!leaveRes.ok) {
+          const errorText = await leaveRes.text()
+          console.error('❌ Failed to load leave requests:', leaveRes.status, errorText)
+          throw new Error(`Failed to load leave requests: ${leaveRes.status}`)
+        }
+        
+        console.log('✅ All API calls successful, parsing responses...')
         
         const [membersJson, swapJson, leaveJson] = await Promise.all([
           membersRes.json(),
@@ -121,11 +142,20 @@ export default function TeamLeadTeamOverviewPage() {
           leaveRes.json()
         ])
         
+        console.log('📊 Data loaded:', {
+          members: membersJson.data?.length || 0,
+          swapRequests: swapJson.data?.length || 0,
+          leaveRequests: leaveJson.data?.length || 0
+        })
+        
         setMembers(membersJson.data || [])
         setSwapRequests(swapJson.data || [])
         setLeaveRequests(leaveJson.data || [])
+        
+        console.log('✅ All data set successfully')
       } catch (e: any) {
-        setError(e.message || "Error")
+        console.error('❌ Error in useEffect:', e)
+        setError(e.message || "Error loading team data")
       } finally {
         setLoading(false)
       }
@@ -162,9 +192,13 @@ export default function TeamLeadTeamOverviewPage() {
   const handleSwapAction = async (requestId: string, action: 'approved' | 'denied') => {
     setActionLoading(true)
     try {
+      const user = AuthService.getCurrentUser()
       const response = await fetch(`/api/team-lead/shifts/swap-requests/${requestId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.id}`
+        },
         body: JSON.stringify({
           status: action,
           team_lead_notes: notes
@@ -198,9 +232,13 @@ export default function TeamLeadTeamOverviewPage() {
   const handleLeaveAction = async (requestId: string, action: 'approved' | 'rejected') => {
     setActionLoading(true)
     try {
+      const user = AuthService.getCurrentUser()
       const response = await fetch(`/api/team-lead/leave-requests/${requestId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.id}`
+        },
         body: JSON.stringify({
           status: action,
           team_lead_notes: notes
