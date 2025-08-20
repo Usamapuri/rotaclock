@@ -45,10 +45,10 @@ export async function GET(request: NextRequest) {
         aba.first_name as approved_by_first_name,
         aba.last_name as approved_by_last_name,
         aba.email as approved_by_email,
-        osa.shift_date as original_shift_date,
+        osa.date as original_shift_date,
         osa.start_time as original_start_time,
         osa.end_time as original_end_time,
-        rsa.shift_date as requested_shift_date,
+        rsa.date as requested_shift_date,
         rsa.start_time as requested_start_time,
         rsa.end_time as requested_end_time
       FROM shift_swaps ss
