@@ -51,6 +51,13 @@ export async function POST(request: NextRequest) {
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,
       [name, department, team_lead_id, description || null, project_id || null]
     )
+    
+    // Add the team to manager_teams table so it appears in the PM's dashboard
+    await query(
+      `INSERT INTO manager_teams (manager_id, team_id) VALUES ($1, $2)`,
+      [user!.id, createRes.rows[0].id]
+    )
+    
     return NextResponse.json({ success: true, data: createRes.rows[0] }, { status: 201 })
   } catch (err) {
     console.error('POST /api/project-manager/teams error:', err)

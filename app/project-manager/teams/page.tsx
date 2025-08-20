@@ -65,6 +65,11 @@ export default function PMTeamsPage() {
          const teamsData = await teamsRes.json()
          const projectsData = await projectsRes.json()
          const employeesData = await employeesRes.json()
+         
+         console.log('Teams data:', teamsData)
+         console.log('Projects data:', projectsData)
+         console.log('Employees data:', employeesData)
+         
          setTeams(teamsData?.data || [])
          setProjects(projectsData?.data?.map((p: any) => ({ id: p.id, name: p.name })) || [])
          setEmployees(employeesData?.data || [])
@@ -90,13 +95,16 @@ export default function PMTeamsPage() {
         body: JSON.stringify(createForm)
       })
       
-             if (res.ok) {
+                    if (res.ok) {
+         const result = await res.json()
+         console.log('Team creation result:', result)
          toast.success('Team created successfully')
          setIsCreateDialogOpen(false)
          setCreateForm({ name: '', department: '', description: '', project_id: '', team_lead_id: '' })
-                 // Reload teams
+        // Reload teams
          const teamsRes = await fetch(`/api/project-manager/teams`, { headers: { 'authorization': `Bearer ${user?.id}` } })
          const teamsData = await teamsRes.json()
+         console.log('Reloaded teams data:', teamsData)
          setTeams(teamsData?.data || [])
       } else {
         const error = await res.json()
