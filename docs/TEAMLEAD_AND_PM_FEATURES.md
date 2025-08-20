@@ -1,3 +1,6 @@
+
+
+
 ## Team Lead and Project Manager Feature Implementation Plan
 
 This document outlines small, testable steps to extend the system so that:
@@ -471,8 +474,8 @@ module.exports = {
 If you lose chat connection or start a new session, use this guide to continue development:
 
 ### I1. Current Implementation Status
-- **Last Completed**: Team creation fix and email-based transfer
-- **Next Priority**: Team Lead member management (A2 from plan)
+- **Last Completed**: Team Lead member management API with comprehensive testing (A1-A2 from plan)
+- **Next Priority**: Team Lead swap/leave request approvals (A3-A4 from plan)
 - **Current Branch**: `main` (all changes pushed)
 
 ### I2. Quick Setup Commands
@@ -501,11 +504,13 @@ npm run test:integration
 - **Current APIs**: `app/api/teams/`, `app/api/shifts/`, `app/api/leave-requests/`
 
 ### I5. Next Steps Checklist
-1. **A1 - Prerequisites**: Add `isTeamLead()` to `lib/api-auth.ts` and database helpers
-2. **A2 - Member Management**: Create `POST/DELETE /api/team-lead/teams/[id]/members`
-3. **A2 - UI**: Extend `app/team-lead/team/page.tsx` with add/remove functionality
-4. **Testing**: Create test files for each component
-5. **Deploy**: Push changes and test on Vercel
+1. ✅ **A1 - Prerequisites**: Added `isTeamLead()` to `lib/api-auth.ts` and database helpers
+2. ✅ **A2 - Member Management**: Created `POST/DELETE /api/team-lead/teams/[id]/members`
+3. ⏳ **A2 - UI**: Extend `app/team-lead/team/page.tsx` with add/remove functionality
+4. ✅ **Testing**: Created comprehensive test setup and API tests
+5. ✅ **Deploy**: Pushed changes and tested on Vercel
+6. ⏳ **A3 - Swap Requests**: Add TL approval to existing swap request endpoints
+7. ⏳ **A4 - Leave Requests**: Add TL approval to existing leave request endpoints
 
 ### I6. Testing Commands
 ```bash
