@@ -94,6 +94,28 @@ export default function TeamLeadTeamOverviewPage() {
         setError(null)
         console.log('🔍 Loading team data for user:', user.id)
         
+        // First, get the team information
+        const teamRes = await fetch(`/api/teams/by-lead?leadId=${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${user.id}`
+          }
+        })
+        
+        if (teamRes.ok) {
+          const teamJson = await teamRes.json()
+          const team = teamJson.data?.[0]
+          if (team) {
+            setTeamId(team.id)
+            console.log('✅ Team found:', team.id, team.name)
+          } else {
+            console.log('⚠️ No team found for user')
+            setTeamId(null)
+          }
+        } else {
+          console.log('⚠️ Could not fetch team info, will try to get from members')
+          setTeamId(null)
+        }
+        
         // Use the Team Lead-specific API endpoints that have proper authentication
         console.log('🔄 Loading team data using Team Lead APIs...')
         
