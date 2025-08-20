@@ -26,11 +26,20 @@ interface Project {
   name: string
 }
 
+interface Employee {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  role: string
+}
+
 export default function PMTeamsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [teams, setTeams] = useState<Team[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [transfer, setTransfer] = useState<{ employeeId: string; targetTeamId: string }>({ employeeId: '', targetTeamId: '' })
   const [assign, setAssign] = useState<{ teamId: string; projectId: string }>({ teamId: '', projectId: '' })
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -38,7 +47,8 @@ export default function PMTeamsPage() {
     name: '',
     department: '',
     description: '',
-    project_id: ''
+    project_id: '',
+    team_lead_id: ''
   })
 
   useEffect(() => {
@@ -46,15 +56,18 @@ export default function PMTeamsPage() {
       const user = AuthService.getCurrentUser()
       if (!user?.id) return
       
-      try {
-        const [teamsRes, projectsRes] = await Promise.all([
-          fetch(`/api/teams/by-manager?managerId=${user.id}`),
-          fetch(`/api/project-manager/projects`, { headers: { 'authorization': `Bearer ${user.id}` } })
-        ])
-        const teamsData = await teamsRes.json()
-        const projectsData = await projectsRes.json()
-        setTeams(teamsData?.data || [])
-        setProjects(projectsData?.data?.map((p: any) => ({ id: p.id, name: p.name })) || [])
+             try {
+         const [teamsRes, projectsRes, employeesRes] = await Promise.all([
+           fetch(`/api/teams/by-manager?managerId=${user.id}`),
+           fetch(`/api/project-manager/projects`, { headers: { 'authorization': `Bearer ${user.id}` } }),
+           fetch(`/api/employees`, { headers: { 'authorization': `Bearer ${user.id}` } })
+         ])
+         const teamsData = await teamsRes.json()
+         const projectsData = await projectsRes.json()
+         const employeesData = await employeesRes.json()
+         setTeams(teamsData?.data || [])
+         setProjects(projectsData?.data?.map((p: any) => ({ id: p.id, name: p.name })) || [])
+         setEmployees(employeesData?.data || [])
       } catch (error) {
         console.error('Error loading data:', error)
         toast.error('Failed to load teams and projects')
@@ -77,10 +90,10 @@ export default function PMTeamsPage() {
         body: JSON.stringify(createForm)
       })
       
-      if (res.ok) {
-        toast.success('Team created successfully')
-        setIsCreateDialogOpen(false)
-        setCreateForm({ name: '', department: '', description: '', project_id: '' })
+             if (res.ok) {
+         toast.success('Team created successfully')
+         setIsCreateDialogOpen(false)
+         setCreateForm({ name: '', department: '', description: '', project_id: '', team_lead_id: '' })
         // Reload teams
         const teamsRes = await fetch(`/api/teams/by-manager?managerId=${user?.id}`)
         const teamsData = await teamsRes.json()
@@ -206,20 +219,43 @@ export default function PMTeamsPage() {
                   onChange={e => setCreateForm(s => ({ ...s, description: e.target.value }))}
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium">Assign to Project (Optional)</label>
-                <Select onValueChange={(value) => setCreateForm(s => ({ ...s, project_id: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={createTeam} className="w-full">Create Team</Button>
+                             <div>
+                 <label className="text-sm font-medium">Team Lead *</label>
+                 <Select onValueChange={(value) => setCreateForm(s => ({ ...s, team_lead_id: value }))}>
+                   <SelectTrigger>
+                     <SelectValue placeholder="Select a team lead" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {employees
+                       .filter(emp => emp.role === 'employee' || emp.role === 'team_lead')
+                       .map(emp => (
+                         <SelectItem key={emp.id} value={emp.id}>
+                           {emp.first_name} {emp.last_name} ({emp.email})
+                         </SelectItem>
+                       ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+               <div>
+                 <label className="text-sm font-medium">Assign to Project (Optional)</label>
+                 <Select onValueChange={(value) => setCreateForm(s => ({ ...s, project_id: value }))}>
+                   <SelectTrigger>
+                     <SelectValue placeholder="Select a project" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {projects.map(p => (
+                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+               <Button 
+                 onClick={createTeam} 
+                 className="w-full"
+                 disabled={!createForm.name || !createForm.department || !createForm.team_lead_id}
+               >
+                 Create Team
+               </Button>
             </div>
           </DialogContent>
         </Dialog>
