@@ -177,19 +177,8 @@ export async function POST(request: NextRequest) {
     
     const newRequest = result.rows[0]
     
-    // Create notification for admin
-    await query(`
-      INSERT INTO notifications (
-        user_id, title, message, type, related_id, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-    `, [
-      'admin', // This will be sent to all admins
-      `${type.charAt(0).toUpperCase() + type.slice(1)} Request`,
-      `${team.name} team lead has submitted a ${type} request for ${employee.first_name} ${employee.last_name}`,
-      'team_request',
-      requestId,
-      new Date().toISOString()
-    ])
+    // Note: Notification creation temporarily disabled
+    // TODO: Re-enable notification creation once the notifications table is properly configured
     
     return NextResponse.json({ 
       success: true, 
