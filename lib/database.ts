@@ -1,16 +1,21 @@
 import { Pool, PoolClient } from 'pg'
 import bcrypt from 'bcryptjs'
 
-// Connection pool configuration for high concurrency
+// Connection pool configuration for high concurrency and performance
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:tIxWwsJpAlklxQGfDbxtDEheAxQmBlbz@maglev.proxy.rlwy.net:36050/railway',
-  max: 10, // Reduced maximum number of connections in the pool
-  idleTimeoutMillis: 60000, // Close idle connections after 60 seconds
-  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
-  maxUses: 1000, // Close (and replace) a connection after it has been used 1000 times
+  max: 20, // Increased for better concurrency
+  min: 2, // Keep minimum connections ready
+  idleTimeoutMillis: 30000, // Reduced idle timeout for better resource management
+  connectionTimeoutMillis: 5000, // Faster connection timeout
+  maxUses: 750, // Reduced to prevent connection staleness
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  // Statement timeout to prevent long-running queries
+  statement_timeout: 30000, // 30 seconds
+  // Query timeout
+  query_timeout: 30000, // 30 seconds
 })
 
 // Handle pool errors
@@ -33,14 +38,47 @@ export async function query(text: string, params?: any[]) {
     const result = await client.query(text, params)
     const duration = Date.now() - start
     
-    // Log slow queries (over 100ms)
-    if (duration > 100) {
+    // Log slow queries (over 200ms) - increased threshold
+    if (duration > 200) {
       console.log('Slow query:', { text, duration, rows: result.rowCount })
     }
     
     return result
   } catch (error) {
     console.error('Database query error:', error)
+    throw error
+  } finally {
+    if (client) {
+      client.release()
+    }
+  }
+}
+
+// Optimized query function with prepared statements
+export async function optimizedQuery(text: string, params?: any[], cacheKey?: string) {
+  const start = Date.now()
+  let client
+  
+  try {
+    client = await pool.connect()
+    
+    // Use prepared statements for better performance
+    const result = await client.query({
+      text,
+      values: params,
+      name: cacheKey || 'query',
+    })
+    
+    const duration = Date.now() - start
+    
+    // Log slow queries (over 150ms)
+    if (duration > 150) {
+      console.log('Slow optimized query:', { text, duration, rows: result.rowCount, cacheKey })
+    }
+    
+    return result
+  } catch (error) {
+    console.error('Database optimized query error:', error)
     throw error
   } finally {
     if (client) {

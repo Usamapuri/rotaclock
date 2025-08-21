@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query, getTeamByLead } from '@/lib/database'
+import { query, getTeamByLead, optimizedQuery } from '@/lib/database'
 import { createApiAuthMiddleware, isTeamLead } from '@/lib/api-auth'
+import { withCache, cacheKeys, invalidateCache, requestCache } from '@/lib/cache'
+import { createRateLimitMiddleware, rateLimiters, getRateLimitToken } from '@/lib/rate-limit'
 import { z } from 'zod'
 
 const createRequestSchema = z.object({
@@ -14,6 +16,26 @@ const createRequestSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitToken = getRateLimitToken(request)
+    const rateLimitCheck = createRateLimitMiddleware(rateLimiters.teamLead, 30)(rateLimitToken)
+    
+    if (!rateLimitCheck.success) {
+      return NextResponse.json({ 
+        error: 'Rate limit exceeded', 
+        limit: rateLimitCheck.limit,
+        remaining: rateLimitCheck.remaining,
+        reset: rateLimitCheck.reset
+      }, { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': rateLimitCheck.limit.toString(),
+          'X-RateLimit-Remaining': rateLimitCheck.remaining.toString(),
+          'X-RateLimit-Reset': rateLimitCheck.reset.toString(),
+        }
+      })
+    }
+
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
     
@@ -25,7 +47,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: Only team leads can access this endpoint' }, { status: 403 })
     }
     
-    const team = await getTeamByLead(user!.id)
+    // Cache team lookup
+    const team = await withCache(
+      requestCache,
+      cacheKeys.team(user!.id),
+      () => getTeamByLead(user!.id),
+      300000 // 5 minutes cache
+    )
+    
     if (!team) {
       return NextResponse.json({ error: 'No team found for this team lead' }, { status: 404 })
     }
@@ -35,55 +64,68 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const employee_id = searchParams.get('employee_id')
     
-    let queryText = `
-      SELECT 
-        tr.id,
-        tr.type,
-        tr.amount,
-        tr.reason,
-        tr.effective_date,
-        tr.additional_notes,
-        tr.status,
-        tr.admin_notes,
-        tr.created_at,
-        tr.updated_at,
-        e.first_name,
-        e.last_name,
-        e.email,
-        e.employee_id as emp_id,
-        a.first_name as admin_first_name,
-        a.last_name as admin_last_name,
-        a.email as admin_email
-      FROM team_requests tr
-      LEFT JOIN employees e ON tr.employee_id = e.id
-      LEFT JOIN employees a ON tr.reviewed_by = a.id
-      WHERE tr.team_lead_id = $1 AND e.team_id = $2
-    `
+    // Create cache key based on filters
+    const filterString = `${type || 'all'}-${status || 'all'}-${employee_id || 'all'}`
+    const cacheKey = cacheKeys.teamRequests(user!.id, filterString)
     
-    const queryParams: any[] = [user!.id, team.id]
-    let paramIndex = 3
-    
-    if (type) {
-      queryText += ` AND tr.type = $${paramIndex}`
-      queryParams.push(type)
-      paramIndex++
-    }
-    
-    if (status) {
-      queryText += ` AND tr.status = $${paramIndex}`
-      queryParams.push(status)
-      paramIndex++
-    }
-    
-    if (employee_id) {
-      queryText += ` AND tr.employee_id = $${paramIndex}`
-      queryParams.push(employee_id)
-      paramIndex++
-    }
-    
-    queryText += ` ORDER BY tr.created_at DESC`
-    
-    const result = await query(queryText, queryParams)
+    // Use cached data if available
+    const result = await withCache(
+      requestCache,
+      cacheKey,
+      async () => {
+        let queryText = `
+          SELECT 
+            tr.id,
+            tr.type,
+            tr.amount,
+            tr.reason,
+            tr.effective_date,
+            tr.additional_notes,
+            tr.status,
+            tr.admin_notes,
+            tr.created_at,
+            tr.updated_at,
+            e.first_name,
+            e.last_name,
+            e.email,
+            e.employee_id as emp_id,
+            a.first_name as admin_first_name,
+            a.last_name as admin_last_name,
+            a.email as admin_email
+          FROM team_requests tr
+          LEFT JOIN employees e ON tr.employee_id = e.id
+          LEFT JOIN employees a ON tr.reviewed_by = a.id
+          WHERE tr.team_lead_id = $1 AND e.team_id = $2
+        `
+        
+        const queryParams: any[] = [user!.id, team.id]
+        let paramIndex = 3
+        
+        if (type) {
+          queryText += ` AND tr.type = $${paramIndex}`
+          queryParams.push(type)
+          paramIndex++
+        }
+        
+        if (status) {
+          queryText += ` AND tr.status = $${paramIndex}`
+          queryParams.push(status)
+          paramIndex++
+        }
+        
+        if (employee_id) {
+          queryText += ` AND tr.employee_id = $${paramIndex}`
+          queryParams.push(employee_id)
+          paramIndex++
+        }
+        
+        queryText += ` ORDER BY tr.created_at DESC`
+        
+        // Use optimized query with prepared statements
+        return await optimizedQuery(queryText, queryParams, `team_requests_${user!.id}`)
+      },
+      180000 // 3 minutes cache for requests
+    )
     
     return NextResponse.json({ 
       success: true, 
@@ -92,6 +134,12 @@ export async function GET(request: NextRequest) {
         id: team.id,
         name: team.name,
         department: team.department
+      },
+      cached: true,
+      rateLimit: {
+        limit: rateLimitCheck.limit,
+        remaining: rateLimitCheck.remaining,
+        reset: rateLimitCheck.reset
       }
     })
   } catch (error) {
@@ -102,6 +150,26 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting for POST requests (more restrictive)
+    const rateLimitToken = getRateLimitToken(request)
+    const rateLimitCheck = createRateLimitMiddleware(rateLimiters.teamLead, 10)(rateLimitToken)
+    
+    if (!rateLimitCheck.success) {
+      return NextResponse.json({ 
+        error: 'Rate limit exceeded', 
+        limit: rateLimitCheck.limit,
+        remaining: rateLimitCheck.remaining,
+        reset: rateLimitCheck.reset
+      }, { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': rateLimitCheck.limit.toString(),
+          'X-RateLimit-Remaining': rateLimitCheck.remaining.toString(),
+          'X-RateLimit-Reset': rateLimitCheck.reset.toString(),
+        }
+      })
+    }
+
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
     
@@ -113,7 +181,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: Only team leads can access this endpoint' }, { status: 403 })
     }
     
-    const team = await getTeamByLead(user!.id)
+    // Cache team lookup
+    const team = await withCache(
+      requestCache,
+      cacheKeys.team(user!.id),
+      () => getTeamByLead(user!.id),
+      300000 // 5 minutes cache
+    )
+    
     if (!team) {
       return NextResponse.json({ error: 'No team found for this team lead' }, { status: 404 })
     }
@@ -137,12 +212,17 @@ export async function POST(request: NextRequest) {
       additional_notes 
     } = validationResult.data
     
-    // Verify the employee belongs to the team lead's team
-    const employeeResult = await query(`
-      SELECT id, first_name, last_name, email
-      FROM employees 
-      WHERE id = $1 AND team_id = $2 AND is_active = true
-    `, [employee_id, team.id])
+    // Verify the employee belongs to the team lead's team (with caching)
+    const employeeResult = await withCache(
+      requestCache,
+      `employee_${employee_id}_${team.id}`,
+      () => optimizedQuery(`
+        SELECT id, first_name, last_name, email
+        FROM employees 
+        WHERE id = $1 AND team_id = $2 AND is_active = true
+      `, [employee_id, team.id], `employee_check_${employee_id}`),
+      600000 // 10 minutes cache for employee data
+    )
     
     if (employeeResult.rows.length === 0) {
       return NextResponse.json({ 
@@ -154,7 +234,7 @@ export async function POST(request: NextRequest) {
     
     // Create the request
     const requestId = crypto.randomUUID()
-    const result = await query(`
+    const result = await optimizedQuery(`
       INSERT INTO team_requests (
         id, team_lead_id, team_id, employee_id, type, amount, reason, 
         effective_date, additional_notes, status, created_at, updated_at
@@ -173,9 +253,13 @@ export async function POST(request: NextRequest) {
       'pending',
       new Date().toISOString(),
       new Date().toISOString()
-    ])
+    ], `create_request_${user!.id}`)
     
     const newRequest = result.rows[0]
+    
+    // Invalidate related caches
+    invalidateCache.teamRequests(user!.id)
+    invalidateCache.team(user!.id)
     
     // Note: Notification creation temporarily disabled
     // TODO: Re-enable notification creation once the notifications table is properly configured
@@ -190,7 +274,12 @@ export async function POST(request: NextRequest) {
           email: employee.email
         }
       },
-      message: `${type.charAt(0).toUpperCase() + type.slice(1)} request submitted successfully`
+      message: `${type.charAt(0).toUpperCase() + type.slice(1)} request submitted successfully`,
+      rateLimit: {
+        limit: rateLimitCheck.limit,
+        remaining: rateLimitCheck.remaining,
+        reset: rateLimitCheck.reset
+      }
     })
     
   } catch (error) {
