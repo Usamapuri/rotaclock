@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
 import { FileText, Eye, CheckCircle, XCircle, Clock, Filter, TrendingUp, Users, Calendar } from "lucide-react"
+import { usePMRealtime } from "@/lib/hooks/use-pm-realtime"
+import { RealtimeStatus } from "@/components/ui/realtime-status"
 
 type TeamReport = {
   id: string
@@ -66,6 +68,9 @@ export default function PMReportsPage() {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Real-time updates
+  const realtimeData = usePMRealtime()
   
   // Dialog states
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -91,6 +96,19 @@ export default function PMReportsPage() {
     }
     loadReports()
   }, [router])
+
+  // Update data from real-time updates
+  useEffect(() => {
+    if (realtimeData.teamReports.length > 0) {
+      setReports(realtimeData.teamReports)
+    }
+    if (realtimeData.managedTeams.length > 0) {
+      setManagedTeams(realtimeData.managedTeams)
+    }
+    if (realtimeData.summary) {
+      setSummary(realtimeData.summary)
+    }
+  }, [realtimeData.teamReports, realtimeData.managedTeams, realtimeData.summary])
 
   const loadReports = async () => {
     try {
@@ -267,9 +285,19 @@ export default function PMReportsPage() {
           <h1 className="text-2xl font-bold">Team Reports</h1>
           <p className="text-muted-foreground">Review and manage team reports from your managed teams</p>
         </div>
-        <Button onClick={loadReports} variant="outline">
-          Refresh
-        </Button>
+        <div className="flex items-center gap-4">
+          <RealtimeStatus
+            isConnected={realtimeData.isConnected}
+            isConnecting={realtimeData.isConnecting}
+            error={realtimeData.error}
+            lastUpdate={realtimeData.lastUpdate}
+            onReconnect={realtimeData.reconnect}
+            showDetails={true}
+          />
+          <Button onClick={loadReports} variant="outline">
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}

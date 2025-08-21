@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
 import { User, Clock, Calendar, FileText, MessageSquare, Star, TrendingUp, Send, Plus, Eye, Filter, DollarSign } from "lucide-react"
+import { useTeamLeadRealtime } from "@/lib/hooks/use-team-lead-realtime"
+import { RealtimeStatus } from "@/components/ui/realtime-status"
 
 type Member = {
   id: string
@@ -71,6 +73,9 @@ export default function TeamLeadTeamOverviewPage() {
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [activeTab, setActiveTab] = useState("members")
+
+  // Real-time updates
+  const realtimeData = useTeamLeadRealtime(teamId)
 
   // Dialog states
   const [swapDialogOpen, setSwapDialogOpen] = useState(false)
@@ -209,6 +214,16 @@ export default function TeamLeadTeamOverviewPage() {
       }
     })()
   }, [router])
+
+  // Update data from real-time updates
+  useEffect(() => {
+    if (realtimeData.teamMembers.length > 0) {
+      setMembers(realtimeData.teamMembers)
+    }
+    if (realtimeData.meetingNotes.length > 0) {
+      setMeetingNotes(realtimeData.meetingNotes)
+    }
+  }, [realtimeData.teamMembers, realtimeData.meetingNotes])
 
   const filteredMembers = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -460,7 +475,15 @@ export default function TeamLeadTeamOverviewPage() {
           <h1 className="text-2xl font-bold">Team Management</h1>
           <p className="text-muted-foreground">Manage your team members, swap requests, leave requests, and meeting notes</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4">
+          <RealtimeStatus
+            isConnected={realtimeData.isConnected}
+            isConnecting={realtimeData.isConnecting}
+            error={realtimeData.error}
+            lastUpdate={realtimeData.lastUpdate}
+            onReconnect={realtimeData.reconnect}
+            showDetails={true}
+          />
           <Button variant="outline" onClick={() => router.push('/team-lead/requests')}>
             <DollarSign className="h-4 w-4 mr-2" />
             Dock & Bonus Requests
