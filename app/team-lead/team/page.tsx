@@ -41,7 +41,7 @@ type LeaveRequest = {
   type: string
   start_date: string
   end_date: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending' | 'approved' | 'denied'
   created_at: string
 }
 
@@ -258,7 +258,7 @@ export default function TeamLeadTeamOverviewPage() {
       case 'pending': return 'bg-yellow-100 text-yellow-800'
       case 'approved': return 'bg-green-100 text-green-800'
       case 'denied':
-      case 'rejected': return 'bg-red-100 text-red-800'
+      case 'denied': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -317,7 +317,7 @@ export default function TeamLeadTeamOverviewPage() {
           'Authorization': `Bearer ${AuthService.getCurrentUser()?.id}`
         },
         body: JSON.stringify({
-          status: action === 'approve' ? 'approved' : 'rejected',
+          status: action === 'approve' ? 'approved' : 'denied',
           team_lead_notes: notes
         })
       })
@@ -329,7 +329,7 @@ export default function TeamLeadTeamOverviewPage() {
         // Update local state
         setLeaveRequests(prev => prev.map(req => 
           req.id === selectedRequest.id 
-            ? { ...req, status: action === 'approve' ? 'approved' : 'rejected' }
+            ? { ...req, status: action === 'approve' ? 'approved' : 'denied' }
             : req
         ))
         

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ReactNode } from "react"
 import { AuthService } from "@/lib/auth"
 import { DashboardShell } from "@/components/layouts/DashboardShell"
-import { LayoutDashboard, Users, Activity, BarChart3 } from "lucide-react"
+import { LayoutDashboard, Users, Activity, BarChart3, FileText } from "lucide-react"
 
 export default function ProjectManagerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
@@ -27,6 +27,7 @@ export default function ProjectManagerLayout({ children }: { children: ReactNode
     { href: '/project-manager/dashboard', label: 'Dashboard', icon: <LayoutDashboard /> },
     { href: '/project-manager/projects', label: 'Projects', icon: <Users /> },
     { href: '/project-manager/teams', label: 'Teams', icon: <Users /> },
+    { href: '/project-manager/reports', label: 'Team Reports', icon: <FileText /> },
     { href: '/project-manager/live', label: 'Live Status', icon: <Activity /> },
     { href: '/project-manager/performance', label: 'Performance', icon: <BarChart3 /> },
   ], [])

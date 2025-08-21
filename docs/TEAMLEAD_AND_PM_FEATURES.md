@@ -28,9 +28,17 @@ This document outlines the implementation plan for extending admin-level project
 - **Frontend Components**: Tabbed interface with dialogs for request management, report consolidation, and dock/bonus requests
 - **Unit Testing**: Comprehensive test suite for all new APIs
 
+#### 3. Project Manager Features - **RECENTLY COMPLETED**
+- **Team Reports Dashboard**: View, review, and manage team reports from managed teams
+- **Report Review System**: Approve, reject, or review team reports with PM notes
+- **Advanced Filtering**: Filter reports by team, status, and date range
+- **Summary Statistics**: Dashboard with comprehensive report statistics
+- **API Endpoints**: Complete REST API with proper PM scope enforcement
+- **Frontend Components**: Comprehensive dashboard with detailed report viewing and review dialogs
+- **Scope Enforcement**: PMs can only access reports from their managed teams
+
 ### 🔄 In Progress
 - **Team Lead Broadcasting**: Send messages to team members
-- **PM Dashboard**: Team reports and project updates
 
 ### ⏳ Pending
 - **Real-time Updates**: WebSocket/SSE for live data
@@ -38,6 +46,48 @@ This document outlines the implementation plan for extending admin-level project
 - **Integration Testing**: End-to-end testing with Playwright
 
 ## II. Recently Completed Features (Latest Implementation)
+
+### PM Dashboard Team Reports Management - **JUST COMPLETED**
+
+#### Backend Implementation
+- **New API Endpoints**:
+  - `GET /api/project-manager/team-reports` - List team reports with filtering and PM scope enforcement
+  - `GET /api/project-manager/team-reports/[id]` - Get specific team report details
+  - `PATCH /api/project-manager/team-reports/[id]` - Review and update team reports
+
+- **Authorization & Scope**:
+  - All endpoints require `isProjectManager()` authentication
+  - PMs can only access reports from teams they manage
+  - Proper error handling and scope enforcement
+
+- **Database Integration**:
+  - Uses existing `team_reports` table created by Team Leads
+  - Joins with `manager_projects` and `teams` for scope enforcement
+  - Stores PM review information (status, notes, review timestamp)
+
+#### Frontend Implementation
+- **Dedicated Reports Page** (`app/project-manager/reports/page.tsx`):
+  - Comprehensive dashboard with summary statistics
+  - Advanced filtering by team, status, and date range
+  - Interactive report viewing and review dialogs
+  - Real-time data loading and error handling
+
+- **UI Components**:
+  - Summary cards showing total, pending, reviewed, approved, and rejected reports
+  - Filter controls for team, status, and date range
+  - Report table with detailed information and actions
+  - View report dialog with comprehensive report details
+  - Review dialog for updating report status and adding PM notes
+  - Toast notifications for success/error feedback
+  - Responsive design with proper accessibility
+
+#### Key Features
+1. **Scope Enforcement**: PMs can only access reports from their managed teams
+2. **Advanced Filtering**: Filter by team, status, and date range
+3. **Report Review System**: Approve, reject, or review reports with PM notes
+4. **Statistics Dashboard**: Real-time summary of report statuses
+5. **Detailed Report Viewing**: Comprehensive view of team reports with highlights, concerns, and recommendations
+6. **Team Lead Integration**: Notifications sent to team leads when reports are reviewed
 
 ### Team Lead Dock/Bonus Request Management - **JUST COMPLETED**
 
@@ -237,6 +287,16 @@ The system now includes test data for Team Lead functionality:
 7. View request details by clicking the eye icon
 8. Test creating both bonus and dock requests
 
+#### 7. Test PM Team Reports Dashboard
+1. Navigate to `/project-manager/reports` in PM dashboard
+2. Verify summary statistics are displayed (total, pending, reviewed, approved, rejected)
+3. Test filtering by team, status, and date range
+4. Click "View" button on a report to see detailed information
+5. Test the review dialog by clicking "Review" button
+6. Update report status and add PM notes
+7. Submit review and verify success notification
+8. Verify report status updates in the table
+
 ### API Testing
 You can test the API endpoints directly:
 
@@ -291,6 +351,23 @@ curl -X POST "http://localhost:3000/api/team-lead/requests" \
     "effective_date": "2024-12-25",
     "additional_notes": "Recognizes outstanding dedication"
   }'
+
+# Test PM team reports
+curl -X GET "http://localhost:3000/api/project-manager/team-reports" \
+  -H "Authorization: Bearer 12f6bf80-f090-459a-93c3-c9fe71b54a82"
+
+# Test PM team reports with filtering
+curl -X GET "http://localhost:3000/api/project-manager/team-reports?status=pending" \
+  -H "Authorization: Bearer 12f6bf80-f090-459a-93c3-c9fe71b54a82"
+
+# Test PM review team report
+curl -X PATCH "http://localhost:3000/api/project-manager/team-reports/[REPORT_ID]" \
+  -H "Authorization: Bearer 12f6bf80-f090-459a-93c3-c9fe71b54a82" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "approved",
+    "pm_notes": "Excellent report with clear insights and actionable recommendations"
+  }'
 ```
 
 ## Next Steps Checklist
@@ -298,8 +375,8 @@ curl -X POST "http://localhost:3000/api/team-lead/requests" \
 ### Immediate Next Steps
 - [x] **A5 - Meeting Notes**: Create TL meeting notes review and report consolidation ✅ **COMPLETED**
 - [x] **A7 - Dock/Bonus Requests**: Create TL dock and bonus request system ✅ **COMPLETED**
+- [x] **PM Dashboard**: Implement PM team reports and project updates ✅ **COMPLETED**
 - [ ] **A6 - Broadcasting**: Implement team message broadcasting functionality
-- [ ] **PM Dashboard**: Implement PM team reports and project updates
 
 ### Technical Debt
 - [ ] Add comprehensive error logging
@@ -316,11 +393,11 @@ curl -X POST "http://localhost:3000/api/team-lead/requests" \
 ## Continuation Guide for New Chat Sessions
 
 ### Current Status
-- **Last Completed**: Team Lead dock/bonus request management and meeting notes consolidation
-- **Current Phase**: Moving to PM dashboard and team broadcasting features
-- **Database**: Contains test data for all Team Lead functionality including meeting notes and dock/bonus requests
-- **Frontend**: Enhanced Team Lead dashboard with tabbed interface and dedicated requests page
-- **Backend**: Complete API endpoints with proper authorization including meeting notes and dock/bonus request APIs
+- **Last Completed**: PM Dashboard team reports management and Team Lead dock/bonus request management
+- **Current Phase**: Moving to team broadcasting features and performance optimization
+- **Database**: Contains test data for all Team Lead and PM functionality including team reports and dock/bonus requests
+- **Frontend**: Enhanced Team Lead dashboard with tabbed interface, dedicated requests page, and comprehensive PM reports dashboard
+- **Backend**: Complete API endpoints with proper authorization including team reports, meeting notes, and dock/bonus request APIs
 
 ### Setup Commands
 ```bash
@@ -346,10 +423,10 @@ node scripts/check-requests.js
 - **Database**: `lib/database.ts` - Database helper functions
 
 ### Next Steps
-1. Build PM dashboard for team reports
-2. Add team broadcasting functionality
-3. Add real-time updates and performance optimization
-4. Implement admin review interface for dock/bonus requests
+1. Add team broadcasting functionality
+2. Add real-time updates and performance optimization
+3. Implement admin review interface for dock/bonus requests
+4. Add comprehensive error logging and monitoring
 
 ### Common Issues & Solutions
 - **"Failed to load swap requests"**: Fixed by adding Authorization headers to frontend requests
@@ -368,4 +445,4 @@ node scripts/check-requests.js
 ---
 
 *Last Updated: August 20, 2025*
-*Status: Team Lead dock/bonus request management and meeting notes consolidation completed*
+*Status: PM Dashboard team reports management and Team Lead dock/bonus request management completed*

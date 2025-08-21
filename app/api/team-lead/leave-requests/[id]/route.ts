@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 // Validation schema for updating leave requests
 const updateLeaveRequestSchema = z.object({
-  status: z.enum(['approved', 'rejected']),
+  status: z.enum(['approved', 'denied']),
   team_lead_notes: z.string().optional()
 })
 

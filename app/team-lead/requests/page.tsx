@@ -405,7 +405,7 @@ export default function TeamLeadRequestsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">
-                        ${request.amount.toFixed(2)}
+                        ${(Number(request.amount) || 0).toFixed(2)}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -575,7 +575,7 @@ export default function TeamLeadRequestsPage() {
                 <div>
                   <Label>Amount</Label>
                   <div className="font-medium text-lg mt-1">
-                    ${selectedRequest.amount.toFixed(2)}
+                    ${(Number(selectedRequest.amount) || 0).toFixed(2)}
                   </div>
                 </div>
               </div>
