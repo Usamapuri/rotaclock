@@ -51,6 +51,7 @@ interface ShiftCellProps {
   templates: ShiftTemplate[]
   onAssignShift: () => void
   onRemoveShift: (assignmentId: string) => void
+  onAssignmentCreated?: () => void
 }
 
 export default function ShiftCell({
@@ -59,7 +60,8 @@ export default function ShiftCell({
   assignments,
   templates,
   onAssignShift,
-  onRemoveShift
+  onRemoveShift,
+  onAssignmentCreated
 }: ShiftCellProps) {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -97,10 +99,14 @@ export default function ShiftCell({
         })
       })
 
-      if (response.ok) {
-        // Trigger refresh of the schedule
-        window.location.reload()
-      } else {
+       if (response.ok) {
+         // Trigger refresh of the schedule
+         if (onAssignmentCreated) {
+           onAssignmentCreated()
+         } else {
+           window.location.reload()
+         }
+       } else {
         const error = await response.json()
         alert(`Failed to assign shift: ${error.error}`)
       }

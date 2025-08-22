@@ -35,6 +35,7 @@ interface WeekGridProps {
   onDateChange: (date: string) => void
   onAssignShift: (employeeId: string, date: string) => void
   onRemoveShift: (assignmentId: string) => void
+  onAssignmentCreated?: () => void
 }
 
 export default function WeekGrid({
@@ -43,7 +44,8 @@ export default function WeekGrid({
   selectedDate,
   onDateChange,
   onAssignShift,
-  onRemoveShift
+  onRemoveShift,
+  onAssignmentCreated
 }: WeekGridProps) {
   const [weekStart, setWeekStart] = useState<Date>(new Date())
   const [weekDays, setWeekDays] = useState<string[]>([])
@@ -217,14 +219,15 @@ export default function WeekGrid({
                           ${isToday(day) ? 'bg-blue-25' : ''}
                         `}
                       >
-                        <ShiftCell
-                          employee={employee}
-                          date={day}
-                          assignments={employee.assignments[day] || []}
-                          templates={templates}
-                          onAssignShift={() => onAssignShift(employee.id, day)}
-                          onRemoveShift={onRemoveShift}
-                        />
+                                                 <ShiftCell
+                           employee={employee}
+                           date={day}
+                           assignments={employee.assignments[day] || []}
+                           templates={templates}
+                           onAssignShift={() => onAssignShift(employee.id, day)}
+                           onRemoveShift={onRemoveShift}
+                           onAssignmentCreated={onAssignmentCreated}
+                         />
                       </div>
                     ))}
                   </div>

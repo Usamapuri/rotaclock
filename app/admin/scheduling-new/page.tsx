@@ -356,14 +356,15 @@ export default function NewSchedulingDashboard() {
 
             {/* Week Grid */}
             <div className="lg:col-span-3">
-              <WeekGrid
-                employees={employees}
-                templates={templates}
-                selectedDate={selectedDate}
-                onDateChange={handleDateChange}
-                onAssignShift={handleAssignShift}
-                onRemoveShift={handleRemoveShift}
-              />
+                             <WeekGrid
+                 employees={employees}
+                 templates={templates}
+                 selectedDate={selectedDate}
+                 onDateChange={handleDateChange}
+                 onAssignShift={handleAssignShift}
+                 onRemoveShift={handleRemoveShift}
+                 onAssignmentCreated={handleAssignmentCreated}
+               />
             </div>
           </div>
         </TabsContent>
@@ -374,7 +375,11 @@ export default function NewSchedulingDashboard() {
               <CardTitle>Employee Management</CardTitle>
             </CardHeader>
             <CardContent>
-              <EmployeeList />
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">Employee list is available in the sidebar</p>
+                <p className="text-sm text-gray-500">Use the search and selection features there</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
