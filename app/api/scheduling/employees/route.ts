@@ -12,16 +12,16 @@ export async function GET(request: NextRequest) {
     let queryText = `
       SELECT 
         id,
-        employee_id,
+        employee_code,
         first_name,
         last_name,
         email,
         department,
-        position,
+        job_position,
         is_active,
         hourly_rate,
         max_hours_per_week
-      FROM employees
+      FROM employees_new
       WHERE is_active = true
     `
     const params: any[] = []
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       queryText += ` AND (
         LOWER(first_name) LIKE LOWER($${paramIndex}) OR
         LOWER(last_name) LIKE LOWER($${paramIndex}) OR
-        LOWER(employee_id) LIKE LOWER($${paramIndex}) OR
+        LOWER(employee_code) LIKE LOWER($${paramIndex}) OR
         LOWER(email) LIKE LOWER($${paramIndex})
       )`
       params.push(`%${search}%`)
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     let countQuery = `
       SELECT COUNT(*) as total
-      FROM employees
+      FROM employees_new
       WHERE is_active = true
     `
     const countParams: any[] = []
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       countQuery += ` AND (
         LOWER(first_name) LIKE LOWER($${countParamIndex}) OR
         LOWER(last_name) LIKE LOWER($${countParamIndex}) OR
-        LOWER(employee_id) LIKE LOWER($${countParamIndex}) OR
+        LOWER(employee_code) LIKE LOWER($${countParamIndex}) OR
         LOWER(email) LIKE LOWER($${countParamIndex})
       )`
       countParams.push(`%${search}%`)

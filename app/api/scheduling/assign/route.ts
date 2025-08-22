@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Check if employee exists and is active
     const employeeResult = await query(
-      'SELECT id, first_name, last_name FROM employees WHERE id = $1 AND is_active = true',
+      'SELECT id, first_name, last_name FROM employees_new WHERE id = $1 AND is_active = true',
       [employee_id]
     )
 
@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if shift exists and is active
+    // Check if shift template exists and is active
     const shiftResult = await query(
-      'SELECT id, name FROM shifts WHERE id = $1 AND is_active = true',
+      'SELECT id, name FROM shift_templates WHERE id = $1 AND is_active = true',
       [shift_id]
     )
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Check for existing assignment on the same date
     const existingAssignment = await query(
-      'SELECT id FROM shift_assignments WHERE employee_id = $1 AND date = $2',
+      'SELECT id FROM shift_assignments_new WHERE employee_id = $1 AND date = $2',
       [employee_id, date]
     )
 
@@ -63,9 +63,9 @@ export async function POST(request: NextRequest) {
 
     // Create the shift assignment
     const result = await query(`
-      INSERT INTO shift_assignments (
+      INSERT INTO shift_assignments_new (
         employee_id,
-        shift_id,
+        template_id,
         date,
         status,
         notes,
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         created_at,
         updated_at
       ) VALUES ($1, $2, $3, 'assigned', $4, $5, NOW(), NOW())
-      RETURNING id, employee_id, shift_id, date, status, notes, created_at
+      RETURNING id, employee_id, template_id, date, status, notes, created_at
     `, [employee_id, shift_id, date, notes || null, assigned_by || null])
 
     const assignment = result.rows[0]
@@ -83,21 +83,21 @@ export async function POST(request: NextRequest) {
       SELECT 
         sa.id,
         sa.employee_id,
-        sa.shift_id,
+        sa.template_id,
         sa.date,
         sa.status,
         sa.notes,
         sa.created_at,
         e.first_name,
         e.last_name,
-        e.employee_id as employee_code,
-        s.name as shift_name,
-        s.start_time,
-        s.end_time,
-        s.color
-      FROM shift_assignments sa
-      JOIN employees e ON sa.employee_id = e.id
-      JOIN shifts s ON sa.shift_id = s.id
+        e.employee_code,
+        st.name as shift_name,
+        st.start_time,
+        st.end_time,
+        st.color
+      FROM shift_assignments_new sa
+      JOIN employees_new e ON sa.employee_id = e.id
+      JOIN shift_templates st ON sa.template_id = st.id
       WHERE sa.id = $1
     `, [assignment.id])
 

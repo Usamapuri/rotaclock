@@ -34,13 +34,13 @@ export async function GET(
     let employeesQuery = `
       SELECT 
         id,
-        employee_id,
+        employee_code,
         first_name,
         last_name,
         email,
         department,
-        position
-      FROM employees
+        job_position
+      FROM employees_new
       WHERE is_active = true
     `
     const employeesParams: any[] = []
@@ -60,18 +60,18 @@ export async function GET(
       SELECT 
         sa.id,
         sa.employee_id,
-        sa.shift_id,
+        sa.template_id,
         sa.date,
         sa.status,
         sa.notes,
         sa.created_at,
-        s.name as shift_name,
-        s.start_time,
-        s.end_time,
-        s.color,
-        s.department as shift_department
-      FROM shift_assignments sa
-      JOIN shifts s ON sa.shift_id = s.id
+        st.name as template_name,
+        st.start_time,
+        st.end_time,
+        st.color,
+        st.department as template_department
+      FROM shift_assignments_new sa
+      JOIN shift_templates st ON sa.template_id = st.id
       WHERE sa.date >= $1 AND sa.date <= $2
     `
     const assignmentsParams = [weekStartStr, weekEndStr]
@@ -96,7 +96,7 @@ export async function GET(
         department,
         color,
         required_staff
-      FROM shifts
+      FROM shift_templates
       WHERE is_active = true
       ORDER BY name
     `)

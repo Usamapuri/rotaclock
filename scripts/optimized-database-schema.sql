@@ -1,3 +1,6 @@
+
+
+
 -- =====================================================
 -- OPTIMIZED DATABASE SCHEMA
 -- =====================================================
@@ -31,7 +34,7 @@ CREATE TABLE IF NOT EXISTS employees (
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     department VARCHAR(100) NOT NULL,
-    position VARCHAR(100) NOT NULL,
+    job_position VARCHAR(100) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'employee', -- admin, manager, lead, employee
     hire_date DATE NOT NULL,
     manager_id UUID REFERENCES employees(id),
@@ -45,10 +48,7 @@ CREATE TABLE IF NOT EXISTS employees (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add foreign key constraints to teams table
-ALTER TABLE teams 
-ADD CONSTRAINT fk_teams_lead_id FOREIGN KEY (lead_id) REFERENCES employees(id),
-ADD CONSTRAINT fk_teams_manager_id FOREIGN KEY (manager_id) REFERENCES employees(id);
+-- Add foreign key constraints to teams table (after employees table is created)
 
 -- 3. SHIFT_TEMPLATES (Renamed from shifts for clarity)
 CREATE TABLE IF NOT EXISTS shift_templates (
@@ -186,7 +186,7 @@ SELECT
     e.last_name,
     e.email,
     e.department,
-    e.position,
+    e.job_position,
     e.role,
     e.is_active,
     e.is_online,
@@ -202,7 +202,7 @@ LEFT JOIN teams t ON e.team_id = t.id
 LEFT JOIN employees m ON e.manager_id = m.id
 LEFT JOIN shift_assignments sa ON e.id = sa.employee_id
 LEFT JOIN time_entries te ON e.id = te.employee_id
-GROUP BY e.id, e.employee_code, e.first_name, e.last_name, e.email, e.department, e.position, e.role, e.is_active, e.is_online, e.last_online, t.name, t.id, m.first_name, m.last_name;
+GROUP BY e.id, e.employee_code, e.first_name, e.last_name, e.email, e.department, e.job_position, e.role, e.is_active, e.is_online, e.last_online, t.name, t.id, m.first_name, m.last_name;
 
 -- Week schedule view
 CREATE OR REPLACE VIEW week_schedule AS
@@ -239,7 +239,7 @@ RETURNS TABLE (
     last_name VARCHAR,
     email VARCHAR,
     department VARCHAR,
-    position VARCHAR,
+    job_position VARCHAR,
     role VARCHAR,
     is_active BOOLEAN
 ) AS $$
@@ -252,7 +252,7 @@ BEGIN
         e.last_name,
         e.email,
         e.department,
-        e.position,
+        e.job_position,
         e.role,
         e.is_active
     FROM employees e
@@ -320,6 +320,11 @@ CREATE TRIGGER update_shift_templates_updated_at BEFORE UPDATE ON shift_template
 CREATE TRIGGER update_shift_assignments_updated_at BEFORE UPDATE ON shift_assignments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_time_entries_updated_at BEFORE UPDATE ON time_entries FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_leave_requests_updated_at BEFORE UPDATE ON leave_requests FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Add foreign key constraints to teams table (after all tables are created)
+ALTER TABLE teams 
+ADD CONSTRAINT fk_teams_lead_id FOREIGN KEY (lead_id) REFERENCES employees(id),
+ADD CONSTRAINT fk_teams_manager_id FOREIGN KEY (manager_id) REFERENCES employees(id);
 
 -- =====================================================
 -- SAMPLE DATA (Optional - for testing)

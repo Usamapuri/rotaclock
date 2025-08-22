@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         is_active,
         created_at,
         updated_at
-      FROM shifts
+      FROM shift_templates
       WHERE 1=1
     `
     const params: any[] = []
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     // Check if shift with same name already exists
     const existingShift = await query(
-      'SELECT id FROM shifts WHERE name = $1 AND is_active = true',
+      'SELECT id FROM shift_templates WHERE name = $1 AND is_active = true',
       [name]
     )
 
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     // Create the shift template
     const result = await query(`
-      INSERT INTO shifts (
+      INSERT INTO shift_templates (
         name,
         description,
         start_time,
