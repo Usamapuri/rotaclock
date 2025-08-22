@@ -780,7 +780,7 @@ export default function AdminDashboard() {
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Reports
               </Button>
-              <Button onClick={() => router.push('/admin/scheduling')} variant="outline" size="sm">
+              <Button onClick={() => router.push('/admin/scheduling-new')} variant="outline" size="sm">
                 <Calendar className="h-4 w-4 mr-2" />
                 Create Shift
               </Button>
