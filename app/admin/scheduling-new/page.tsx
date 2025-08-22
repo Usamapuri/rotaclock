@@ -188,8 +188,8 @@ export default function NewSchedulingDashboard() {
     toast.success('Shift assignment removed')
   }
 
-  const handleAssignmentCreated = () => {
-    loadWeekSchedule()
+  const handleAssignmentCreated = async () => {
+    await loadWeekSchedule()
     toast.success('Shift assigned successfully')
   }
 
@@ -208,9 +208,9 @@ export default function NewSchedulingDashboard() {
     setShowTemplateModal(true)
   }
 
-  const handleDateChange = (date: string) => {
+  const handleDateChange = async (date: string) => {
     setSelectedDate(date)
-    // The WeekGrid component will handle loading the new week data
+    await loadWeekSchedule()
   }
 
   const getWeekStats = () => {
@@ -356,15 +356,15 @@ export default function NewSchedulingDashboard() {
 
             {/* Week Grid */}
             <div className="lg:col-span-3">
-                             <WeekGrid
-                 employees={employees}
-                 templates={templates}
-                 selectedDate={selectedDate}
-                 onDateChange={handleDateChange}
-                 onAssignShift={handleAssignShift}
-                 onRemoveShift={handleRemoveShift}
-                 onAssignmentCreated={handleAssignmentCreated}
-               />
+              <WeekGrid
+                employees={employees}
+                templates={templates}
+                selectedDate={selectedDate}
+                onDateChange={handleDateChange}
+                onAssignShift={handleAssignShift}
+                onRemoveShift={handleRemoveShift}
+                onAssignmentCreated={handleAssignmentCreated}
+              />
             </div>
           </div>
         </TabsContent>

@@ -72,21 +72,21 @@ export default function WeekGrid({
     setWeekDays(days)
   }, [weekStart])
 
-  const goToPreviousWeek = () => {
+  const goToPreviousWeek = async () => {
     const newWeekStart = new Date(weekStart)
     newWeekStart.setDate(weekStart.getDate() - 7)
     setWeekStart(newWeekStart)
-    onDateChange(newWeekStart.toISOString().split('T')[0])
+    await onDateChange(newWeekStart.toISOString().split('T')[0])
   }
 
-  const goToNextWeek = () => {
+  const goToNextWeek = async () => {
     const newWeekStart = new Date(weekStart)
     newWeekStart.setDate(weekStart.getDate() + 7)
     setWeekStart(newWeekStart)
-    onDateChange(newWeekStart.toISOString().split('T')[0])
+    await onDateChange(newWeekStart.toISOString().split('T')[0])
   }
 
-  const goToCurrentWeek = () => {
+  const goToCurrentWeek = async () => {
     const today = new Date()
     const dayOfWeek = today.getDay()
     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
@@ -94,7 +94,7 @@ export default function WeekGrid({
     monday.setDate(today.getDate() - daysToMonday)
     
     setWeekStart(monday)
-    onDateChange(today.toISOString().split('T')[0])
+    await onDateChange(today.toISOString().split('T')[0])
   }
 
   const formatDate = (dateString: string) => {
