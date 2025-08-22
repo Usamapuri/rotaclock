@@ -134,15 +134,24 @@ export default function NewSchedulingDashboard() {
       
       if (data.success) {
         // Update employees with their assignments
-        setEmployees(prevEmployees => 
-          prevEmployees.map(emp => {
-            const weekEmployee = data.data.employees.find((e: any) => e.id === emp.id)
-            return {
+        setEmployees(prevEmployees => {
+          if (prevEmployees.length === 0) {
+            // If no employees loaded yet, use the ones from the week data
+            return data.data.employees.map((emp: any) => ({
               ...emp,
-              assignments: weekEmployee?.assignments || {}
-            }
-          })
-        )
+              assignments: emp.assignments || {}
+            }))
+          } else {
+            // Update existing employees with their assignments
+            return prevEmployees.map(emp => {
+              const weekEmployee = data.data.employees.find((e: any) => e.id === emp.id)
+              return {
+                ...emp,
+                assignments: weekEmployee?.assignments || {}
+              }
+            })
+          }
+        })
       } else {
         toast.error('Failed to load week schedule')
       }
@@ -345,28 +354,15 @@ export default function NewSchedulingDashboard() {
         </TabsList>
 
         <TabsContent value="schedule" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Employee List Sidebar */}
-            <div className="lg:col-span-1">
-              <EmployeeList
-                onEmployeeSelect={handleEmployeeSelect}
-                selectedEmployeeId={selectedEmployee?.id}
-              />
-            </div>
-
-            {/* Week Grid */}
-            <div className="lg:col-span-3">
-              <WeekGrid
-                employees={employees}
-                templates={templates}
-                selectedDate={selectedDate}
-                onDateChange={handleDateChange}
-                onAssignShift={handleAssignShift}
-                onRemoveShift={handleRemoveShift}
-                onAssignmentCreated={handleAssignmentCreated}
-              />
-            </div>
-          </div>
+          <WeekGrid
+            employees={employees}
+            templates={templates}
+            selectedDate={selectedDate}
+            onDateChange={handleDateChange}
+            onAssignShift={handleAssignShift}
+            onRemoveShift={handleRemoveShift}
+            onAssignmentCreated={handleAssignmentCreated}
+          />
         </TabsContent>
 
         <TabsContent value="employees" className="space-y-4">
@@ -375,11 +371,10 @@ export default function NewSchedulingDashboard() {
               <CardTitle>Employee Management</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Employee list is available in the sidebar</p>
-                <p className="text-sm text-gray-500">Use the search and selection features there</p>
-              </div>
+              <EmployeeList
+                onEmployeeSelect={handleEmployeeSelect}
+                selectedEmployeeId={selectedEmployee?.id}
+              />
             </CardContent>
           </Card>
         </TabsContent>

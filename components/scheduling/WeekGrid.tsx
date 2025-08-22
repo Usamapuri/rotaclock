@@ -160,80 +160,68 @@ export default function WeekGrid({
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <div className="min-w-max">
-            {/* Header row with day names */}
-            <div className="grid grid-cols-8 gap-1 border-b bg-gray-50">
-              <div className="p-3 font-medium text-sm text-gray-700">
-                Employee
-              </div>
-              {weekDays.map((day) => (
-                <div
-                  key={day}
-                  className={`
-                    p-3 text-center font-medium text-sm border-l
-                    ${isToday(day) ? 'bg-blue-50 text-blue-700' : ''}
-                    ${isWeekend(day) ? 'bg-gray-100' : ''}
-                  `}
-                >
-                  <div className="font-semibold">
-                    {new Date(day).toLocaleDateString('en-US', { weekday: 'short' })}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {new Date(day).getDate()}
-                  </div>
-                </div>
-              ))}
-            </div>
+                         {/* Header row with day names */}
+             <div className="grid grid-cols-7 gap-1 border-b bg-gray-50">
+               {weekDays.map((day) => (
+                 <div
+                   key={day}
+                   className={`
+                     p-3 text-center font-medium text-sm
+                     ${isToday(day) ? 'bg-blue-50 text-blue-700' : ''}
+                     ${isWeekend(day) ? 'bg-gray-100' : ''}
+                   `}
+                 >
+                   <div className="font-semibold">
+                     {new Date(day).toLocaleDateString('en-US', { weekday: 'short' })}
+                   </div>
+                   <div className="text-xs text-gray-500">
+                     {new Date(day).getDate()}
+                   </div>
+                 </div>
+               ))}
+             </div>
 
-            {/* Employee rows */}
-            {employees.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-sm text-gray-500">
-                No employees to display
-              </div>
-            ) : (
-              <div className="divide-y">
-                {employees.map((employee) => (
-                  <div key={employee.id} className="grid grid-cols-8 gap-1">
-                    {/* Employee info column */}
-                    <div className="p-3 border-r bg-gray-50">
-                      <div className="font-medium text-sm">
-                        {employee.first_name} {employee.last_name}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {employee.employee_id}
-                      </div>
-                      <Badge 
-                        variant="secondary" 
-                        className="text-xs mt-1"
-                      >
-                        {employee.department}
-                      </Badge>
-                    </div>
-
-                    {/* Day columns */}
-                    {weekDays.map((day) => (
-                      <div
-                        key={day}
-                        className={`
-                          p-2 border-r min-h-[80px] relative
-                          ${isWeekend(day) ? 'bg-gray-50' : ''}
-                          ${isToday(day) ? 'bg-blue-25' : ''}
-                        `}
-                      >
-                                                 <ShiftCell
-                           employee={employee}
-                           date={day}
-                           assignments={employee.assignments[day] || []}
-                           templates={templates}
-                           onAssignShift={() => onAssignShift(employee.id, day)}
-                           onRemoveShift={onRemoveShift}
-                           onAssignmentCreated={onAssignmentCreated}
-                         />
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
+                         {/* Employee rows */}
+             {employees.length === 0 ? (
+               <div className="flex items-center justify-center h-32 text-sm text-gray-500">
+                 No employees to display
+               </div>
+             ) : (
+               <div className="space-y-2">
+                 {employees.map((employee) => (
+                   <div key={employee.id} className="border rounded-lg p-3">
+                     <div className="font-medium text-sm mb-2">
+                       {employee.first_name} {employee.last_name} ({employee.employee_id})
+                     </div>
+                     <div className="grid grid-cols-7 gap-1">
+                       {weekDays.map((day) => (
+                         <div
+                           key={day}
+                           className={`
+                             p-2 border rounded min-h-[60px] relative
+                             ${isWeekend(day) ? 'bg-gray-50' : ''}
+                             ${isToday(day) ? 'bg-blue-25' : ''}
+                           `}
+                         >
+                           <div className="text-xs text-gray-500 mb-1">
+                             {new Date(day).toLocaleDateString('en-US', { weekday: 'short' })}
+                           </div>
+                           <ShiftCell
+                             employee={employee}
+                             date={day}
+                             assignments={employee.assignments[day] || []}
+                             templates={templates}
+                             onAssignShift={() => onAssignShift(employee.id, day)}
+                             onRemoveShift={onRemoveShift}
+                             onAssignmentCreated={onAssignmentCreated}
+                           />
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
           </div>
         </div>
       </CardContent>
