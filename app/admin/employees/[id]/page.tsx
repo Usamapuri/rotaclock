@@ -143,14 +143,7 @@ interface Team {
   updated_at: string
 }
 
-interface TeamLead {
-  id: string
-  employee_id: string
-  name: string
-  email: string
-  department: string
-  is_active: boolean
-}
+type TeamLead = any
 
 export default function EmployeeDetailPage() {
   const params = useParams()
@@ -267,8 +260,10 @@ export default function EmployeeDetailPage() {
       if (teamLeadsResponse.ok) {
         const teamLeadsData = await teamLeadsResponse.json()
         console.log('Team leads API response:', teamLeadsData)
-        if (Array.isArray(teamLeadsData)) {
-          setTeamLeads(teamLeadsData)
+        if (teamLeadsData && teamLeadsData.success && Array.isArray(teamLeadsData.data)) {
+          setTeamLeads(teamLeadsData.data as TeamLead[])
+        } else if (Array.isArray(teamLeadsData)) {
+          setTeamLeads(teamLeadsData as TeamLead[])
         } else {
           console.error('Invalid team leads data format:', teamLeadsData)
           setTeamLeads([])

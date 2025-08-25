@@ -14,12 +14,12 @@ import { AuthService } from "@/lib/auth"
 import { toast } from "sonner"
 
 interface EmployeeFormData {
-  employee_id: string
+  employee_code: string
   first_name: string
   last_name: string
   email: string
   department: string
-  position: string
+  job_position: string
   role: string
   hire_date: string
   hourly_rate: number
@@ -59,21 +59,21 @@ const positions = [
 ]
 
 const roles = [
-  "agent",
-  "team_lead", 
-  "project_manager",
+  "employee",
+  "lead", 
+  "manager",
   "admin"
 ]
 
 export default function NewEmployee() {
   const [formData, setFormData] = useState<EmployeeFormData>({
-    employee_id: "",
+    employee_code: "",
     first_name: "",
     last_name: "",
     email: "",
     department: "",
-    position: "",
-    role: "agent",
+    job_position: "",
+    role: "employee",
     hire_date: new Date().toISOString().split('T')[0],
     hourly_rate: 0,
     max_hours_per_week: 40,
@@ -112,12 +112,12 @@ export default function NewEmployee() {
   const handleGenerateId = () => {
     setFormData(prev => ({
       ...prev,
-      employee_id: generateEmployeeId()
+      employee_code: generateEmployeeId()
     }))
   }
 
   const validateForm = (): boolean => {
-    if (!formData.employee_id.trim()) {
+    if (!formData.employee_code.trim()) {
       toast.error("Employee ID is required")
       return false
     }
@@ -137,7 +137,7 @@ export default function NewEmployee() {
       toast.error("Department is required")
       return false
     }
-    if (!formData.position) {
+    if (!formData.job_position) {
       toast.error("Position is required")
       return false
     }
@@ -173,12 +173,18 @@ export default function NewEmployee() {
         body: JSON.stringify({
           ...formData,
           is_active: true,
-          password: 'changeme123' // Default password that should be changed
+          password: 'password123' // Default password as per user preference
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
+        console.error('API Error Response:', errorData)
+        if (errorData.details) {
+          console.error('Validation Details:', errorData.details)
+          const validationErrors = errorData.details.map((err: any) => `${err.path.join('.')}: ${err.message}`).join(', ')
+          throw new Error(`Validation error: ${validationErrors}`)
+        }
         throw new Error(errorData.error || 'Failed to create employee')
       }
 
@@ -245,13 +251,13 @@ export default function NewEmployee() {
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <div>
-                                         <Label htmlFor="employee_id">Agent ID *</Label>
+                                    <div>
+                    <Label htmlFor="employee_code">Agent ID *</Label>
                     <div className="flex space-x-2">
                       <Input
-                        id="employee_id"
-                        value={formData.employee_id}
-                        onChange={(e) => handleInputChange('employee_id', e.target.value)}
+                        id="employee_code"
+                        value={formData.employee_code}
+                        onChange={(e) => handleInputChange('employee_code', e.target.value)}
                         placeholder="EMP001"
                         required
                       />
@@ -332,10 +338,10 @@ export default function NewEmployee() {
                   </div>
 
                   <div>
-                    <Label htmlFor="position">Position *</Label>
+                    <Label htmlFor="job_position">Position *</Label>
                     <Select
-                      value={formData.position}
-                      onValueChange={(value) => handleInputChange('position', value)}
+                      value={formData.job_position}
+                      onValueChange={(value) => handleInputChange('job_position', value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select position" />
@@ -360,11 +366,15 @@ export default function NewEmployee() {
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                                                 {roles.map((role) => (
-                           <SelectItem key={role} value={role}>
-                             {role === 'agent' ? 'Agent' : role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
-                           </SelectItem>
-                         ))}
+                                                                         {roles.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {role === 'employee' ? 'Agent' : 
+                             role === 'lead' ? 'Team Lead' :
+                             role === 'manager' ? 'Manager' :
+                             role === 'admin' ? 'Administrator' :
+                             role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

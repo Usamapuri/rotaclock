@@ -27,18 +27,18 @@ export async function POST(request: NextRequest) {
 
     const period = periodResult.rows[0]
 
-    // Get all active employees
+    // Get all active employees (new schema)
     const employeesResult = await query(`
       SELECT 
         e.id,
-        e.employee_id,
+        e.employee_code,
         e.email,
         e.first_name,
         e.last_name,
-        e.hourly_rate,
+        COALESCE(e.hourly_rate, 0) as hourly_rate,
         COALESCE(es.base_salary, 20000) as base_salary
-      FROM employees e
-      LEFT JOIN employee_salaries es ON e.employee_id = es.employee_id
+      FROM employees_new e
+      LEFT JOIN employee_salaries es ON es.employee_id = e.employee_code
       WHERE e.is_active = true
     `)
 
@@ -46,18 +46,20 @@ export async function POST(request: NextRequest) {
 
     // Calculate payroll for each employee
     for (const employee of employees) {
-      // Get shift logs for this employee in the period using UUID
+      // Get APPROVED time entries for this employee in the period
+      // Only entries that have an approval record with status = 'approved' are counted
       const shiftLogsResult = await query(`
         SELECT 
-          COALESCE(total_shift_hours, 0) as hours_worked,
-          performance_rating,
-          is_late,
-          is_no_show
-        FROM shift_logs
-        WHERE employee_id = $1 
-        AND clock_in_time >= $2 
-        AND clock_in_time <= $3
-        AND status = 'completed'
+          COALESCE(sl.total_shift_hours, 0) as hours_worked,
+          sl.performance_rating,
+          sl.is_late,
+          sl.is_no_show
+        FROM shift_logs sl
+        JOIN time_entry_approvals tea ON tea.time_entry_id = sl.id AND tea.status = 'approved'
+        WHERE sl.employee_id = $1 
+          AND sl.clock_in_time >= $2 
+          AND sl.clock_in_time <= $3
+          AND sl.status = 'completed'
       `, [employee.id, period.start_date, period.end_date])
 
       const shiftLogs = shiftLogsResult.rows
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
       }, 0)
       
       // Calculate overtime (hours over 40 per week)
-      const weeksInPeriod = Math.ceil((new Date(period.end_date) - new Date(period.start_date)) / (1000 * 60 * 60 * 24 * 7))
+      const weeksInPeriod = Math.ceil((new Date(period.end_date).getTime() - new Date(period.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7))
       const maxRegularHours = weeksInPeriod * 40
       const overtimeHours = Math.max(0, totalHours - maxRegularHours)
       const regularHours = totalHours - overtimeHours
@@ -113,8 +115,8 @@ export async function POST(request: NextRequest) {
       const manualBonuses = bonusesResult.rows[0].total_bonuses
 
       // Calculate final amounts
-      const grossPay = parseFloat(employee.base_salary) + parseFloat(hourlyPay) + parseFloat(overtimePay) + parseFloat(bonuses) + parseFloat(manualBonuses)
-      const totalDeductions = parseFloat(deductions) + parseFloat(manualDeductions)
+      const grossPay = Number(employee.base_salary) + Number(hourlyPay) + Number(overtimePay) + Number(bonuses) + Number(manualBonuses)
+      const totalDeductions = Number(deductions) + Number(manualDeductions)
       const netPay = grossPay - totalDeductions
 
       // Insert or update payroll record using both employee_id and email
@@ -148,7 +150,7 @@ export async function POST(request: NextRequest) {
           net_pay = EXCLUDED.net_pay,
           updated_at = NOW()
       `, [
-        employee.employee_id,
+        employee.employee_code,
         employee.email,
         periodId,
         employee.base_salary,

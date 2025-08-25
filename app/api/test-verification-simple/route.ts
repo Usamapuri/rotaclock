@@ -62,9 +62,10 @@ export async function POST(request: NextRequest) {
       writeFileSync(imagePath, imageData)
       console.log('✅ Image written')
     } catch (fsError) {
-      console.log('❌ File system error:', fsError.message)
+      const err = fsError as Error
+      console.log('❌ File system error:', err.message)
       return NextResponse.json(
-        { error: 'File system error', details: fsError.message },
+        { error: 'File system error', details: err.message },
         { status: 500 }
       )
     }
@@ -82,9 +83,10 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error('❌ Simple verification error:', error)
+    const err = error as Error
+    console.error('❌ Simple verification error:', err)
     return NextResponse.json(
-      { error: 'Simple verification failed', details: error.message },
+      { error: 'Simple verification failed', details: err.message },
       { status: 500 }
     )
   }

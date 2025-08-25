@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         COUNT(*) as total_employees,
         COUNT(*) FILTER (WHERE is_active = true) as active_employees
-      FROM employees
+      FROM employees_new
     `)
 
     // Get current week shift assignments
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         COUNT(*) as total_shifts,
         COUNT(*) FILTER (WHERE status = 'completed') as completed_shifts
-      FROM shift_assignments 
+      FROM shift_assignments_new 
       WHERE date >= $1 AND date <= $2
     `, [weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0]])
 
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     const timeEntriesResult = await query(`
       SELECT COUNT(*) as active_time_entries
-      FROM time_entries 
+      FROM time_entries_new 
       WHERE status IN ('in-progress', 'break')
     `)
 
@@ -128,21 +128,21 @@ export async function GET(request: NextRequest) {
     const employeesDataResult = await query(`
       SELECT 
         e.id,
-        e.employee_id,
+        e.employee_code as employee_id,
         e.first_name,
         e.last_name,
         e.email,
         e.department,
-        e.position,
+        e.job_position as position,
         e.is_active,
         CASE 
           WHEN sl.status = 'active' THEN 'online'
           WHEN te.status = 'break' THEN 'break'
           ELSE 'offline'
         END as status
-      FROM employees e
+      FROM employees_new e
       LEFT JOIN shift_logs sl ON e.id = sl.employee_id AND sl.status = 'active'
-      LEFT JOIN time_entries te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break')
+      LEFT JOIN time_entries_new te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break')
       WHERE e.is_active = true
       ORDER BY e.first_name, e.last_name
       LIMIT 10
@@ -156,14 +156,14 @@ export async function GET(request: NextRequest) {
         sa.status,
         e.first_name,
         e.last_name,
-        s.name as shift_name,
-        s.start_time,
-        s.end_time
-      FROM shift_assignments sa
-      JOIN employees e ON sa.employee_id = e.id
-      JOIN shifts s ON sa.shift_id = s.id
+        st.name as shift_name,
+        st.start_time,
+        st.end_time
+      FROM shift_assignments_new sa
+      JOIN employees_new e ON sa.employee_id = e.id
+      JOIN shift_templates st ON sa.template_id = st.id
       WHERE sa.date >= CURRENT_DATE
-      ORDER BY sa.date, s.start_time
+      ORDER BY sa.date, st.start_time
       LIMIT 10
     `)
 
@@ -179,8 +179,8 @@ export async function GET(request: NextRequest) {
         t.last_name as target_last_name,
         ss.reason
       FROM shift_swaps ss
-      JOIN employees r ON ss.requester_id = r.id
-      JOIN employees t ON ss.target_id = t.id
+      JOIN employees_new r ON ss.requester_id = r.id
+      JOIN employees_new t ON ss.target_id = t.id
       ORDER BY ss.created_at DESC
       LIMIT 5
     `)
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
         e.last_name,
         lr.reason
       FROM leave_requests lr
-      JOIN employees e ON lr.employee_id = e.id
+      JOIN employees_new e ON lr.employee_id = e.id
       ORDER BY lr.created_at DESC
       LIMIT 5
     `)

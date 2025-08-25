@@ -68,6 +68,15 @@ export async function POST(request: NextRequest) {
     
     const updatedShift = updateResult.rows[0]
 
+    // Create a pending approval record for this completed shift
+    await query(`
+      INSERT INTO time_entry_approvals (time_entry_id, employee_id, status, created_at, updated_at)
+      VALUES ($1, $2, 'pending', NOW(), NOW())
+      ON CONFLICT (time_entry_id) DO UPDATE SET
+        status = 'pending',
+        updated_at = NOW()
+    `, [updatedShift.id, employee_id])
+
     // Update employee online status to offline
     await query(`
       UPDATE employees 

@@ -3,10 +3,10 @@ import { query } from '@/lib/database'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { date: string } }
+  { params }: { params: Promise<{ date: string }> }
 ) {
   try {
-    const date = params.date
+    const { date } = await params
     const { searchParams } = new URL(request.url)
     const employeeId = searchParams.get('employee_id') || ''
 
@@ -55,25 +55,58 @@ export async function GET(
     const employeesResult = await query(employeesQuery, employeesParams)
     const employees = employeesResult.rows
 
-    // Get shift assignments for the week
-    let assignmentsQuery = `
-      SELECT 
-        sa.id,
-        sa.employee_id,
-        sa.template_id,
-        sa.date,
-        sa.status,
-        sa.notes,
-        sa.created_at,
-        st.name as template_name,
-        st.start_time,
-        st.end_time,
-        st.color,
-        st.department as template_department
-      FROM shift_assignments_new sa
-      JOIN shift_templates st ON sa.template_id = st.id
-      WHERE sa.date >= $1 AND sa.date <= $2
-    `
+    // Determine if override columns exist (for backwards compatibility)
+    const colCheck = await query(
+      `SELECT 1 FROM information_schema.columns 
+       WHERE table_name = 'shift_assignments_new' AND column_name = 'override_name' LIMIT 1`
+    )
+    const hasOverrides = colCheck.rows.length > 0
+
+    // Build assignment query based on schema
+    let assignmentsQuery = ''
+    if (hasOverrides) {
+      assignmentsQuery = `
+        SELECT 
+          sa.id,
+          sa.employee_id,
+          sa.template_id,
+          to_char(sa.date, 'YYYY-MM-DD') as date,
+          sa.override_name,
+          sa.override_start_time,
+          sa.override_end_time,
+          sa.override_color,
+          sa.status,
+          sa.notes,
+          sa.created_at,
+          COALESCE(sa.override_name, st.name) as template_name,
+          COALESCE(sa.override_start_time, st.start_time) as start_time,
+          COALESCE(sa.override_end_time, st.end_time) as end_time,
+          COALESCE(sa.override_color, st.color) as color,
+          st.department as template_department
+        FROM shift_assignments_new sa
+        LEFT JOIN shift_templates st ON sa.template_id = st.id
+        WHERE sa.date >= $1 AND sa.date <= $2
+      `
+    } else {
+      assignmentsQuery = `
+        SELECT 
+          sa.id,
+          sa.employee_id,
+          sa.template_id,
+          to_char(sa.date, 'YYYY-MM-DD') as date,
+          sa.status,
+          sa.notes,
+          sa.created_at,
+          st.name as template_name,
+          st.start_time as start_time,
+          st.end_time as end_time,
+          st.color as color,
+          st.department as template_department
+        FROM shift_assignments_new sa
+        JOIN shift_templates st ON sa.template_id = st.id
+        WHERE sa.date >= $1 AND sa.date <= $2
+      `
+    }
     const assignmentsParams = [weekStartStr, weekEndStr]
 
     if (employeeId) {
@@ -118,7 +151,8 @@ export async function GET(
     employees.forEach(employee => {
       const employeeAssignments = assignments.filter(a => a.employee_id === employee.id)
       employeeAssignments.forEach(assignment => {
-        const dateKey = assignment.date
+        const dateValue: any = (assignment as any).date
+        const dateKey = typeof dateValue === 'string' ? dateValue : new Date(dateValue).toISOString().split('T')[0]
         if (!scheduleData.employees.find(e => e.id === employee.id)?.assignments[dateKey]) {
           scheduleData.employees.find(e => e.id === employee.id)!.assignments[dateKey] = []
         }

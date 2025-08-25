@@ -6,16 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ChevronRight, Calendar, Plus } from 'lucide-react'
 import ShiftCell from './ShiftCell'
+import { Input } from '@/components/ui/input'
+import { Search } from 'lucide-react'
 
 interface Employee {
   id: string
-  employee_id: string
+  employee_code: string
   first_name: string
   last_name: string
   email: string
   department: string
-  position: string
-  assignments: { [date: string]: any[] }
+  job_position: string
+  assignments?: { [date: string]: any[] }
 }
 
 interface ShiftTemplate {
@@ -49,6 +51,7 @@ export default function WeekGrid({
 }: WeekGridProps) {
   const [weekStart, setWeekStart] = useState<Date>(new Date())
   const [weekDays, setWeekDays] = useState<string[]>([])
+  const [search, setSearch] = useState<string>('')
 
   // Initialize week when selectedDate changes
   useEffect(() => {
@@ -116,6 +119,18 @@ export default function WeekGrid({
     return date.getDay() === 0 || date.getDay() === 6
   }
 
+  const filteredEmployees = employees.filter((e) => {
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return (
+      e.first_name.toLowerCase().includes(q) ||
+      e.last_name.toLowerCase().includes(q) ||
+      e.email.toLowerCase().includes(q) ||
+      e.employee_code.toLowerCase().includes(q) ||
+      (e.department || '').toLowerCase().includes(q)
+    )
+  })
+
   return (
     <Card className="h-full">
       <CardHeader>
@@ -152,6 +167,16 @@ export default function WeekGrid({
           </div>
         </div>
         
+        <div className="mt-3 relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search employees by name, code, email, department"
+            className="pl-9"
+          />
+        </div>
+
         <div className="text-sm text-gray-500">
           {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
         </div>
@@ -182,16 +207,16 @@ export default function WeekGrid({
              </div>
 
                          {/* Employee rows */}
-             {employees.length === 0 ? (
+             {filteredEmployees.length === 0 ? (
                <div className="flex items-center justify-center h-32 text-sm text-gray-500">
                  No employees to display
                </div>
              ) : (
                <div className="space-y-2">
-                 {employees.map((employee) => (
+                 {filteredEmployees.map((employee) => (
                    <div key={employee.id} className="border rounded-lg p-3">
                      <div className="font-medium text-sm mb-2">
-                       {employee.first_name} {employee.last_name} ({employee.employee_id})
+                       {employee.first_name} {employee.last_name} ({employee.employee_code})
                      </div>
                      <div className="grid grid-cols-7 gap-1">
                        {weekDays.map((day) => (
@@ -209,7 +234,7 @@ export default function WeekGrid({
                            <ShiftCell
                              employee={employee}
                              date={day}
-                             assignments={employee.assignments[day] || []}
+                             assignments={employee.assignments?.[day] || []}
                              templates={templates}
                              onAssignShift={() => onAssignShift(employee.id, day)}
                              onRemoveShift={onRemoveShift}

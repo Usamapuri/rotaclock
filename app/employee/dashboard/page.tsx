@@ -225,59 +225,65 @@ const ShiftHistory = ({ employeeId }: { employeeId: string }) => {
 
   return (
     <div className="space-y-3">
-      {shiftLogs.map((shiftLog) => (
-        <div key={shiftLog.id} className="border rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-900">
-                {new Date(shiftLog.clock_in_time).toLocaleDateString()}
+      {shiftLogs.map((shiftLog) => {
+        const start = shiftLog.clock_in_time ? new Date(shiftLog.clock_in_time) : null
+        const end = shiftLog.clock_out_time ? new Date(shiftLog.clock_out_time) : null
+        const startLabel = start ? start.toLocaleTimeString() : '--:--'
+        const endLabel = end ? end.toLocaleTimeString() : 'Ongoing'
+        const elapsedMs = start ? ((end ? end.getTime() : Date.now()) - start.getTime()) : 0
+        const hours = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60)))
+        const minutes = Math.max(0, Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60)))
+        const elapsedLabel = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}`
+
+        return (
+          <div key={shiftLog.id} className="border rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-900">
+                  {start ? start.toLocaleDateString() : ''}
+                </span>
+                {shiftLog.status === 'active' && (
+                  <Badge variant="default" className="text-xs">Active</Badge>
+                )}
+                {shiftLog.status === 'completed' && (
+                  <Badge variant="outline" className="text-xs">Completed</Badge>
+                )}
+                {shiftLog.status === 'cancelled' && (
+                  <Badge variant="destructive" className="text-xs">Cancelled</Badge>
+                )}
+              </div>
+              <span className="text-xs text-gray-500">
+                {startLabel} - {endLabel}
               </span>
-              {shiftLog.status === 'active' && (
-                <Badge variant="default" className="text-xs">Active</Badge>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Duration:</span>
+                <span className="font-mono font-medium text-blue-600">{elapsedLabel}</span>
+              </div>
+              {Number(shiftLog.total_shift_hours || 0) > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Work Hours:</span>
+                  <span className="font-medium">{Number(shiftLog.total_shift_hours).toFixed(2)}h</span>
+                </div>
               )}
-              {shiftLog.status === 'completed' && (
-                <Badge variant="outline" className="text-xs">Completed</Badge>
+              {Number(shiftLog.break_time_used || 0) > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Break Time:</span>
+                  <span className="font-medium text-orange-600">{Number(shiftLog.break_time_used).toFixed(2)}h</span>
+                </div>
               )}
-              {shiftLog.status === 'cancelled' && (
-                <Badge variant="destructive" className="text-xs">Cancelled</Badge>
+              {shiftLog.is_late && (
+                <div className="flex items-center gap-1 text-xs text-red-600">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>Late by {shiftLog.late_minutes} minutes</span>
+                </div>
               )}
             </div>
-            <span className="text-xs text-gray-500">
-              {shiftLog.startTimeFormatted} - {shiftLog.endTimeFormatted || 'Ongoing'}
-            </span>
           </div>
-          
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Duration:</span>
-              <span className="font-mono font-medium text-blue-600">
-                {shiftLog.elapsedTime.formatted}
-              </span>
-            </div>
-            
-            {shiftLog.total_shift_hours > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Work Hours:</span>
-                <span className="font-medium">{Number(shiftLog.total_shift_hours).toFixed(2)}h</span>
-              </div>
-            )}
-            
-            {shiftLog.break_time_used > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Break Time:</span>
-                <span className="font-medium text-orange-600">{Number(shiftLog.break_time_used).toFixed(2)}h</span>
-              </div>
-            )}
-            
-            {shiftLog.is_late && (
-              <div className="flex items-center gap-1 text-xs text-red-600">
-                <AlertCircle className="h-3 w-3" />
-                <span>Late by {shiftLog.late_minutes} minutes</span>
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -382,27 +388,34 @@ export default function EmployeeDashboard() {
   }
 
   const loadTodayShifts = async (userId: string) => {
-    // Load today's shifts (using shift assignments API)
+    // Load today's shifts using the new scheduling API
     const today = new Date().toISOString().split('T')[0]
-    console.log('Loading shifts for date:', today, 'employee:', userId)
-    
-    // Use the correct API endpoint for shift assignments
-    const shiftsResponse = await fetch(`/api/shifts/assignments?start_date=${today}&end_date=${today}&employee_id=${userId}`)
-    if (shiftsResponse.ok) {
-      const shiftsData = await shiftsResponse.json()
-      if (shiftsData.data) {
-        // Transform the data to match the expected format
-        const transformedShifts = shiftsData.data.map((assignment: any) => ({
-          id: assignment.id,
-          name: assignment.shift_name || 'Scheduled Shift',
-          start_time: assignment.shift_start_time || '09:00:00',
-          end_time: assignment.shift_end_time || '17:00:00',
-          date: assignment.date,
-          status: assignment.status,
-          employee_id: assignment.employee_id
-        }))
-        setTodayShifts(transformedShifts)
+    try {
+      const res = await fetch(`/api/scheduling/week/${today}?employee_id=${userId}`)
+      if (!res.ok) {
+        setTodayShifts([])
+        return
       }
+      const data = await res.json()
+      if (!data.success) {
+        setTodayShifts([])
+        return
+      }
+      const me = (data.data.employees as any[]).find(e => e.id === userId)
+      const todays = me?.assignments?.[today] || []
+      const transformed = todays.map((a: any) => ({
+        id: a.id,
+        name: a.template_name || 'Scheduled Shift',
+        start_time: a.start_time,
+        end_time: a.end_time,
+        date: a.date,
+        status: a.status || 'scheduled',
+        employee_id: a.employee_id
+      }))
+      setTodayShifts(transformed)
+    } catch (e) {
+      console.error('today shifts error', e)
+      setTodayShifts([])
     }
   }
 

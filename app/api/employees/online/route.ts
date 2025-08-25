@@ -10,9 +10,8 @@ export async function GET(request: NextRequest) {
   try {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
-    const { user, employee } = await authMiddleware(request)
-    
-    if (!user || !employee) {
+    const { user } = await authMiddleware(request)
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

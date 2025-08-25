@@ -5,6 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const employeeId = searchParams.get('employee_id')
+    const limit = Number(searchParams.get('limit') || '50')
 
     if (!employeeId) {
       return NextResponse.json(
@@ -37,10 +38,10 @@ export async function GET(request: NextRequest) {
       FROM shift_logs 
       WHERE employee_id = $1
       ORDER BY clock_in_time DESC
-      LIMIT 50
-    `, [employeeId])
+      LIMIT $2
+    `, [employeeId, limit])
 
-    return NextResponse.json(result.rows)
+    return NextResponse.json({ success: true, data: result.rows })
 
   } catch (error) {
     console.error('Error fetching employee shift logs:', error)

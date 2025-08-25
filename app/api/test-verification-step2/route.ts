@@ -84,9 +84,10 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Step 2 verification error:', error)
+    const err = error as Error
+    console.error('❌ Step 2 verification error:', err)
     return NextResponse.json(
-      { error: 'Step 2 verification failed', details: error.message },
+      { error: 'Step 2 verification failed', details: err.message },
       { status: 500 }
     )
   }

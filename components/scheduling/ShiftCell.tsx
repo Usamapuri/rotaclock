@@ -10,15 +10,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import ShiftEditModal from './ShiftEditModal'
 
 interface Employee {
   id: string
-  employee_id: string
+  employee_code: string
   first_name: string
   last_name: string
   email: string
   department: string
-  position: string
+  job_position: string
 }
 
 interface ShiftTemplate {
@@ -34,11 +35,11 @@ interface ShiftTemplate {
 interface ShiftAssignment {
   id: string
   employee_id: string
-  shift_id: string
+  template_id: string
   date: string
   status: string
   notes?: string
-  shift_name: string
+  template_name: string
   start_time: string
   end_time: string
   color: string
@@ -64,6 +65,7 @@ export default function ShiftCell({
   onAssignmentCreated
 }: ShiftCellProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [editing, setEditing] = useState<null | ShiftAssignment>(null)
 
   const formatTime = (time: string) => {
     return time.substring(0, 5) // Remove seconds if present
@@ -93,7 +95,7 @@ export default function ShiftCell({
         },
         body: JSON.stringify({
           employee_id: employee.id,
-          shift_id: templateId,
+          template_id: templateId,
           date: date,
           notes: ''
         })
@@ -154,11 +156,12 @@ export default function ShiftCell({
             <div
               className="p-2 rounded text-xs font-medium text-white cursor-pointer transition-all"
               style={{ backgroundColor: assignment.color }}
+              onClick={() => setEditing(assignment)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  <span>{assignment.shift_name}</span>
+                  <span>{assignment.template_name}</span>
                 </div>
                 {isHovered && (
                   <Button
@@ -180,65 +183,55 @@ export default function ShiftCell({
             </div>
           </div>
         ))}
+        {editing && (
+          <ShiftEditModal
+            isOpen={!!editing}
+            onClose={() => setEditing(null)}
+            assignment={editing as any}
+            templates={templates}
+            onSaved={() => {
+              setEditing(null)
+              if (onAssignmentCreated) onAssignmentCreated()
+            }}
+          />
+        )}
       </div>
     )
   }
 
-  // If no assignments, show plus button
+  // If no assignments, show plus button and reveal quick-assign as an overlay without changing layout
   return (
     <div 
-      className="h-full flex items-center justify-center"
+      className="relative h-full group flex items-center justify-center"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {isHovered ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0 rounded-full"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="center" className="w-48">
-            <div className="px-2 py-1 text-xs text-gray-500 border-b">
-              Quick Assign
-            </div>
-            {templates.map((template) => (
-              <DropdownMenuItem
-                key={template.id}
-                onClick={() => handleQuickAssign(template.id)}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: template.color }}
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{template.name}</div>
-                  <div className="text-xs text-gray-500">
-                    {formatTime(template.start_time)} - {formatTime(template.end_time)}
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            ))}
-            <div className="border-t pt-1">
-              <DropdownMenuItem
-                onClick={onAssignShift}
-                className="text-blue-600 cursor-pointer"
-              >
-                Custom Assignment...
-              </DropdownMenuItem>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : (
-        <div className="w-6 h-6 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
-          <Plus className="h-3 w-3 text-gray-400" />
-        </div>
-      )}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 w-8 p-0 rounded-full"
+        onClick={onAssignShift}
+        aria-label="Assign shift"
+      >
+        <Plus className="h-4 w-4" />
+      </Button>
+      {/* Hover overlay: absolute at bottom, no layout shift */}
+      <div
+        className={`absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-wrap gap-1 justify-center transition-opacity ${
+          isHovered ? 'opacity-100' : 'opacity-0'
+        } pointer-events-none group-hover:pointer-events-auto`}
+      >
+        {templates.slice(0, 3).map((t) => (
+          <button
+            key={t.id}
+            className="text-[10px] px-1 py-0.5 rounded border bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-gray-50"
+            onClick={(e) => { e.stopPropagation(); handleQuickAssign(t.id) }}
+            title={`${t.name} ${formatTime(t.start_time)}-${formatTime(t.end_time)}`}
+          >
+            {t.name}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

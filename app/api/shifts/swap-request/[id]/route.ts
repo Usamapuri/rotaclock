@@ -11,7 +11,7 @@ export async function PUT(
   try {
     // Authenticate the request
     const authResult = await authMiddleware(request)
-    if (!authResult.success) {
+    if (!('isAuthenticated' in authResult) || !authResult.isAuthenticated || !authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -105,9 +105,9 @@ export async function PUT(
     // Create notifications for all parties
     const notificationRecipients = [
       // Admin
-      { user_id: 'ADM001', title: `Shift Swap ${action === 'approve' ? 'Approved' : 'Rejected'}`, message: `Team lead ${authResult.user.first_name} ${authResult.user.last_name} ${action}ed the shift swap request between ${swapRequest.requester_first_name} ${swapRequest.requester_last_name} and ${swapRequest.target_first_name} ${swapRequest.target_last_name}`, type: action === 'approve' ? 'success' : 'warning' },
+      { user_id: 'ADM001', title: `Shift Swap ${action === 'approve' ? 'Approved' : 'Rejected'}`, message: `A team lead ${action}ed the shift swap request between ${swapRequest.requester_first_name} ${swapRequest.requester_last_name} and ${swapRequest.target_first_name} ${swapRequest.target_last_name}`, type: action === 'approve' ? 'success' : 'warning' },
       // Project Manager
-      { user_id: 'PM001', title: `Shift Swap ${action === 'approve' ? 'Approved' : 'Rejected'}`, message: `Team lead ${authResult.user.first_name} ${authResult.user.last_name} ${action}ed the shift swap request between ${swapRequest.requester_first_name} ${swapRequest.requester_last_name} and ${swapRequest.target_first_name} ${swapRequest.target_last_name}`, type: action === 'approve' ? 'success' : 'warning' },
+      { user_id: 'PM001', title: `Shift Swap ${action === 'approve' ? 'Approved' : 'Rejected'}`, message: `A team lead ${action}ed the shift swap request between ${swapRequest.requester_first_name} ${swapRequest.requester_last_name} and ${swapRequest.target_first_name} ${swapRequest.target_last_name}`, type: action === 'approve' ? 'success' : 'warning' },
       // Requester
       { user_id: swapRequest.requester_id, title: `Shift Swap ${action === 'approve' ? 'Approved' : 'Rejected'}`, message: `Your shift swap request with ${swapRequest.target_first_name} ${swapRequest.target_last_name} has been ${action}ed by your team lead`, type: action === 'approve' ? 'success' : 'warning' },
       // Target

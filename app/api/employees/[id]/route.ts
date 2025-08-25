@@ -1,5 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
+
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const id = params.id
+    const result = await query(`
+      SELECT 
+        id,
+        employee_code as employee_id,
+        first_name,
+        last_name,
+        email,
+        department,
+        job_position as position,
+        hire_date,
+        hourly_rate::numeric,
+        is_active,
+        is_online,
+        last_online
+      FROM employees_new
+      WHERE id = $1
+    `, [id])
+    if (result.rows.length === 0) {
+      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+    }
+    return NextResponse.json({ success: true, data: result.rows[0] })
+  } catch (error) {
+    console.error('Employee GET error:', error)
+    return NextResponse.json({ success: false, error: 'Failed' }, { status: 500 })
+  }
+}
+
 import { z } from 'zod'
 
 // Validation schema for employee updates
@@ -141,7 +172,7 @@ export async function PUT(
   }
 }
 
-export async function GET(
+export async function LEGACY_GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -193,9 +224,7 @@ export async function GET(
       )
     }
     
-    return NextResponse.json({
-      data: result.rows[0]
-    })
+    return NextResponse.json({ data: result.rows[0] })
     
   } catch (error) {
     console.error('Error fetching employee:', error)
@@ -204,4 +233,4 @@ export async function GET(
       { status: 500 }
     )
   }
-} 
+}

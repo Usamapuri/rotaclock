@@ -33,7 +33,7 @@ interface ShiftTemplate {
   required_staff: number
   hourly_rate?: number
   color: string
-  is_active: boolean
+  is_active?: boolean
 }
 
 interface ShiftTemplateModalProps {
@@ -119,7 +119,7 @@ export default function ShiftTemplateModal({
     setIsLoading(true)
 
     try {
-      const templateData = {
+      const templateData: any = {
         name,
         description: description || undefined,
         start_time: startTime,

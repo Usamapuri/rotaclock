@@ -56,7 +56,7 @@ export const invalidateCache = {
 }
 
 // Cache wrapper function
-export function withCache<T>(
+export function withCache<T extends object>(
   cache: LRUCache<string, T>,
   key: string,
   fn: () => Promise<T>,

@@ -44,12 +44,13 @@ import { toast } from "sonner"
 
 interface Employee {
   id: string
-  employee_id: string
+  employee_code: string
   first_name: string
   last_name: string
   email: string
   department: string
   position: string
+  job_position?: string
   hire_date: string
   hourly_rate: number
   is_active: boolean
@@ -122,7 +123,7 @@ export default function AdminEmployees() {
         emp.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
+        emp.employee_code.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
@@ -207,6 +208,22 @@ export default function AdminEmployees() {
     return [...new Set(employees.map(emp => emp.department))].filter(Boolean)
   }
 
+  const normalizeEmployeeCodes = async () => {
+    try {
+      const res = await fetch('/api/admin/employees/backfill-emp-codes', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(`Updated ${data.updated} employee IDs to EMP format`)
+        await loadEmployees()
+      } else {
+        toast.error(data.error || 'Failed to normalize IDs')
+      }
+    } catch (err) {
+      console.error('Normalize IDs error:', err)
+      toast.error('Failed to normalize IDs')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -268,7 +285,12 @@ export default function AdminEmployees() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${(employees.reduce((sum, emp) => sum + emp.hourly_rate, 0) / employees.length || 0).toFixed(2)}
+                ${employees.length
+                  ? (
+                      employees
+                        .reduce((sum, emp) => sum + Number(emp.hourly_rate || 0), 0) / employees.length
+                    ).toFixed(2)
+                  : '0.00'}
               </div>
               <p className="text-xs text-muted-foreground">
                 Across all agents
@@ -283,7 +305,9 @@ export default function AdminEmployees() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {employees.reduce((sum, emp) => sum + (emp.total_hours_worked || 0), 0).toFixed(0)}h
+                {(
+                  employees.reduce((sum, emp) => sum + Number(emp.total_hours_worked || 0), 0)
+                ).toFixed(0)}h
               </div>
               <p className="text-xs text-muted-foreground">
                 This period
@@ -332,6 +356,10 @@ export default function AdminEmployees() {
             Refresh
           </Button>
 
+          <Button onClick={normalizeEmployeeCodes} variant="secondary" disabled={isLoading}>
+            Normalize IDs
+          </Button>
+
           <Link href="/admin/employees/new">
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -373,7 +401,7 @@ export default function AdminEmployees() {
                           {employee.email}
                         </div>
                         <div className="text-xs text-gray-400">
-                          ID: {employee.employee_id}
+                          ID: {employee.employee_code}
                         </div>
                       </div>
                     </TableCell>
@@ -382,7 +410,7 @@ export default function AdminEmployees() {
                         {employee.department}
                       </Badge>
                     </TableCell>
-                    <TableCell>{employee.position}</TableCell>
+                    <TableCell>{employee.job_position || employee.position}</TableCell>
                     <TableCell>
                       <div className="flex items-center">
                         <DollarSign className="h-3 w-3 mr-1" />
@@ -405,7 +433,7 @@ export default function AdminEmployees() {
                     <TableCell>
                       <div className="flex items-center">
                         <Clock className="h-3 w-3 mr-1" />
-                        {employee.total_hours_worked?.toFixed(1) || '0'}h
+                        {Number(employee.total_hours_worked ?? 0).toFixed(1)}h
                       </div>
                     </TableCell>
                     <TableCell>

@@ -11,6 +11,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const notifications = await markAllNotificationsAsRead(user.id)
 
     return NextResponse.json({

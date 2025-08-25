@@ -10,12 +10,12 @@ import { Search, Users, User } from 'lucide-react'
 
 interface Employee {
   id: string
-  employee_id: string
+  employee_code: string
   first_name: string
   last_name: string
   email: string
   department: string
-  position: string
+  job_position: string
   is_active: boolean
   hourly_rate?: number
   max_hours_per_week?: number
@@ -53,7 +53,7 @@ export default function EmployeeList({
       const filtered = employees.filter(emp =>
         emp.first_name.toLowerCase().includes(search.toLowerCase()) ||
         emp.last_name.toLowerCase().includes(search.toLowerCase()) ||
-        emp.employee_id.toLowerCase().includes(search.toLowerCase()) ||
+        emp.employee_code.toLowerCase().includes(search.toLowerCase()) ||
         emp.email.toLowerCase().includes(search.toLowerCase()) ||
         emp.department.toLowerCase().includes(search.toLowerCase())
       )
@@ -209,7 +209,7 @@ export default function EmployeeList({
                     
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-xs text-gray-500 truncate">
-                        {employee.employee_id}
+                        {employee.employee_code}
                       </p>
                       <Badge 
                         variant="secondary" 
@@ -219,9 +219,9 @@ export default function EmployeeList({
                       </Badge>
                     </div>
                     
-                    {employee.position && (
+                    {employee.job_position && (
                       <p className="text-xs text-gray-400 truncate mt-1">
-                        {employee.position}
+                        {employee.job_position}
                       </p>
                     )}
                   </div>

@@ -33,6 +33,7 @@ type TeamRequest = {
   admin_first_name?: string
   admin_last_name?: string
   admin_email?: string
+  reviewed_at?: string
 }
 
 type TeamMember = {

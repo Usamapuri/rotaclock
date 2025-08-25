@@ -19,6 +19,9 @@ export async function POST(
     if (!isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     // Check if shift exists and get current status
     const shiftResult = await query(`

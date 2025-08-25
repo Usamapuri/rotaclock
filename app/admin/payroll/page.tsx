@@ -347,21 +347,21 @@ export default function PayrollDashboard() {
 
   const calculateTotalPayroll = () => {
     return payrollRecords.reduce((total, record) => {
-      const netPay = parseFloat(record.net_pay) || 0
+      const netPay = typeof record.net_pay === 'number' ? record.net_pay : parseFloat(String(record.net_pay)) || 0
       return total + netPay
     }, 0)
   }
 
   const calculateTotalDeductions = () => {
     return payrollRecords.reduce((total, record) => {
-      const deductions = parseFloat(record.deductions_amount) || 0
+      const deductions = typeof record.deductions_amount === 'number' ? record.deductions_amount : parseFloat(String(record.deductions_amount)) || 0
       return total + deductions
     }, 0)
   }
 
   const calculateTotalBonuses = () => {
     return payrollRecords.reduce((total, record) => {
-      const bonuses = parseFloat(record.bonus_amount) || 0
+      const bonuses = typeof record.bonus_amount === 'number' ? record.bonus_amount : parseFloat(String(record.bonus_amount)) || 0
       return total + bonuses
     }, 0)
   }

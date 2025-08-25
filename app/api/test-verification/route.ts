@@ -39,9 +39,10 @@ export async function POST(request: NextRequest) {
       
       console.log('✅ File system operations successful')
     } catch (fsError) {
-      console.error('❌ File system error:', fsError)
+      const err = fsError as Error
+      console.error('❌ File system error:', err)
       return NextResponse.json(
-        { error: 'File system error', details: fsError.message },
+        { error: 'File system error', details: err.message },
         { status: 500 }
       )
     }
@@ -52,9 +53,10 @@ export async function POST(request: NextRequest) {
       const result = await query('SELECT 1 as test')
       console.log('✅ Database connection successful:', result.rows[0])
     } catch (dbError) {
-      console.error('❌ Database error:', dbError)
+      const err = dbError as Error
+      console.error('❌ Database error:', err)
       return NextResponse.json(
-        { error: 'Database error', details: dbError.message },
+        { error: 'Database error', details: err.message },
         { status: 500 }
       )
     }
@@ -72,9 +74,10 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Test verification error:', error)
+    const err = error as Error
+    console.error('❌ Test verification error:', err)
     return NextResponse.json(
-      { error: 'Test verification failed', details: error.message },
+      { error: 'Test verification failed', details: err.message },
       { status: 500 }
     )
   }

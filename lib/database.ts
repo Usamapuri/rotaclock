@@ -931,7 +931,7 @@ export async function getCurrentTimeEntry(employeeId: string) {
       e.last_name as employee_last_name,
       e.email as employee_email
     FROM shift_logs sl
-    LEFT JOIN employees e ON sl.employee_id = e.id
+    LEFT JOIN employees_new e ON sl.employee_id = e.id
     WHERE sl.employee_id = $1 
     AND sl.status = 'active'
   `, [employeeId])
@@ -1581,9 +1581,9 @@ export async function getShiftLogs(filters: {
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   
   const result = await query(
-    `SELECT sl.*, e.first_name, e.last_name, e.employee_id as emp_id
+    `SELECT sl.*, e.first_name, e.last_name, e.employee_code as emp_id
      FROM shift_logs sl
-     LEFT JOIN employees e ON sl.employee_id = e.id
+     LEFT JOIN employees_new e ON sl.employee_id = e.id
      ${whereClause}
      ORDER BY sl.clock_in_time DESC`,
     params
@@ -1779,7 +1779,7 @@ export async function getAttendanceSummary(filters: {
 export async function isEmployeeClockedInByEmail(email: string) {
   const result = await query(`
     SELECT sl.id FROM shift_logs sl
-    JOIN employees e ON sl.employee_id = e.id
+    JOIN employees_new e ON sl.employee_id = e.id
     WHERE e.email = $1 
     AND sl.status = 'active'
   `, [email])
@@ -1798,20 +1798,18 @@ export async function getShiftAssignmentsByEmail(filters: {
 }) {
   let queryText = `
     SELECT 
-      sa.*,
-      e.first_name as employee_first_name,
-      e.last_name as employee_last_name,
-      e.email as employee_email,
-      s.name as shift_name,
-      s.start_time as shift_start_time,
-      s.end_time as shift_end_time,
-      aba.first_name as assigned_by_first_name,
-      aba.last_name as assigned_by_last_name,
-      aba.email as assigned_by_email
-    FROM shift_assignments sa
-    LEFT JOIN employees e ON sa.employee_id = e.id
-    LEFT JOIN shifts s ON sa.shift_id = s.id
-    LEFT JOIN employees aba ON sa.assigned_by = aba.id
+      sa.id,
+      sa.employee_id,
+      sa.template_id,
+      sa.date,
+      sa.status,
+      sa.notes,
+      st.name as shift_name,
+      st.start_time as shift_start_time,
+      st.end_time as shift_end_time
+    FROM shift_assignments_new sa
+    JOIN employees_new e ON sa.employee_id = e.id
+    JOIN shift_templates st ON sa.template_id = st.id
     WHERE sa.date >= $1 AND sa.date <= $2 AND e.email = $3
   `
   const params: any[] = [filters.start_date, filters.end_date, filters.email]
@@ -1841,7 +1839,7 @@ export async function createShiftLogByEmail(shiftLogData: {
   
   // Get employee UUID by email
   const employeeResult = await query(`
-    SELECT id FROM employees WHERE email = $1
+    SELECT id FROM employees_new WHERE email = $1
   `, [email])
   
   if (employeeResult.rows.length === 0) {
@@ -1857,7 +1855,7 @@ export async function createShiftLogByEmail(shiftLogData: {
   
   if (shift_assignment_id) {
     const shiftAssignment = await query(
-      'SELECT sa.*, s.start_time FROM shift_assignments sa JOIN shifts s ON sa.shift_id = s.id WHERE sa.id = $1',
+      'SELECT sa.*, st.start_time FROM shift_assignments_new sa JOIN shift_templates st ON sa.template_id = st.id WHERE sa.id = $1',
       [shift_assignment_id]
     );
     
@@ -1893,7 +1891,7 @@ export async function createShiftLogByEmail(shiftLogData: {
  */
 export async function getEmployeeByEmail(email: string) {
   const result = await query(`
-    SELECT * FROM employees WHERE email = $1 AND is_active = true
+    SELECT * FROM employees_new WHERE email = $1 AND is_active = true
   `, [email])
   
   return result.rows[0] || null

@@ -52,7 +52,7 @@ type MeetingNote = {
   employee_id: string
   first_name: string
   last_name: string
-  email: string
+  email?: string
   clock_in_time: string
   clock_out_time: string
   total_calls_taken: number
@@ -221,7 +221,7 @@ export default function TeamLeadTeamOverviewPage() {
       setMembers(realtimeData.teamMembers)
     }
     if (realtimeData.meetingNotes.length > 0) {
-      setMeetingNotes(realtimeData.meetingNotes)
+      setMeetingNotes(realtimeData.meetingNotes as MeetingNote[])
     }
   }, [realtimeData.teamMembers, realtimeData.meetingNotes])
 
@@ -644,7 +644,9 @@ export default function TeamLeadTeamOverviewPage() {
                             {request.first_name} {request.last_name}
                           </h4>
                           <p className="text-sm text-muted-foreground">
-                            {request.type} • {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}
+                            {'type' in request
+                              ? `${request.type} • ${new Date((request as any).start_date).toLocaleDateString()} - ${new Date((request as any).end_date).toLocaleDateString()}`
+                              : ''}
                           </p>
                         </div>
                         <Button
@@ -839,10 +841,18 @@ export default function TeamLeadTeamOverviewPage() {
             <div className="space-y-4">
               <div>
                 <h4 className="font-medium">
-                  {selectedRequest.requester_first_name} {selectedRequest.requester_last_name} → {selectedRequest.target_first_name} {selectedRequest.target_last_name}
+                  {('requester_first_name' in selectedRequest) ? (
+                    <>
+                      {selectedRequest.requester_first_name} {selectedRequest.requester_last_name} → {selectedRequest.target_first_name} {selectedRequest.target_last_name}
+                    </>
+                  ) : (
+                    <>
+                      {selectedRequest.first_name} {selectedRequest.last_name}
+                    </>
+                  )}
                 </h4>
                 <p className="text-sm text-muted-foreground">
-                  Requested on {new Date(selectedRequest.created_at).toLocaleDateString()}
+                  {'created_at' in selectedRequest && new Date(selectedRequest.created_at).toLocaleDateString()}
                 </p>
               </div>
               <div>
@@ -891,10 +901,14 @@ export default function TeamLeadTeamOverviewPage() {
             <div className="space-y-4">
               <div>
                 <h4 className="font-medium">
-                  {selectedRequest.first_name} {selectedRequest.last_name}
+                  {('first_name' in selectedRequest) && (
+                    <>
+                      {selectedRequest.first_name} {selectedRequest.last_name}
+                    </>
+                  )}
                 </h4>
                 <p className="text-sm text-muted-foreground">
-                  {selectedRequest.type} • {new Date(selectedRequest.start_date).toLocaleDateString()} - {new Date(selectedRequest.end_date).toLocaleDateString()}
+                  {'type' in selectedRequest ? `${(selectedRequest as any).type} • ${new Date((selectedRequest as any).start_date).toLocaleDateString()} - ${new Date((selectedRequest as any).end_date).toLocaleDateString()}` : ''}
                 </p>
               </div>
               <div>

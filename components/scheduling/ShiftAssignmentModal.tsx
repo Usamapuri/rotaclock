@@ -25,12 +25,12 @@ import { Clock, User, Calendar } from 'lucide-react'
 
 interface Employee {
   id: string
-  employee_id: string
+  employee_code: string
   first_name: string
   last_name: string
   email: string
   department: string
-  position: string
+  job_position: string
 }
 
 interface ShiftTemplate {
@@ -67,16 +67,20 @@ export default function ShiftAssignmentModal({
   const [notes, setNotes] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [useCustomShift, setUseCustomShift] = useState(false)
+  const [applyWholeWeek, setApplyWholeWeek] = useState(false)
 
-  // Reset form when modal opens/closes
+  // Reset form when modal opens with a slight delay to avoid flicker
   useEffect(() => {
     if (isOpen) {
-      setSelectedTemplate('')
-      setCustomStartTime('')
-      setCustomEndTime('')
-      setCustomShiftName('')
-      setNotes('')
-      setUseCustomShift(false)
+      const t = setTimeout(() => {
+        setSelectedTemplate('')
+        setCustomStartTime('')
+        setCustomEndTime('')
+        setCustomShiftName('')
+        setNotes('')
+        setUseCustomShift(false)
+      }, 0)
+      return () => clearTimeout(t)
     }
   }, [isOpen])
 
@@ -88,64 +92,52 @@ export default function ShiftAssignmentModal({
     setIsLoading(true)
 
     try {
-      let shiftId = selectedTemplate
-      let shiftData = null
-
-      // If using custom shift, create it first
-      if (useCustomShift) {
-        if (!customShiftName || !customStartTime || !customEndTime) {
-          alert('Please fill in all custom shift fields')
-          setIsLoading(false)
-          return
-        }
-
-        const templateResponse = await fetch('/api/scheduling/templates', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: customShiftName,
-            start_time: customStartTime,
-            end_time: customEndTime,
-            department: employee.department,
-            color: '#3B82F6'
-          })
-        })
-
-        if (!templateResponse.ok) {
-          const error = await templateResponse.json()
-          throw new Error(error.error || 'Failed to create custom shift')
-        }
-
-        const templateData = await templateResponse.json()
-        shiftId = templateData.data.id
-        shiftData = templateData.data
-      } else {
-        if (!selectedTemplate) {
-          alert('Please select a shift template')
-          setIsLoading(false)
-          return
-        }
+      // Validate inputs
+      if (!useCustomShift && !selectedTemplate) {
+        alert('Please select a shift template or choose Custom Shift')
+        setIsLoading(false)
+        return
+      }
+      if (useCustomShift && (!customShiftName || !customStartTime || !customEndTime)) {
+        alert('Please fill in all custom shift fields')
+        setIsLoading(false)
+        return
       }
 
-      // Create the assignment
-      const response = await fetch('/api/scheduling/assign', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          employee_id: employee.id,
-          shift_id: shiftId,
-          date: date,
-          notes: notes
-        })
-      })
+      // Build dates array for Mon-Sun if applyWholeWeek, else single date
+      const start = new Date(date)
+      const dayOfWeek = start.getDay()
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      const monday = new Date(start)
+      monday.setDate(start.getDate() - daysToMonday)
+      const dates: string[] = applyWholeWeek
+        ? Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(monday)
+            d.setDate(monday.getDate() + i)
+            return d.toISOString().split('T')[0]
+          })
+        : [date]
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to assign shift')
+      // Create assignments sequentially to keep logs simple
+      for (const d of dates) {
+        const res = await fetch('/api/scheduling/assign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employee_id: employee.id,
+            template_id: useCustomShift ? undefined : selectedTemplate,
+            override_name: useCustomShift ? customShiftName : undefined,
+            override_start_time: useCustomShift ? customStartTime : undefined,
+            override_end_time: useCustomShift ? customEndTime : undefined,
+            override_color: useCustomShift ? '#3B82F6' : undefined,
+            date: d,
+            notes: notes
+          })
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error || `Failed to assign shift for ${d}`)
+        }
       }
 
       onAssignmentCreated()
@@ -175,7 +167,7 @@ export default function ShiftAssignmentModal({
   const selectedTemplateData = getSelectedTemplate()
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -199,7 +191,7 @@ export default function ShiftAssignmentModal({
                   {employee.first_name} {employee.last_name}
                 </div>
                 <div className="text-sm text-gray-500">
-                  {employee.employee_id} • {employee.department}
+                  {employee.employee_code} • {employee.department}
                 </div>
               </div>
             </div>
@@ -319,6 +311,17 @@ export default function ShiftAssignmentModal({
               placeholder="Add any additional notes for this assignment..."
               rows={3}
             />
+          </div>
+
+          {/* Apply whole week */}
+          <div className="flex items-center gap-2">
+            <input
+              id="apply-week"
+              type="checkbox"
+              checked={applyWholeWeek}
+              onChange={(e) => setApplyWholeWeek(e.target.checked)}
+            />
+            <Label htmlFor="apply-week">Apply to whole week (Mon–Sun)</Label>
           </div>
 
           <DialogFooter>

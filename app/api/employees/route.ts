@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
+import bcrypt from 'bcryptjs'
 
 // Validation schemas
 const createEmployeeSchema = z.object({
@@ -17,7 +18,8 @@ const createEmployeeSchema = z.object({
   team_id: z.string().uuid().optional(),
   hourly_rate: z.number().positive().optional(),
   max_hours_per_week: z.number().positive().optional(),
-  is_active: z.boolean().default(true)
+  is_active: z.boolean().default(true),
+  password: z.string().optional()
 })
 
 const updateEmployeeSchema = createEmployeeSchema.partial()
@@ -147,7 +149,7 @@ export async function POST(request: NextRequest) {
     }
 
     // For demo purposes, allow admin access
-    if (user.role !== 'admin') {
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ success: false, error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
@@ -181,12 +183,15 @@ export async function POST(request: NextRequest) {
       }, { status: 409 })
     }
 
+    // Hash password if provided
+    const passwordHash = validatedData.password ? bcrypt.hashSync(validatedData.password, 10) : null
+
     // Create employee
     const insertQuery = `
       INSERT INTO employees_new (
         employee_code, first_name, last_name, email, department, job_position,
-        role, hire_date, manager_id, team_id, hourly_rate, max_hours_per_week, is_active
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        role, hire_date, manager_id, team_id, hourly_rate, max_hours_per_week, is_active, password_hash
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
     `
 
@@ -203,7 +208,8 @@ export async function POST(request: NextRequest) {
       validatedData.team_id,
       validatedData.hourly_rate,
       validatedData.max_hours_per_week,
-      validatedData.is_active
+      validatedData.is_active,
+      passwordHash
     ])
 
     const newEmployee = insertResult.rows[0]
@@ -242,7 +248,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // For demo purposes, allow admin access
-    if (user.role !== 'admin') {
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
@@ -257,7 +263,18 @@ export async function PUT(request: NextRequest) {
     const validatedData = updateEmployeeSchema.parse(updateData)
 
     // Update employee
-    const employee = await updateEmployee(id, validatedData)
+    // Inline update implementation to avoid missing helper
+    const fields = Object.keys(validatedData)
+    const values = Object.values(validatedData)
+    const setClauses = fields.map((field, idx) => `${field} = $${idx + 2}`).join(', ')
+    const updateQuery = `
+      UPDATE employees_new
+      SET ${setClauses}, updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `
+    const updateResult = await query(updateQuery, [id, ...values])
+    const employee = updateResult.rows[0]
 
     return NextResponse.json({ 
       data: employee,
@@ -295,7 +312,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // For demo purposes, allow admin access
-    if (user.role !== 'admin') {
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
@@ -307,7 +324,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete employee
-    await deleteEmployee(id)
+    await query('DELETE FROM employees_new WHERE id = $1', [id])
 
     return NextResponse.json({ 
       message: 'Employee deleted successfully' 

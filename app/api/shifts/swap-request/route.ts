@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     // Authenticate the request
     const authResult = await authMiddleware(request)
-    if (!authResult.success) {
+    if (!('isAuthenticated' in authResult) || !authResult.isAuthenticated || !authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

@@ -64,9 +64,10 @@ export async function POST(request: NextRequest) {
       console.log('✅ Image file operations successful')
 
     } catch (fsError) {
-      console.error('❌ File system error:', fsError)
+      const err = fsError as Error
+      console.error('❌ File system error:', err)
       return NextResponse.json(
-        { error: 'File system error', details: fsError.message },
+        { error: 'File system error', details: err.message },
         { status: 500 }
       )
     }
@@ -159,17 +160,19 @@ export async function POST(request: NextRequest) {
         })
       }
     } catch (shiftError) {
-      console.error('❌ Shift log creation error:', shiftError)
+      const err = shiftError as Error
+      console.error('❌ Shift log creation error:', err)
       return NextResponse.json(
-        { error: 'Shift log creation failed', details: shiftError.message },
+        { error: 'Shift log creation failed', details: err.message },
         { status: 500 }
       )
     }
 
   } catch (error) {
-    console.error('❌ Step 4 verification error:', error)
+    const err = error as Error
+    console.error('❌ Step 4 verification error:', err)
     return NextResponse.json(
-      { error: 'Step 4 verification failed', details: error.message },
+      { error: 'Step 4 verification failed', details: err.message },
       { status: 500 }
     )
   }

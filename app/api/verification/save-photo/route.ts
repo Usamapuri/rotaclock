@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
       ])
       console.log('✅ Verification log stored in database')
     } catch (dbError) {
-      console.log('⚠️ Could not store verification log in database, continuing...', dbError.message)
+      const err = dbError as Error
+      console.log('⚠️ Could not store verification log in database, continuing...', err.message)
       // Continue even if verification log fails
     }
 
@@ -127,10 +128,11 @@ export async function POST(request: NextRequest) {
           console.log('   Employee already clocked in, skipping clock-in process')
         }
       } catch (clockInError) {
-        console.error('Error during automatic clock in:', clockInError)
+        const err = clockInError as Error
+        console.error('Error during automatic clock in:', err)
         console.error('Clock-in error details:', {
-          message: clockInError.message,
-          stack: clockInError.stack
+          message: err.message,
+          stack: err.stack
         })
         // Don't fail the verification if clock in fails
       }
@@ -152,15 +154,14 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error in verification API:', error)
+    const err = error as Error
+    console.error('Error in verification API:', err)
     console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      employeeId,
-      verificationType
+      message: err.message,
+      stack: err.stack
     })
     return NextResponse.json(
-      { error: 'Verification failed', details: error.message },
+      { error: 'Verification failed', details: err.message },
       { status: 500 }
     )
   }

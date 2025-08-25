@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
     const read = searchParams.get('read')
     const type = searchParams.get('type')
 
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const notifications = await getNotifications(user.id, {
       limit,
       read: read === null ? undefined : read === 'true',
