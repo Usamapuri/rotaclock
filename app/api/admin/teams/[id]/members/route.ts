@@ -31,7 +31,7 @@ export async function GET(
         e.employee_id,
         e.created_at as joined_date,
         'member' as role
-      FROM employees e
+      FROM employees_new e
       WHERE e.team_id = $1 AND e.is_active = true
       ORDER BY e.first_name, e.last_name
     `, [teamId])
@@ -76,7 +76,7 @@ export async function POST(
 
     // Verify the employee exists and is not already in a team
     const employeeCheck = await query(
-      'SELECT id, team_id FROM employees WHERE id = $1 AND is_active = true',
+      'SELECT id, team_id FROM employees_new WHERE id = $1 AND is_active = true',
       [employee_id]
     )
 
@@ -96,7 +96,7 @@ export async function POST(
 
     // Add employee to team
     const result = await query(
-      `UPDATE employees 
+      `UPDATE employees_new 
        SET team_id = $1, updated_at = NOW()
        WHERE id = $2
        RETURNING *`,

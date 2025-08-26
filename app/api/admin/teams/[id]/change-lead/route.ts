@@ -39,7 +39,7 @@ export async function PUT(
 
     // Verify the new team lead exists and is active
     const newLeadCheck = await query(
-      'SELECT id, first_name, last_name, email, position FROM employees WHERE id = $1 AND is_active = true',
+      'SELECT id, first_name, last_name, email, position FROM employees_new WHERE id = $1 AND is_active = true',
       [new_team_lead_id]
     )
 
