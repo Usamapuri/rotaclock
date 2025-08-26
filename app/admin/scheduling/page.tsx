@@ -64,9 +64,9 @@ export default function SchedulingPage() {
   const loadAll = async () => {
     try {
       setIsLoading(true)
-      // Important: load employees first, then overlay week assignments to avoid wiping them
-      await loadEmployees()
-      await Promise.all([loadTemplates(), loadWeek()])
+      // Load week first and use its employee list (already includes assignments)
+      await loadWeek()
+      await loadTemplates()
     } catch (e) {
       console.error(e)
       toast.error('Failed to load scheduling data')
@@ -91,24 +91,18 @@ export default function SchedulingPage() {
     if (data.success) setTemplates(data.data)
   }
 
-  const loadWeek = async () => {
-    const res = await fetch(`/api/scheduling/week/${selectedDate}`)
+  const loadWeek = async (dateOverride?: string) => {
+    const dateToLoad = dateOverride || selectedDate
+    const res = await fetch(`/api/scheduling/week/${dateToLoad}`)
     const data = await res.json()
     if (!data.success) return
-    setEmployees(prev => {
-      if (prev.length === 0) {
-        return data.data.employees.map((e: any) => ({ ...e, assignments: e.assignments || {} }))
-      }
-      return prev.map(emp => {
-        const w = data.data.employees.find((x: any) => x.id === emp.id)
-        return { ...emp, assignments: w?.assignments || {} }
-      })
-    })
+    // Always use employees from week payload to avoid stale or partial merges
+    setEmployees(data.data.employees.map((e: any) => ({ ...e, assignments: e.assignments || {} })))
   }
 
   const handleDateChange = async (date: string) => {
     setSelectedDate(date)
-    await loadWeek()
+    await loadWeek(date)
   }
 
   const handleRefresh = async () => {
@@ -202,7 +196,16 @@ export default function SchedulingPage() {
             selectedDate={selectedDate}
             onDateChange={handleDateChange}
             onAssignShift={handleAssignShift}
-            onRemoveShift={() => {}}
+            onRemoveShift={(assignmentId: string) => {
+              // Optimistically remove from local state; API deletion happens inside ShiftCell
+              setEmployees(prev => prev.map(e => {
+                const updatedAssignments: any = {}
+                Object.entries(e.assignments || {}).forEach(([d, arr]) => {
+                  updatedAssignments[d] = (arr as any[]).filter(a => a.id !== assignmentId)
+                })
+                return { ...e, assignments: updatedAssignments }
+              }))
+            }}
             onAssignmentCreated={handleAssignmentCreated}
           />
         </TabsContent>

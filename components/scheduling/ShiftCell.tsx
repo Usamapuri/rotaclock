@@ -209,17 +209,16 @@ export default function ShiftCell({
       <Button
         variant="outline"
         size="sm"
-        className="h-8 w-8 p-0 rounded-full"
+        className="h-8 w-8 p-0 rounded-full relative z-20"
         onClick={onAssignShift}
         aria-label="Assign shift"
       >
         <Plus className="h-4 w-4" />
       </Button>
-      {/* Hover overlay: absolute at bottom, no layout shift */}
-      <div
-        className={`absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-wrap gap-1 justify-center transition-opacity ${
+      <div 
+        className={`absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-wrap gap-1 justify-center transition-opacity duration-150 ${
           isHovered ? 'opacity-100' : 'opacity-0'
-        } pointer-events-none group-hover:pointer-events-auto`}
+        } pointer-events-none group-hover:pointer-events-auto max-w-full px-1 z-10`}
       >
         {templates.slice(0, 3).map((t) => (
           <button
