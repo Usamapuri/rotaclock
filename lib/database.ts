@@ -831,8 +831,8 @@ export async function getTimeEntries(filters: {
       e.first_name as employee_first_name,
       e.last_name as employee_last_name,
       e.email as employee_email
-    FROM time_entries te
-    LEFT JOIN employees e ON te.employee_id = e.id
+    FROM time_entries_new te
+    LEFT JOIN employees_new e ON te.employee_id = e.id
   `
   const params: any[] = []
   let paramIndex = 1
@@ -868,7 +868,7 @@ export async function getTimeEntries(filters: {
  */
 export async function createTimeEntry(timeEntryData: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at'>) {
   const result = await query(`
-    INSERT INTO time_entries (
+    INSERT INTO time_entries_new (
       employee_id, shift_assignment_id, clock_in, status, 
       notes, location_lat, location_lng
     ) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -894,7 +894,7 @@ export async function updateTimeEntry(id: string, timeEntryData: Partial<TimeEnt
   const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ')
   
   const result = await query(`
-    UPDATE time_entries 
+    UPDATE time_entries_new 
     SET ${setClause}, updated_at = NOW()
     WHERE id = $1
     RETURNING *
@@ -1123,8 +1123,8 @@ export async function getLeaveRequests(filters?: {
       aba.last_name as approved_by_last_name,
       aba.email as approved_by_email
     FROM leave_requests lr
-    LEFT JOIN employees e ON lr.employee_id = e.id
-    LEFT JOIN employees aba ON lr.approved_by = aba.id
+    LEFT JOIN employees_new e ON lr.employee_id = e.id
+    LEFT JOIN employees_new aba ON lr.approved_by = aba.id
   `
   const params: any[] = []
   let paramIndex = 1
