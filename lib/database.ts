@@ -383,7 +383,7 @@ export async function getCurrentEmployee() {
   // For demo purposes, get the first employee from the database
   // In production, this would get the employee from the authenticated user
   const result = await query(`
-    SELECT * FROM employees 
+    SELECT * FROM employees_new 
     WHERE is_active = true 
     ORDER BY created_at ASC 
     LIMIT 1
@@ -436,8 +436,8 @@ export async function getEmployee(id: string) {
       m.first_name as manager_first_name,
       m.last_name as manager_last_name,
       m.email as manager_email
-    FROM employees e
-    LEFT JOIN employees m ON e.manager_id = m.id
+    FROM employees_new e
+    LEFT JOIN employees_new m ON e.manager_id = m.id
     WHERE e.id = $1
   `, [id])
 
@@ -462,8 +462,8 @@ export async function getEmployees(filters?: {
       m.first_name as manager_first_name,
       m.last_name as manager_last_name,
       m.email as manager_email
-    FROM employees e
-    LEFT JOIN employees m ON e.manager_id = m.id
+    FROM employees_new e
+    LEFT JOIN employees_new m ON e.manager_id = m.id
   `
   const params: any[] = []
   let paramIndex = 1
@@ -516,7 +516,7 @@ function verifyPassword(password: string, hash: string): boolean {
 // Authenticate employee by employee_id and password
 export async function authenticateEmployee(employeeId: string, password: string): Promise<Employee | null> {
   const result = await query(`
-    SELECT * FROM employees 
+    SELECT * FROM employees_new 
     WHERE employee_id = $1 AND is_active = true
   `, [employeeId])
 
@@ -540,7 +540,7 @@ export async function authenticateEmployee(employeeId: string, password: string)
 // Authenticate employee by email and password
 export async function authenticateEmployeeByEmail(email: string, password: string): Promise<Employee | null> {
   const result = await query(`
-    SELECT * FROM employees 
+    SELECT * FROM employees_new 
     WHERE email = $1 AND is_active = true
   `, [email])
 
@@ -568,7 +568,7 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
   console.log('Password hash generated:', passwordHash ? 'yes' : 'no')
   
   const result = await query(`
-    INSERT INTO employees (
+    INSERT INTO employees_new (
       employee_id, first_name, last_name, email, department, position, role,
       hire_date, manager_id, is_active, hourly_rate, max_hours_per_week, password_hash
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -601,7 +601,7 @@ export async function updateEmployee(id: string, employeeData: Partial<Employee>
   const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ')
   
   const result = await query(`
-    UPDATE employees 
+    UPDATE employees_new 
     SET ${setClause}, updated_at = NOW()
     WHERE id = $1
     RETURNING *
@@ -619,7 +619,7 @@ export async function updateEmployee(id: string, employeeData: Partial<Employee>
  */
 export async function deleteEmployee(id: string) {
   const result = await query(`
-    DELETE FROM employees 
+    DELETE FROM employees_new 
     WHERE id = $1
     RETURNING id
   `, [id])
@@ -959,8 +959,8 @@ export async function getAttendanceStats(filters: {
       SUM(te.total_hours) as total_hours,
       AVG(te.total_hours) as avg_hours_per_day,
       COUNT(CASE WHEN te.clock_in::time > '09:00:00' THEN 1 END) as late_clock_ins
-    FROM employees e
-    LEFT JOIN time_entries te ON e.id = te.employee_id 
+    FROM employees_new e
+    LEFT JOIN time_entries_new te ON e.id = te.employee_id 
       AND te.clock_in >= $1 
       AND te.clock_in <= $2
     WHERE e.is_active = true
@@ -1002,8 +1002,8 @@ export async function getPayrollStats(filters: {
       SUM(CASE WHEN te.total_hours <= 8 THEN te.total_hours * e.hourly_rate ELSE 8 * e.hourly_rate END) as regular_pay,
       SUM(CASE WHEN te.total_hours <= 8 THEN te.total_hours * e.hourly_rate ELSE 8 * e.hourly_rate END) + 
       SUM(CASE WHEN te.total_hours > 8 THEN (te.total_hours - 8) * 1.5 * e.hourly_rate ELSE 0 END) as total_pay
-    FROM employees e
-    LEFT JOIN time_entries te ON e.id = te.employee_id 
+    FROM employees_new e
+    LEFT JOIN time_entries_new te ON e.id = te.employee_id 
       AND te.clock_in >= $1 
       AND te.clock_in <= $2
       AND te.status = 'completed'
@@ -1041,8 +1041,8 @@ export async function getDepartmentStats(filters: {
       AVG(te.total_hours) as avg_hours_per_employee,
       SUM(CASE WHEN te.total_hours <= 8 THEN te.total_hours * e.hourly_rate ELSE 8 * e.hourly_rate END) +
       SUM(CASE WHEN te.total_hours > 8 THEN (te.total_hours - 8) * 1.5 * e.hourly_rate ELSE 0 END) as total_payroll
-    FROM employees e
-    LEFT JOIN time_entries te ON e.id = te.employee_id 
+    FROM employees_new e
+    LEFT JOIN time_entries_new te ON e.id = te.employee_id 
       AND te.clock_in >= $1 
       AND te.clock_in <= $2
       AND te.status = 'completed'
@@ -1922,7 +1922,7 @@ export async function getTeamByLead(leadId: string) {
 export async function getTeamMembers(teamId: string) {
   const result = await query(`
     SELECT e.*, ta.assigned_date, ta.is_active as assignment_active
-    FROM employees e
+    FROM employees_new e
     JOIN team_assignments ta ON e.id = ta.employee_id
     WHERE ta.team_id = $1 AND ta.is_active = true AND e.is_active = true
     ORDER BY e.first_name, e.last_name
@@ -1971,7 +1971,7 @@ export async function addEmployeeToTeam(teamId: string, employeeId: string) {
   
   // Update employee's team_id
   await query(`
-    UPDATE employees SET team_id = $1, updated_at = NOW()
+    UPDATE employees_new SET team_id = $1, updated_at = NOW()
     WHERE id = $2
   `, [teamId, employeeId])
   
@@ -1991,7 +1991,7 @@ export async function removeEmployeeFromTeam(teamId: string, employeeId: string)
   
   // Clear employee's team_id if it matches
   await query(`
-    UPDATE employees 
+    UPDATE employees_new 
     SET team_id = NULL, updated_at = NOW()
     WHERE id = $2 AND team_id = $1
   `, [teamId, employeeId])
