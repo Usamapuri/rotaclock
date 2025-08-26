@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { updateBreakLog, getCurrentBreak, updateShiftLog, query, getTimeEntries } from '@/lib/database'
+import { updateBreakLog, getCurrentBreak, updateShiftLog, query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
@@ -45,7 +45,13 @@ export async function POST(request: NextRequest) {
     })
 
     // Update shift log to add the break time used and keep it active
-    const currentBreakTimeUsed = currentBreak.shift_log?.break_time_used || 0
+    // First get the current shift log to get the current break time used
+    const shiftLogResult = await query(
+      'SELECT break_time_used FROM shift_logs WHERE id = $1',
+      [currentBreak.shift_log_id]
+    )
+    
+    const currentBreakTimeUsed = shiftLogResult.rows[0]?.break_time_used || 0
     const newBreakTimeUsed = currentBreakTimeUsed + breakDuration
 
     await updateShiftLog(currentBreak.shift_log_id, {
@@ -53,22 +59,12 @@ export async function POST(request: NextRequest) {
       status: 'active' // Keep the shift active after break ends
     })
 
-    // FIX: Also update legacy time_entries system if it exists
-    // Check if there's an active time entry for this employee
-    const timeEntries = await getTimeEntries({
-      employee_id: target_employee_id,
-      status: 'break'
-    })
-
-    if (timeEntries.length > 0) {
-      const activeTimeEntry = timeEntries[0]
-      // Update the time entry to resume work (set break_end and change status back to in-progress)
-      await query(`
-        UPDATE time_entries 
-        SET break_end = $1, status = 'in-progress', updated_at = NOW()
-        WHERE id = $2
-      `, [breakEndTime.toISOString(), activeTimeEntry.id])
-    }
+    // Update employee online status to show they're back from break
+    await query(`
+      UPDATE employees_new 
+      SET is_online = true, last_online = NOW()
+      WHERE id = $1
+    `, [target_employee_id])
 
     return NextResponse.json({
       success: true,

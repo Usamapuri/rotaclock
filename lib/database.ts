@@ -1668,7 +1668,7 @@ export async function getBreakLogs(filters: {
   const result = await query(
     `SELECT bl.*, e.first_name, e.last_name
      FROM break_logs bl
-     LEFT JOIN employees e ON bl.employee_id = e.id
+     LEFT JOIN employees_new e ON bl.employee_id = e.id
      ${whereClause}
      ORDER BY bl.break_start_time DESC`,
     params
@@ -1680,7 +1680,7 @@ export async function getBreakLogs(filters: {
 // Get current active break for an employee
 export async function getCurrentBreak(employeeId: string) {
   const result = await query(
-    `SELECT bl.* FROM break_logs bl
+    `SELECT bl.*, sl.status as shift_status FROM break_logs bl
      JOIN shift_logs sl ON bl.shift_log_id = sl.id
      WHERE bl.employee_id = $1 AND bl.status = 'active' AND sl.status = 'active'
      ORDER BY bl.break_start_time DESC LIMIT 1`,

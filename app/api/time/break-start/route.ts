@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createBreakLog, getShiftLogs, getCurrentBreak, query, getTimeEntries } from '@/lib/database'
+import { createBreakLog, getShiftLogs, getCurrentBreak, query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
@@ -70,22 +70,12 @@ export async function POST(request: NextRequest) {
       status: 'active'
     })
 
-    // FIX: Also update legacy time_entries system if it exists
-    // Check if there's an active time entry for this employee
-    const timeEntries = await getTimeEntries({
-      employee_id: target_employee_id,
-      status: 'in-progress'
-    })
-
-    if (timeEntries.length > 0) {
-      const activeTimeEntry = timeEntries[0]
-      // Update the time entry to show break status
-      await query(`
-        UPDATE time_entries 
-        SET break_start = $1, status = 'break', updated_at = NOW()
-        WHERE id = $2
-      `, [breakStartTime.toISOString(), activeTimeEntry.id])
-    }
+    // Update employee online status to show they're on break
+    await query(`
+      UPDATE employees_new 
+      SET is_online = true, last_online = NOW()
+      WHERE id = $1
+    `, [target_employee_id])
 
     return NextResponse.json({
       success: true,
