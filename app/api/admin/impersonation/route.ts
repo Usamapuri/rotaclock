@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch target user data
     const targetUserQuery = `
-      SELECT id, employee_id, email, first_name, last_name, role, department, position, is_active
+      SELECT id, employee_code as employee_id, email, first_name, last_name, role, department, job_position as position, is_active
       FROM employees_new 
       WHERE id = $1 AND is_active = true
     `
