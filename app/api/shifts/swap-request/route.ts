@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
 
     // Get the requester's shift for the swap date
     const requesterShiftResult = await query(`
-      SELECT sa.id as assignment_id, sa.shift_id, s.name as shift_name
-      FROM shift_assignments sa
-      JOIN shifts s ON sa.shift_id = s.id
+      SELECT sa.id as assignment_id, sa.template_id, st.name as shift_name
+      FROM shift_assignments_new sa
+      JOIN shift_templates st ON sa.template_id = st.id
       WHERE sa.employee_id = $1 AND sa.date = $2
     `, [requester_id, swap_date])
 
@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
 
     // Get the target employee's shift for the swap date
     const targetShiftResult = await query(`
-      SELECT sa.id as assignment_id, sa.shift_id, s.name as shift_name
-      FROM shift_assignments sa
-      JOIN shifts s ON sa.shift_id = s.id
+      SELECT sa.id as assignment_id, sa.template_id, st.name as shift_name
+      FROM shift_assignments_new sa
+      JOIN shift_templates st ON sa.template_id = st.id
       WHERE sa.employee_id = $1 AND sa.date = $2
     `, [target_employee_id, swap_date])
 
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       SELECT id FROM shift_swaps 
       WHERE requester_id = $1 AND target_id = $2 AND original_shift_id = $3 AND requested_shift_id = $4
       AND status = 'pending'
-    `, [requester_id, target_employee_id, requesterShift.shift_id, targetShift.shift_id])
+    `, [requester_id, target_employee_id, requesterShift.template_id, targetShift.template_id])
 
     if (existingSwapResult.rows.length > 0) {
       return NextResponse.json(
@@ -83,17 +83,17 @@ export async function POST(request: NextRequest) {
         updated_at
       ) VALUES ($1, $2, $3, $4, 'pending', $5, NOW(), NOW())
       RETURNING *
-    `, [requester_id, target_employee_id, requesterShift.shift_id, targetShift.shift_id, reason])
+    `, [requester_id, target_employee_id, requesterShift.template_id, targetShift.template_id, reason])
 
     const swapRequest = swapResult.rows[0]
 
     // Get employee names for notifications
     const requesterResult = await query(`
-      SELECT first_name, last_name FROM employees WHERE id = $1
+      SELECT first_name, last_name FROM employees_new WHERE id = $1
     `, [requester_id])
 
     const targetResult = await query(`
-      SELECT first_name, last_name FROM employees WHERE id = $1
+      SELECT first_name, last_name FROM employees_new WHERE id = $1
     `, [target_employee_id])
 
     const requester = requesterResult.rows[0]
