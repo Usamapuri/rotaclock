@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Calendar, ChevronLeft, ChevronRight, RefreshCw, SwapHorizontal } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, RefreshCw, ArrowLeftRight } from 'lucide-react'
 
 type Assignment = {
   id: string
@@ -281,7 +281,7 @@ export default function EmployeeSchedulingPage() {
                         <div>{prettyTime(a.start_time)} - {prettyTime(a.end_time)}</div>
                         <div className="mt-2">
                           <Button size="sm" variant="secondary" className="w-full" onClick={() => { setSwapOpen(true); setSwapDate(day) }}>
-                            <SwapHorizontal className="h-4 w-4 mr-2" /> Request Swap
+                            <ArrowLeftRight className="h-4 w-4 mr-2" /> Request Swap
                           </Button>
                         </div>
                       </div>
