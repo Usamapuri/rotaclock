@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
           employee_id, verification_type, timestamp, status, image_data_length
         ) VALUES ($1, $2, $3, $4, $5)
       `, [
-        employee.employee_id,
+        employee.id,
         verificationType,
         timestamp,
         'verified',

@@ -244,6 +244,11 @@ export interface DepartmentStats {
 class ApiService {
   private baseUrl = '/api'
 
+  // Generic GET method
+  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint)
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
