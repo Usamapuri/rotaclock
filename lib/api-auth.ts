@@ -6,6 +6,8 @@ type ApiUser = {
   email?: string
   role: 'admin' | 'team_lead' | 'project_manager' | 'employee'
   employeeId?: string
+  isImpersonating?: boolean
+  originalUser?: { id: string, email: string, role: string }
 }
 
 export function createApiAuthMiddleware() {
@@ -31,6 +33,10 @@ export function createApiAuthMiddleware() {
       if (res.rows.length > 0) {
         const e = res.rows[0]
         user = { id: e.id, email: e.email, role: e.role || 'employee', employeeId: e.id }
+        
+        // Check if this user is being impersonated
+        // For now, we'll rely on the client-side impersonation state
+        // In a production environment, you might want to store impersonation state server-side
       }
     }
 

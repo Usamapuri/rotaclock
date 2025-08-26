@@ -23,13 +23,16 @@ import {
   Loader2,
   Eye,
   RefreshCw,
-  FileText
+  FileText,
+  UserCheck,
+  UserX
 } from 'lucide-react'
 import { AuthService } from '@/lib/auth'
 import { apiService } from '@/lib/api-service'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useDashboardPolling } from '@/lib/hooks/use-dashboard-polling'
+import { ImpersonationModal } from '@/components/admin/ImpersonationModal'
 
 interface Employee {
   id: string
@@ -179,6 +182,9 @@ export default function AdminDashboard() {
   const [broadcastMessage, setBroadcastMessage] = useState('')
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([])
   const [broadcastToAll, setBroadcastToAll] = useState(true)
+  const [showImpersonationModal, setShowImpersonationModal] = useState(false)
+  const [isImpersonating, setIsImpersonating] = useState(false)
+  const [originalUser, setOriginalUser] = useState<any>(null)
   
   const router = useRouter()
   
@@ -200,6 +206,15 @@ export default function AdminDashboard() {
       return
     }
     setCurrentUser(user)
+    
+    // Check impersonation status
+    const impersonating = AuthService.isImpersonating()
+    setIsImpersonating(impersonating)
+    
+    if (impersonating) {
+      const original = AuthService.getOriginalUser()
+      setOriginalUser(original)
+    }
   }, [router])
 
   // Load initial data only if polling is not available
@@ -721,6 +736,89 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleStartImpersonation = async (employee: Employee) => {
+    try {
+      console.log('🔄 Starting impersonation for:', employee.email)
+      
+      const response = await fetch('/api/admin/impersonation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ targetUserId: employee.id }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // Start impersonation in AuthService
+        await AuthService.startImpersonation(employee.id, data.targetUser)
+        
+        setIsImpersonating(true)
+        setOriginalUser(currentUser)
+        setCurrentUser({
+          ...data.targetUser,
+          isImpersonating: true,
+          originalUser: currentUser
+        })
+        
+        toast.success(`Now impersonating ${employee.first_name} ${employee.last_name}`)
+        
+        // Redirect based on impersonated user's role
+        const role = data.targetUser.role
+        if (role === 'employee') {
+          router.push('/employee/dashboard')
+        } else if (role === 'team_lead') {
+          router.push('/team-lead/dashboard')
+        } else if (role === 'project_manager') {
+          router.push('/project-manager/dashboard')
+        } else {
+          router.push('/admin/dashboard')
+        }
+      } else {
+        console.error('Impersonation error response:', data)
+        toast.error(data.error || 'Failed to start impersonation')
+      }
+    } catch (error) {
+      console.error('Error starting impersonation:', error)
+      toast.error('Failed to start impersonation')
+    }
+  }
+
+  const handleStopImpersonation = async () => {
+    try {
+      console.log('🔄 Stopping impersonation...')
+      
+      const response = await fetch('/api/admin/impersonation', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        // Stop impersonation in AuthService
+        const restoredUser = await AuthService.stopImpersonation()
+        
+        setIsImpersonating(false)
+        setOriginalUser(null)
+        setCurrentUser(restoredUser)
+        
+        toast.success('Impersonation stopped')
+        
+        // Redirect back to admin dashboard
+        router.push('/admin/dashboard')
+      } else {
+        const data = await response.json()
+        console.error('Stop impersonation error response:', data)
+        toast.error(data.error || 'Failed to stop impersonation')
+      }
+    } catch (error) {
+      console.error('Error stopping impersonation:', error)
+      toast.error('Failed to stop impersonation')
+    }
+  }
+
   if (isLoadingData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -752,6 +850,38 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Impersonation Status */}
+              {isImpersonating && (
+                <div className="flex items-center space-x-2 bg-orange-100 border border-orange-200 rounded-lg px-3 py-2">
+                  <UserCheck className="h-4 w-4 text-orange-600" />
+                  <span className="text-sm font-medium text-orange-800">
+                    Impersonating {currentUser?.first_name} {currentUser?.last_name}
+                  </span>
+                  <Button 
+                    onClick={handleStopImpersonation} 
+                    variant="outline" 
+                    size="sm"
+                    className="border-orange-300 text-orange-700 hover:bg-orange-200"
+                  >
+                    <UserX className="h-4 w-4 mr-1" />
+                    Stop
+                  </Button>
+                </div>
+              )}
+              
+              {/* Impersonation Button (only show when not impersonating) */}
+              {!isImpersonating && currentUser?.role === 'admin' && (
+                <Button 
+                  onClick={() => setShowImpersonationModal(true)} 
+                  variant="outline" 
+                  size="sm"
+                  className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                >
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  Impersonate
+                </Button>
+              )}
+              
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 {isPolling ? (
                   <span className="flex items-center">
@@ -1260,6 +1390,13 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Impersonation Modal */}
+      <ImpersonationModal
+        isOpen={showImpersonationModal}
+        onClose={() => setShowImpersonationModal(false)}
+        onImpersonate={handleStartImpersonation}
+      />
     </div>
   )
 }

@@ -4,12 +4,15 @@ export interface AuthUser {
   email: string
   role: 'admin' | 'team_lead' | 'project_manager' | 'employee'
   employeeId?: string // legacy: human-readable employee code
+  isImpersonating?: boolean
+  originalUser?: { id: string, email: string, role: string }
 }
 
 export class AuthService {
   private static readonly ADMIN_KEY = 'adminUser'
   private static readonly EMPLOYEE_KEY = 'employeeId'
   private static readonly SESSION_KEY = 'authSession'
+  private static readonly IMPERSONATION_KEY = 'impersonationSession'
 
   static async adminLogin(username: string, password: string): Promise<AuthUser | null> {
     try {
@@ -117,8 +120,104 @@ export class AuthService {
     }
   }
 
+  static async startImpersonation(targetUserId: string, targetUserData: any): Promise<AuthUser> {
+    const currentUser = this.getCurrentUser()
+    if (!currentUser || currentUser.role !== 'admin') {
+      throw new Error('Only admins can impersonate users')
+    }
+
+    const impersonatedUser: AuthUser = {
+      id: targetUserData.id,
+      email: targetUserData.email,
+      role: targetUserData.role,
+      employeeId: targetUserData.employee_id,
+      isImpersonating: true,
+      originalUser: {
+        id: currentUser.id,
+        email: currentUser.email,
+        role: currentUser.role
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.IMPERSONATION_KEY, JSON.stringify(impersonatedUser))
+      localStorage.setItem(this.SESSION_KEY, JSON.stringify(impersonatedUser))
+    }
+
+    return impersonatedUser
+  }
+
+  static async stopImpersonation(): Promise<AuthUser | null> {
+    if (typeof window === 'undefined') return null
+
+    const impersonationSession = localStorage.getItem(this.IMPERSONATION_KEY)
+    if (!impersonationSession) {
+      throw new Error('No active impersonation session')
+    }
+
+    try {
+      const impersonatedUser = JSON.parse(impersonationSession)
+      const originalUser = impersonatedUser.originalUser
+
+      if (!originalUser) {
+        throw new Error('No original user data found')
+      }
+
+      // Restore original user session
+      const restoredUser: AuthUser = {
+        id: originalUser.id,
+        email: originalUser.email,
+        role: originalUser.role
+      }
+
+      localStorage.removeItem(this.IMPERSONATION_KEY)
+      localStorage.setItem(this.SESSION_KEY, JSON.stringify(restoredUser))
+
+      return restoredUser
+    } catch (error) {
+      console.error('Error stopping impersonation:', error)
+      return null
+    }
+  }
+
+  static isImpersonating(): boolean {
+    if (typeof window === 'undefined') return false
+    
+    const impersonationSession = localStorage.getItem(this.IMPERSONATION_KEY)
+    return !!impersonationSession
+  }
+
+  static getOriginalUser(): AuthUser | null {
+    if (typeof window === 'undefined') return null
+    
+    const impersonationSession = localStorage.getItem(this.IMPERSONATION_KEY)
+    if (!impersonationSession) return null
+
+    try {
+      const impersonatedUser = JSON.parse(impersonationSession)
+      return impersonatedUser.originalUser ? {
+        id: impersonatedUser.originalUser.id,
+        email: impersonatedUser.originalUser.email,
+        role: impersonatedUser.originalUser.role
+      } : null
+    } catch {
+      return null
+    }
+  }
+
   static getCurrentUser(): AuthUser | null {
     if (typeof window === 'undefined') return null
+    
+    // Check for impersonation session first
+    const impersonationSession = localStorage.getItem(this.IMPERSONATION_KEY)
+    if (impersonationSession) {
+      try {
+        return JSON.parse(impersonationSession)
+      } catch {
+        // If impersonation session is corrupted, clean it up
+        localStorage.removeItem(this.IMPERSONATION_KEY)
+      }
+    }
     
     const session = localStorage.getItem(this.SESSION_KEY)
     if (session) {
@@ -160,6 +259,7 @@ export class AuthService {
       localStorage.removeItem(this.ADMIN_KEY)
       localStorage.removeItem(this.EMPLOYEE_KEY)
       localStorage.removeItem(this.SESSION_KEY)
+      localStorage.removeItem(this.IMPERSONATION_KEY)
       
       // Redirect to appropriate login page based on current URL
       const currentPath = window.location.pathname

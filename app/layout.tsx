@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
+import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner'
 
 export const metadata: Metadata = {
   title: 'RotaCloud - Employee Management System',
@@ -23,6 +24,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <ImpersonationBanner />
           {children}
           <Toaster />
         </ThemeProvider>

@@ -21,10 +21,12 @@ import {
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [role, setRole] = useState<'admin' | 'team_lead' | 'employee' | 'project_manager' | null>(null)
+  const [isImpersonating, setIsImpersonating] = useState(false)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     setRole(user?.role ?? null)
+    setIsImpersonating(AuthService.isImpersonating())
   }, [])
 
   const links = useMemo(() => {

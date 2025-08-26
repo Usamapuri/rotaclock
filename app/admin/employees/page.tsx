@@ -41,6 +41,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { AuthService } from "@/lib/auth"
 import { toast } from "sonner"
+import { ImpersonationModal } from "@/components/admin/ImpersonationModal"
 
 interface Employee {
   id: string
@@ -80,6 +81,8 @@ export default function AdminEmployees() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [editForm, setEditForm] = useState<EditEmployeeData>({})
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [showImpersonationModal, setShowImpersonationModal] = useState(false)
+  const [selectedEmployeeForImpersonation, setSelectedEmployeeForImpersonation] = useState<Employee | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -192,6 +195,52 @@ export default function AdminEmployees() {
   const handleLogout = () => {
     AuthService.logout()
     router.push("/admin/login")
+  }
+
+  const handleImpersonateEmployee = (employee: Employee) => {
+    setSelectedEmployeeForImpersonation(employee)
+    setShowImpersonationModal(true)
+  }
+
+  const handleStartImpersonation = async (employee: any) => {
+    try {
+      console.log('🔄 Starting impersonation for:', employee.email)
+      
+      const response = await fetch('/api/admin/impersonation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ targetUserId: employee.id }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // Start impersonation in AuthService
+        await AuthService.startImpersonation(employee.id, data.targetUser)
+        
+        toast.success(`Now impersonating ${employee.first_name} ${employee.last_name}`)
+        
+        // Redirect based on impersonated user's role
+        const role = data.targetUser.role
+        if (role === 'employee') {
+          router.push('/employee/dashboard')
+        } else if (role === 'team_lead') {
+          router.push('/team-lead/dashboard')
+        } else if (role === 'project_manager') {
+          router.push('/project-manager/dashboard')
+        } else {
+          router.push('/admin/dashboard')
+        }
+      } else {
+        console.error('Impersonation error response:', data)
+        toast.error(data.error || 'Failed to start impersonation')
+      }
+    } catch (error) {
+      console.error('Error starting impersonation:', error)
+      toast.error('Failed to start impersonation')
+    }
   }
 
   const getDepartmentColor = (department: string) => {
@@ -437,14 +486,27 @@ export default function AdminEmployees() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push(`/admin/employees/${employee.id}`)}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Manage
-                      </Button>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/admin/employees/${employee.id}`)}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Manage
+                        </Button>
+                        {employee.is_active && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleImpersonateEmployee(employee)}
+                            className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                          >
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            Impersonate
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -562,6 +624,13 @@ export default function AdminEmployees() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Impersonation Modal */}
+      <ImpersonationModal
+        isOpen={showImpersonationModal}
+        onClose={() => setShowImpersonationModal(false)}
+        onImpersonate={handleStartImpersonation}
+      />
     </div>
   )
 }
