@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateBreakLog, getCurrentBreak, updateShiftLog, query, getTimeEntries } from '@/lib/database'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const { employee_id } = await request.json()
+    // Authenticate the request
+    const authMiddleware = createApiAuthMiddleware()
+    const authResult = await authMiddleware(request)
+    if (!('isAuthenticated' in authResult) || !authResult.isAuthenticated || !authResult.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!employee_id) {
+    const { employee_id } = await request.json()
+    const requester_id = authResult.user.id
+
+    // Use authenticated user's ID if employee_id not provided
+    const target_employee_id = employee_id || requester_id
+
+    if (!target_employee_id) {
       return NextResponse.json(
         { error: 'Employee ID is required' },
         { status: 400 }
@@ -13,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get current active break
-    const currentBreak = await getCurrentBreak(employee_id)
+    const currentBreak = await getCurrentBreak(target_employee_id)
     if (!currentBreak) {
       return NextResponse.json(
         { error: 'No active break found' },
@@ -44,7 +56,7 @@ export async function POST(request: NextRequest) {
     // FIX: Also update legacy time_entries system if it exists
     // Check if there's an active time entry for this employee
     const timeEntries = await getTimeEntries({
-      employee_id: employee_id,
+      employee_id: target_employee_id,
       status: 'break'
     })
 

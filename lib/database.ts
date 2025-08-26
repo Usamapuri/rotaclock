@@ -752,16 +752,16 @@ export async function getShiftAssignments(filters: {
       e.first_name as employee_first_name,
       e.last_name as employee_last_name,
       e.email as employee_email,
-      s.name as shift_name,
-      s.start_time as shift_start_time,
-      s.end_time as shift_end_time,
+      st.name as shift_name,
+      st.start_time as shift_start_time,
+      st.end_time as shift_end_time,
       aba.first_name as assigned_by_first_name,
       aba.last_name as assigned_by_last_name,
       aba.email as assigned_by_email
-    FROM shift_assignments sa
-    LEFT JOIN employees e ON sa.employee_id = e.id
-    LEFT JOIN shifts s ON sa.shift_id = s.id
-    LEFT JOIN employees aba ON sa.assigned_by = aba.id
+    FROM shift_assignments_new sa
+    LEFT JOIN employees_new e ON sa.employee_id = e.id
+    LEFT JOIN shift_templates st ON sa.template_id = st.id
+    LEFT JOIN employees_new aba ON sa.assigned_by = aba.id
     WHERE sa.date >= $1 AND sa.date <= $2
   `
   const params: any[] = [filters.start_date, filters.end_date]

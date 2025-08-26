@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createBreakLog, getShiftLogs, getCurrentBreak, query, getTimeEntries } from '@/lib/database'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const { employee_id } = await request.json()
+    // Authenticate the request
+    const authMiddleware = createApiAuthMiddleware()
+    const authResult = await authMiddleware(request)
+    if (!('isAuthenticated' in authResult) || !authResult.isAuthenticated || !authResult.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!employee_id) {
+    const { employee_id } = await request.json()
+    const requester_id = authResult.user.id
+
+    // Use authenticated user's ID if employee_id not provided
+    const target_employee_id = employee_id || requester_id
+
+    if (!target_employee_id) {
       return NextResponse.json(
         { error: 'Employee ID is required' },
         { status: 400 }
@@ -13,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if employee is already on break
-    const currentBreak = await getCurrentBreak(employee_id)
+    const currentBreak = await getCurrentBreak(target_employee_id)
     if (currentBreak) {
       return NextResponse.json(
         { error: 'Employee is already on break' },
@@ -23,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // Get current active shift
     const shiftLogs = await getShiftLogs({
-      employee_id: employee_id,
+      employee_id: target_employee_id,
       status: 'active'
     })
 
@@ -52,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Create break log
     const breakLog = await createBreakLog({
       shift_log_id: currentShift.id,
-      employee_id: employee_id,
+      employee_id: target_employee_id,
       break_start_time: breakStartTime.toISOString(),
       break_type: 'lunch',
       status: 'active'
@@ -61,7 +73,7 @@ export async function POST(request: NextRequest) {
     // FIX: Also update legacy time_entries system if it exists
     // Check if there's an active time entry for this employee
     const timeEntries = await getTimeEntries({
-      employee_id: employee_id,
+      employee_id: target_employee_id,
       status: 'in-progress'
     })
 
