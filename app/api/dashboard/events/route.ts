@@ -78,7 +78,7 @@ async function getDashboardStats() {
       SELECT 
         COUNT(*) as total_employees,
         COUNT(*) FILTER (WHERE is_active = true) as active_employees
-      FROM employees
+      FROM employees_new
     `)
 
     // Get current week shift assignments
@@ -170,7 +170,7 @@ async function getDashboardUpdates() {
           WHEN te.status = 'break' THEN 'break'
           ELSE 'offline'
         END as status
-      FROM employees e
+      FROM employees_new e
       LEFT JOIN shift_logs sl ON e.id = sl.employee_id AND sl.status = 'active'
       LEFT JOIN time_entries te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break')
       WHERE e.is_active = true

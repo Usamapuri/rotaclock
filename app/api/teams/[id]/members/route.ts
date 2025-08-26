@@ -10,7 +10,7 @@ export async function GET(
     const teamId = id
     const result = await query(
       `SELECT e.id, e.first_name, e.last_name, e.email, e.employee_id, e.is_active
-       FROM employees e
+       FROM employees_new e
        WHERE e.team_id = $1 AND e.is_active = true
        ORDER BY e.first_name, e.last_name`,
       [teamId]

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         sl.status as shift_status,
         sl.total_shift_hours,
         sl.break_time_used
-      FROM employees e
+      FROM employees_new e
       LEFT JOIN shift_logs sl ON e.id = sl.employee_id AND sl.status = 'active'
       WHERE e.is_online = true AND e.is_active = true
       ORDER BY e.last_online DESC
