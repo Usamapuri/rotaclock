@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // Check if requester exists and is active
     const requesterResult = await query(
-      'SELECT id FROM employees WHERE id = $1 AND is_active = true',
+      'SELECT id FROM employees_new WHERE id = $1 AND is_active = true',
       [validatedData.requester_id]
     )
 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     // Check if target exists and is active
     const targetResult = await query(
-      'SELECT id FROM employees WHERE id = $1 AND is_active = true',
+      'SELECT id FROM employees_new WHERE id = $1 AND is_active = true',
       [validatedData.target_id]
     )
 
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     // Check if original shift assignment exists
     const originalShiftResult = await query(
-      'SELECT id FROM shift_assignments WHERE id = $1 AND employee_id = $2',
+      'SELECT id FROM shift_assignments_new WHERE id = $1 AND employee_id = $2',
       [validatedData.original_shift_id, validatedData.requester_id]
     )
 
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // Check if requested shift assignment exists
     const requestedShiftResult = await query(
-      'SELECT id FROM shift_assignments WHERE id = $1 AND employee_id = $2',
+      'SELECT id FROM shift_assignments_new WHERE id = $1 AND employee_id = $2',
       [validatedData.requested_shift_id, validatedData.target_id]
     )
 

@@ -638,7 +638,7 @@ export async function getShifts(filters?: {
   department?: string
   is_active?: boolean
 }) {
-  let queryText = 'SELECT * FROM shifts'
+  let queryText = 'SELECT * FROM shift_templates'
   const params: any[] = []
   let paramIndex = 1
 
@@ -665,8 +665,8 @@ export async function getShift(id: string) {
            e.first_name, 
            e.last_name, 
            e.email
-    FROM shifts s
-    LEFT JOIN employees e ON s.created_by = e.id
+    FROM shift_templates s
+    LEFT JOIN employees_new e ON s.created_by = e.id
     WHERE s.id = $1
   `, [id])
   
@@ -678,7 +678,7 @@ export async function getShift(id: string) {
  */
 export async function createShift(shiftData: Omit<Shift, 'id' | 'created_at' | 'updated_at'>) {
   const result = await query(`
-    INSERT INTO shifts (
+    INSERT INTO shift_templates (
       name, description, start_time, end_time, department, 
       required_staff, hourly_rate, color, is_active, created_by
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -707,7 +707,7 @@ export async function updateShift(id: string, shiftData: Partial<Shift>) {
   const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ')
   
   const result = await query(`
-    UPDATE shifts 
+    UPDATE shift_templates 
     SET ${setClause}, updated_at = NOW()
     WHERE id = $1
     RETURNING *
@@ -725,7 +725,7 @@ export async function updateShift(id: string, shiftData: Partial<Shift>) {
  */
 export async function deleteShift(id: string) {
   const result = await query(`
-    DELETE FROM shifts 
+    DELETE FROM shift_templates 
     WHERE id = $1
     RETURNING id
   `, [id])
@@ -1228,9 +1228,9 @@ export async function getShiftSwaps(filters?: {
       aba.last_name as approved_by_last_name,
       aba.email as approved_by_email
     FROM shift_swaps ss
-    LEFT JOIN employees r ON ss.requester_id = r.id
-    LEFT JOIN employees t ON ss.target_id = t.id
-    LEFT JOIN employees aba ON ss.approved_by = aba.id
+    LEFT JOIN employees_new r ON ss.requester_id = r.id
+    LEFT JOIN employees_new t ON ss.target_id = t.id
+    LEFT JOIN employees_new aba ON ss.approved_by = aba.id
   `
   const params: any[] = []
   let paramIndex = 1
