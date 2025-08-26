@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createShiftLog, getShiftAssignments, isEmployeeClockedIn } from '@/lib/database'
-import { AuthService } from '@/lib/auth'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const { employee_id } = await request.json()
+    // Authenticate the request
+    const authMiddleware = createApiAuthMiddleware()
+    const authResult = await authMiddleware(request)
+    if (!('isAuthenticated' in authResult) || !authResult.isAuthenticated || !authResult.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!employee_id) {
+    const { employee_id } = await request.json()
+    const requester_id = authResult.user.id
+
+    // Use authenticated user's ID if employee_id not provided
+    const target_employee_id = employee_id || requester_id
+
+    if (!target_employee_id) {
       return NextResponse.json(
         { error: 'Employee ID is required' },
         { status: 400 }
@@ -14,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if employee is already clocked in
-    const isClockedIn = await isEmployeeClockedIn(employee_id)
+    const isClockedIn = await isEmployeeClockedIn(target_employee_id)
     if (isClockedIn) {
       return NextResponse.json(
         { error: 'Employee is already clocked in' },
@@ -29,7 +40,7 @@ export async function POST(request: NextRequest) {
     const shiftAssignments = await getShiftAssignments({
       start_date: today,
       end_date: today,
-      employee_id: employee_id
+      employee_id: target_employee_id
     })
 
     let shift_assignment_id = null
@@ -39,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Create shift log
     const shiftLog = await createShiftLog({
-      employee_id,
+      employee_id: target_employee_id,
       shift_assignment_id,
       clock_in_time: new Date().toISOString(),
       break_time_used: 0,
