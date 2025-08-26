@@ -67,7 +67,7 @@ export function ImpersonationModal({ isOpen, onClose, onImpersonate }: Impersona
   const loadEmployees = async () => {
     setLoading(true)
     try {
-      const response = await apiService.get('/api/admin/employees')
+      const response = await apiService.get('/admin/employees')
       if (response.success) {
         const activeEmployees = response.employees.filter((emp: Employee) => emp.is_active)
         setEmployees(activeEmployees)
