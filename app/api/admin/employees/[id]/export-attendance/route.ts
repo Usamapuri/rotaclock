@@ -11,7 +11,7 @@ export async function GET(
     // Get employee details
     const employeeResult = await query(`
       SELECT employee_id, first_name, last_name, email
-      FROM employees 
+      FROM employees_new 
       WHERE id = $1
     `, [id])
 

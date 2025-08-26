@@ -60,7 +60,7 @@ export async function PUT(
 
     // Get current role
     const currentRoleResult = await query(`
-      SELECT role, email FROM employees WHERE ${isUuid ? 'id' : 'email'} = $1
+      SELECT role, email FROM employees_new WHERE ${isUuid ? 'id' : 'email'} = $1
     `, [id])
 
     if (currentRoleResult.rows.length === 0) {
@@ -75,7 +75,7 @@ export async function PUT(
 
     // Update employee role
     await query(`
-      UPDATE employees 
+      UPDATE employees_new 
       SET role = $1, updated_at = NOW()
       WHERE ${isUuid ? 'id' : 'email'} = $2
     `, [new_role, id])
@@ -90,7 +90,7 @@ export async function PUT(
         assigned_by,
         reason
       ) VALUES (
-        (SELECT employee_id FROM employees WHERE ${isUuid ? 'id' : 'email'} = $1),
+        (SELECT employee_id FROM employees_new WHERE ${isUuid ? 'id' : 'email'} = $1),
         $2,
         $3,
         $4,
@@ -111,7 +111,7 @@ export async function PUT(
         r.description as role_description,
         r.permissions,
         r.dashboard_access
-      FROM employees e
+      FROM employees_new e
       LEFT JOIN roles r ON e.role = r.name
       WHERE ${isUuid ? 'e.id' : 'e.email'} = $1
     `, [id])
