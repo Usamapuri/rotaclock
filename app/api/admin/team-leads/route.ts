@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 				COUNT(ta.employee_id) as member_count,
 				AVG(pm.quality_score) as quality_score,
 				AVG(pm.productivity_score) as performance_score
-			FROM employees e
+			FROM employees_new e
 			LEFT JOIN teams t ON e.team_id = t.id
 			LEFT JOIN team_assignments ta ON t.id = ta.team_id AND ta.is_active = true
 			LEFT JOIN performance_metrics pm ON e.id = pm.employee_id

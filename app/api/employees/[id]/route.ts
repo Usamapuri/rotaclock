@@ -57,7 +57,7 @@ export async function PUT(
     const validatedData = updateEmployeeSchema.parse(body)
     
       // Check if employee exists
-      const checkQuery = 'SELECT * FROM employees WHERE id = $1'
+      const checkQuery = 'SELECT * FROM employees_new WHERE id = $1'
       const checkResult = await query(checkQuery, [employeeId])
       
       if (checkResult.rows.length === 0) {
@@ -207,7 +207,7 @@ export async function LEGACY_GET(
         COUNT(DISTINCT sa.id) as total_assignments,
         COUNT(DISTINCT te.id) as total_time_entries,
         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
-      FROM employees e
+      FROM employees_new e
       LEFT JOIN roles r ON e.role = r.name
       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id
       LEFT JOIN time_entries te ON e.id = te.employee_id
