@@ -43,7 +43,7 @@ export function createApiAuthMiddleware() {
     // Demo fallback (allowed unless DEMO_AUTH is explicitly set to 'false')
     const allowDemo = (process.env.DEMO_AUTH ?? 'true').toLowerCase() !== 'false'
     if (!user && allowDemo) {
-      user = { id: '3cae45f4-f119-41d2-b24f-66a7249cf974', email: 'demo@local', role: 'admin', employeeId: 'EMP200' }
+      user = { id: 'c67f737f-662a-4530-8d07-ba13d56bc54b', email: 'admin@rotacloud.com', role: 'admin', employeeId: 'EMP001' }
     }
 
     const isAuthenticated = !!user
