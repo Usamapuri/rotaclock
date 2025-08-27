@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 				e.email as team_lead_email,
 				COUNT(ta.employee_id) as member_count
 			FROM teams t
-			LEFT JOIN employees e ON t.team_lead_id = e.id
+			LEFT JOIN employees_new e ON t.team_lead_id = e.id
 			LEFT JOIN team_assignments ta ON t.id = ta.team_id AND ta.is_active = true
 		`
 		const params: any[] = []
@@ -59,13 +59,13 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: 'name, department, team_lead_id are required' }, { status: 400 })
 		}
 
-		const leadCheck = await query('SELECT id FROM employees WHERE id = $1', [team_lead_id])
+		const leadCheck = await query('SELECT id FROM employees_new WHERE id = $1', [team_lead_id])
 		if (leadCheck.rows.length === 0) {
 			return NextResponse.json({ error: 'Invalid team_lead_id' }, { status: 400 })
 		}
 
     // Ensure the selected employee has team_lead role
-    await query(`UPDATE employees SET role = 'team_lead', updated_at = NOW() WHERE id = $1`, [team_lead_id])
+    await query(`UPDATE employees_new SET role = 'team_lead', updated_at = NOW() WHERE id = $1`, [team_lead_id])
 
     const createRes = await query(
 			`INSERT INTO teams (name, department, team_lead_id, description)
