@@ -1,9 +1,9 @@
 -- Create admin_audit_logs table for tracking impersonation and other admin actions
 CREATE TABLE IF NOT EXISTS admin_audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    admin_id UUID NOT NULL REFERENCES employees_new(id) ON DELETE CASCADE,
     action VARCHAR(50) NOT NULL,
-    target_user_id UUID REFERENCES employees(id) ON DELETE SET NULL,
+    target_user_id UUID REFERENCES employees_new(id) ON DELETE SET NULL,
     details JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
