@@ -100,7 +100,7 @@ export default function AdminTeamsPage() {
   const loadTeams = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/admin/teams')
+      const response = await fetch('/api/teams')
       if (response.ok) {
         const data = await response.json()
         setTeams(data.data || [])
