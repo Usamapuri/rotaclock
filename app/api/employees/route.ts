@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     let queryText = `
       SELECT 
         e.id,
-        e.employee_code,
+        e.employee_code as employee_id,
         e.first_name,
         e.last_name,
         e.email,
