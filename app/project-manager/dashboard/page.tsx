@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AuthService } from "@/lib/auth"
 import Link from "next/link"
+import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner"
 import { Users, Building, TrendingUp, Settings, Plus } from "lucide-react"
 
 type Team = { id: string; name: string; department?: string; project_id?: string }
@@ -92,6 +93,9 @@ export default function PMDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Impersonation Banner - Only shows when admin is impersonating */}
+      <ImpersonationBanner />
+      
       {/* Stats Cards */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-5">
         <Card>

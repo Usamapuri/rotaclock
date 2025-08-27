@@ -34,6 +34,7 @@ import { AuthService } from '@/lib/auth'
 import { apiService } from '@/lib/api-service'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner'
 
 interface TimeEntry {
   id: string
@@ -807,6 +808,9 @@ export default function EmployeeDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Impersonation Banner - Only shows when admin is impersonating */}
+      <ImpersonationBanner />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

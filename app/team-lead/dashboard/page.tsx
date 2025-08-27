@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { useTeamEvents } from "@/lib/hooks/use-team-events"
 import { ConnectionStatus } from "@/components/ui/connection-status"
+import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner"
 import { Users, MessageSquare, TrendingUp, Settings, UserPlus, ArrowRight, Clock, Calendar, FileText, AlertCircle } from "lucide-react"
 
 type TeamMember = {
@@ -214,6 +215,9 @@ export default function TeamLeadDashboardPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* Impersonation Banner - Only shows when admin is impersonating */}
+      <ImpersonationBanner />
+      
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Team Lead Dashboard</h1>
