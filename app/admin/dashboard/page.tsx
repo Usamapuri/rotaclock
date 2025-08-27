@@ -766,7 +766,7 @@ export default function AdminDashboard() {
         
         // Redirect based on impersonated user's role
         const role = data.targetUser.role
-        if (role === 'employee') {
+        if (role === 'employee' || role === 'agent') {
           router.push('/employee/dashboard')
         } else if (role === 'team_lead') {
           router.push('/team-lead/dashboard')
