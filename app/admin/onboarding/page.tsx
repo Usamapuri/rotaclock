@@ -145,7 +145,7 @@ export default function AdminOnboarding() {
   useEffect(() => {
     const storedAdminUser = localStorage.getItem("adminUser")
     if (!storedAdminUser) {
-      router.push("/admin/login")
+      router.push("/login")
     } else {
       setAdminUser(storedAdminUser)
     }
@@ -153,7 +153,7 @@ export default function AdminOnboarding() {
 
   const handleLogout = () => {
     localStorage.removeItem("adminUser")
-    router.push("/admin/login")
+    router.push("/login")
   }
 
   const handleCreateTemplate = async () => {

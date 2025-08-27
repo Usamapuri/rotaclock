@@ -59,7 +59,7 @@ export default function EmployeeSchedulingPage() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user) {
-      router.push('/employee/login')
+      router.push('/login')
       return
     }
     setCurrentUser(user)

@@ -127,7 +127,7 @@ export default function PMEditTeamPage() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user || !AuthService.isProjectManager()) {
-      router.push('/project-manager/login')
+      router.push('/login')
       return
     }
     loadTeamData()

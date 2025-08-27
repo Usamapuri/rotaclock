@@ -93,7 +93,7 @@ export default function Timesheet() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user) {
-      router.push('/employee/login')
+      router.push('/login')
     } else {
       setCurrentUser(user)
       loadTimesheetData()
@@ -191,7 +191,7 @@ export default function Timesheet() {
 
   const handleLogout = () => {
     AuthService.logout()
-    router.push('/employee/login')
+    router.push('/login')
   }
 
   const getStatusBadge = (status: string) => {

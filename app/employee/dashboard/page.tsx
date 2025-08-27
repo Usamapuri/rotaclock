@@ -322,7 +322,7 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user) {
-      router.push('/employee/login')
+      router.push('/login')
       return
     }
     setCurrentUser(user)
@@ -644,7 +644,7 @@ export default function EmployeeDashboard() {
 
   const handleLogout = () => {
     AuthService.logout()
-    router.push('/employee/login')
+    router.push('/login')
   }
 
   const handleLeaveRequestSubmit = async () => {

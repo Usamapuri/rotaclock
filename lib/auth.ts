@@ -261,20 +261,8 @@ export class AuthService {
       localStorage.removeItem(this.SESSION_KEY)
       localStorage.removeItem(this.IMPERSONATION_KEY)
       
-      // Redirect to appropriate login page based on current URL
-      const currentPath = window.location.pathname
-      if (currentPath.startsWith('/admin')) {
-        window.location.href = '/admin/login'
-      } else if (currentPath.startsWith('/employee')) {
-        window.location.href = '/employee/login'
-      } else if (currentPath.startsWith('/team-lead')) {
-        window.location.href = '/team-lead/login'
-      } else if (currentPath.startsWith('/project-manager')) {
-        window.location.href = '/project-manager/login'
-      } else {
-        // Default to main login page
-        window.location.href = '/login'
-      }
+      // Redirect to main login page
+      window.location.href = '/login'
     }
   }
 } 

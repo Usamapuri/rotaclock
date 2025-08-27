@@ -38,7 +38,7 @@ export default function AdminTeamLeadEditPage() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user || !AuthService.isAdmin()) {
-      router.push('/admin/login')
+      router.push('/login')
       return
     }
     load()

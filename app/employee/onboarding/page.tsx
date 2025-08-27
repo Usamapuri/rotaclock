@@ -85,7 +85,7 @@ export default function EmployeeOnboarding() {
   useEffect(() => {
     const storedEmployeeId = localStorage.getItem("employeeId")
     if (!storedEmployeeId) {
-      router.push("/employee/login")
+      router.push("/login")
     } else {
       setEmployeeId(storedEmployeeId)
       fetchOnboardingProcess(storedEmployeeId)
@@ -182,7 +182,7 @@ export default function EmployeeOnboarding() {
 
   const handleLogout = () => {
     localStorage.removeItem("employeeId")
-    router.push("/employee/login")
+    router.push("/login")
   }
 
   const markStepComplete = async (stepId: string) => {

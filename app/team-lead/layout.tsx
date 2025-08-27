@@ -12,13 +12,13 @@ export default function TeamLeadLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [isLead, setIsLead] = useState(false)
-  const isLogin = pathname === '/team-lead/login'
+  const isLogin = pathname === '/login'
 
   useEffect(() => {
     if (isLogin) return
     const user = AuthService.getCurrentUser()
     if (!user || user.role !== 'team_lead') {
-      router.replace('/team-lead/login')
+      router.replace('/login')
     } else {
       setIsLead(true)
     }

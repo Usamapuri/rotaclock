@@ -18,7 +18,7 @@ export default function TeamLeadLiveStatusPage() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user || user.role !== 'team_lead') {
-      router.replace('/team-lead/login')
+      router.replace('/login')
       return
     }
     ;(async () => {

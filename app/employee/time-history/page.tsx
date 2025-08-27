@@ -59,7 +59,7 @@ export default function TimeHistory() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user) {
-      router.push('/employee/login')
+      router.push('/login')
     } else {
       setCurrentUser(user)
       loadTimeHistory()
@@ -126,7 +126,7 @@ export default function TimeHistory() {
 
   const handleLogout = () => {
     AuthService.logout()
-    router.push('/employee/login')
+    router.push('/login')
   }
 
   const getStatusBadge = (status: string) => {

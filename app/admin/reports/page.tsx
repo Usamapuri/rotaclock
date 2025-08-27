@@ -107,7 +107,7 @@ export default function AdminReports() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user || user.role !== 'admin') {
-      router.push("/admin/login")
+      router.push("/login")
     } else {
       setAdminUser(user.email || 'Administrator')
       loadReports()
@@ -173,7 +173,7 @@ export default function AdminReports() {
 
   const handleLogout = () => {
     AuthService.logout()
-    router.push("/admin/login")
+    router.push("/login")
   }
 
   const handleExportReport = (reportType: string) => {

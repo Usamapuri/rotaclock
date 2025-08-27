@@ -38,7 +38,7 @@ export default function NotFound() {
               </Link>
             </Button>
             <Button asChild variant="outline" className="flex-1">
-              <Link href="/admin/login">
+              <Link href="/login">
                 Admin Login
               </Link>
             </Button>

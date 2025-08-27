@@ -61,7 +61,7 @@ export default function EmployeeProfilePage() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user) {
-      router.push("/employee/login")
+      router.push("/login")
     } else {
       setCurrentUser(user)
       fetchProfile(user.id, user)
@@ -174,7 +174,7 @@ export default function EmployeeProfilePage() {
 
   const handleLogout = () => {
     AuthService.logout()
-    router.push("/employee/login")
+    router.push("/login")
   }
 
   const handleSaveProfile = async () => {

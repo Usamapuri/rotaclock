@@ -202,7 +202,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user) {
-      router.push('/admin/login')
+      router.push('/login')
       return
     }
     setCurrentUser(user)
@@ -610,7 +610,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     AuthService.logout()
-    router.push('/admin/login')
+    router.push('/login')
   }
 
   const getStatusBadge = (status: string) => {

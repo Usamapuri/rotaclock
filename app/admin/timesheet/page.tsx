@@ -117,7 +117,7 @@ export default function AdminTimesheet() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user || user.role !== 'admin') {
-      router.push('/admin/login')
+      router.push('/login')
     } else {
       setCurrentUser(user)
       loadTimesheetData()
@@ -224,7 +224,7 @@ export default function AdminTimesheet() {
 
   const handleLogout = () => {
     AuthService.logout()
-    router.push('/admin/login')
+    router.push('/login')
   }
 
   const getStatusBadge = (status: string) => {

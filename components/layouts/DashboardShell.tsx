@@ -6,6 +6,7 @@ import React, { ReactNode, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { LogOut } from "lucide-react"
 import { AuthService } from "@/lib/auth"
+import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner"
 import {
   SidebarProvider,
   Sidebar,

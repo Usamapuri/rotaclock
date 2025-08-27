@@ -115,7 +115,7 @@ export default function PayrollDashboard() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user || user.role !== 'admin') {
-      router.push("/admin/login")
+      router.push("/login")
     } else {
       setAdminUser(user.email || 'Administrator')
       loadPayrollData()

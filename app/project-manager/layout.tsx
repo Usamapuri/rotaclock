@@ -11,13 +11,13 @@ export default function ProjectManagerLayout({ children }: { children: ReactNode
   const pathname = usePathname()
   const router = useRouter()
   const [isPM, setIsPM] = useState(false)
-  const isLogin = pathname === '/project-manager/login'
+  const isLogin = pathname === '/login'
 
   useEffect(() => {
     if (isLogin) return
     const user = AuthService.getCurrentUser()
     if (!user || user.role !== 'project_manager') {
-      router.replace('/project-manager/login')
+      router.replace('/login')
     } else {
       setIsPM(true)
     }

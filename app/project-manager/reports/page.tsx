@@ -91,7 +91,7 @@ export default function PMReportsPage() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user || user.role !== "project_manager") {
-      router.replace("/project-manager/login")
+      router.replace("/login")
       return
     }
     loadReports()

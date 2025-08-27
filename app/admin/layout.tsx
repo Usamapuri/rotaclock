@@ -63,7 +63,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   // Hide chrome (sidebar/breadcrumb) on auth page
-  const isAuthPage = pathname === '/admin/login'
+  const isAuthPage = pathname === '/login'
   if (isAuthPage) {
     return <div className="min-h-screen">{children}</div>
   }
