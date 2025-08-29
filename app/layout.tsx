@@ -3,6 +3,8 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner'
+import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 export const metadata: Metadata = {
   title: 'RotaClock - Employee Management System',
@@ -27,6 +29,8 @@ export default function RootLayout({
           <ImpersonationBanner />
           {children}
           <Toaster />
+          <Analytics />
+          <SpeedInsights />
         </ThemeProvider>
       </body>
     </html>
