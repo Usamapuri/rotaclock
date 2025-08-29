@@ -59,7 +59,7 @@ export default function UnifiedLogin() {
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Building2 className="h-8 w-8 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">RotaCloud</h1>
+            <h1 className="text-2xl font-bold text-gray-900">RotaClock</h1>
           </div>
           <p className="text-gray-600">Sign in to your account</p>
         </div>
@@ -153,9 +153,9 @@ export default function UnifiedLogin() {
           <p className="text-sm text-blue-800 font-medium mb-2">Demo Credentials</p>
           <div className="text-xs text-blue-700 space-y-1">
             <p><strong>All Users:</strong> <code className="bg-blue-100 px-1 rounded">password123</code></p>
-            <p><strong>Admin:</strong> <code className="bg-blue-100 px-1 rounded">admin@rotacloud.com</code></p>
-            <p><strong>Employee:</strong> <code className="bg-blue-100 px-1 rounded">john.smith@rotacloud.com</code></p>
-            <p><strong>Team Lead:</strong> <code className="bg-blue-100 px-1 rounded">david.wilson@rotacloud.com</code></p>
+            <p><strong>Admin:</strong> <code className="bg-blue-100 px-1 rounded">admin@rotaclock.com</code></p>
+<p><strong>Employee:</strong> <code className="bg-blue-100 px-1 rounded">john.smith@rotaclock.com</code></p>
+<p><strong>Team Lead:</strong> <code className="bg-blue-100 px-1 rounded">david.wilson@rotaclock.com</code></p>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-// API Service Layer for RotaCloud
+// API Service Layer for RotaClock
 // This file contains all API functions to interact with the backend
 
 export interface ApiResponse<T = any> {

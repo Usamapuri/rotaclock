@@ -22,7 +22,7 @@ async function debugAdminRole() {
     const result = await client.query(`
       SELECT id, employee_id, first_name, last_name, email, role, position, department
       FROM employees 
-      WHERE email = 'admin@rotacloud.com' OR employee_id = 'ADM001'
+      WHERE email = 'admin@rotaclock.com' OR employee_id = 'ADM001'
     `);
     
     if (result.rows.length === 0) {

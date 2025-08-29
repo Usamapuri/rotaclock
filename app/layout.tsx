@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner'
 
 export const metadata: Metadata = {
-  title: 'RotaCloud - Employee Management System',
+  title: 'RotaClock - Employee Management System',
   description: 'Complete employee shift management and time tracking solution',
   generator: 'Next.js',
 }

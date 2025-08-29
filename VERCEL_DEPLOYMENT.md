@@ -12,7 +12,7 @@
 
 1. Go to [vercel.com](https://vercel.com) and sign in
 2. Click "New Project"
-3. Import your GitHub repository: `https://github.com/Usamapuri/rotacloud.git`
+3. Import your GitHub repository: `https://github.com/Usamapuri/rotaclock.git`
 4. Select the repository and click "Import"
 
 ### 2. Configure Environment Variables
@@ -92,17 +92,17 @@ Use these credentials to test the unified login system:
 
 | Role | Email | Password |
 |------|-------|----------|
-| **Admin** | `admin@rotacloud.com` | `password123` |
-| **Project Manager** | `sarah.johnson@rotacloud.com` | `password123` |
-| **Team Lead** | `david.wilson@rotacloud.com` | `password123` |
-| **Employee** | `john.smith@rotacloud.com` | `password123` |
+| **Admin** | `admin@rotaclock.com` | `password123` |
+| **Project Manager** | `sarah.johnson@rotaclock.com` | `password123` |
+| **Team Lead** | `david.wilson@rotaclock.com` | `password123` |
+| **Employee** | `john.smith@rotaclock.com` | `password123` |
 
 **Additional Employee Accounts:**
-- `emma.davis@rotacloud.com` / `password123`
-- `alex.brown@rotacloud.com` / `password123`
-- `maria.rodriguez@rotacloud.com` / `password123`
-- `james.taylor@rotacloud.com` / `password123`
-- `sophia.anderson@rotacloud.com` / `password123`
+- `emma.davis@rotaclock.com` / `password123`
+- `alex.brown@rotaclock.com` / `password123`
+- `maria.rodriguez@rotaclock.com` / `password123`
+- `james.taylor@rotaclock.com` / `password123`
+- `sophia.anderson@rotaclock.com` / `password123`
 
 ### 2. Test Key Features
 

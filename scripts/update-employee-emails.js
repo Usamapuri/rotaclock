@@ -41,13 +41,13 @@ async function updateEmployeeEmails() {
       
       // Different email patterns based on employee ID prefix
       if (employee.employee_id.startsWith('ADM')) {
-        email = `admin@rotacloud.com`;
+        email = `admin@rotaclock.com`;
       } else if (employee.employee_id.startsWith('PM')) {
-        email = `${firstName}.${lastName}@rotacloud.com`;
+        email = `${firstName}.${lastName}@rotaclock.com`;
       } else if (employee.employee_id.startsWith('TL')) {
-        email = `${firstName}.${lastName}@rotacloud.com`;
+        email = `${firstName}.${lastName}@rotaclock.com`;
       } else {
-        email = `${firstName}.${lastName}@rotacloud.com`;
+        email = `${firstName}.${lastName}@rotaclock.com`;
       }
       
       await client.query(`
@@ -72,13 +72,13 @@ async function updateEmployeeEmails() {
       let email;
       
       if (emp.employee_id.startsWith('ADM')) {
-        email = `admin@rotacloud.com`;
+        email = `admin@rotaclock.com`;
       } else if (emp.employee_id.startsWith('PM')) {
-        email = `${firstName}.${lastName}@rotacloud.com`;
+        email = `${firstName}.${lastName}@rotaclock.com`;
       } else if (emp.employee_id.startsWith('TL')) {
-        email = `${firstName}.${lastName}@rotacloud.com`;
+        email = `${firstName}.${lastName}@rotaclock.com`;
       } else {
-        email = `${firstName}.${lastName}@rotacloud.com`;
+        email = `${firstName}.${lastName}@rotaclock.com`;
       }
       
       const password = `${firstName}123`;

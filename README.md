@@ -1,4 +1,4 @@
-# RotaCloud - Complete Employee Management System
+# RotaClock - Complete Employee Management System
 
 A comprehensive employee management system built with Next.js, TypeScript, and PostgreSQL, featuring time tracking, shift management, leave requests, and detailed reporting.
 
@@ -40,7 +40,7 @@ A comprehensive employee management system built with Next.js, TypeScript, and P
 ### 1. Clone the Repository
 ```bash
 git clone <repository-url>
-cd rotacloud-complete
+cd rotaclock-complete
 ```
 
 ### 2. Install Dependencies
@@ -98,7 +98,7 @@ Project Manager area:
 ## 📁 Project Structure
 
 ```
-rotacloud-complete/
+rotaclock-complete/
 ├── app/                          # Next.js app directory
 │   ├── admin/                    # Admin dashboard pages
 │   ├── employee/                 # Employee dashboard pages
@@ -297,4 +297,4 @@ For support and questions:
 
 ---
 
-**RotaCloud** - Streamlining employee management for modern businesses.
+**RotaClock** - Streamlining employee management for modern businesses.

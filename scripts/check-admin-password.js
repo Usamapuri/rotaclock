@@ -33,7 +33,7 @@ async function checkAdminPassword() {
     const result = await client.query(`
       SELECT id, employee_id, first_name, last_name, email, password_hash, role 
       FROM employees 
-      WHERE employee_id = 'ADM001' OR email = 'admin@rotacloud.com'
+      WHERE employee_id = 'ADM001' OR email = 'admin@rotaclock.com'
     `);
     
     if (result.rows.length === 0) {

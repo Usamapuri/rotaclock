@@ -1,4 +1,4 @@
-# Database Setup Guide for RotaCloud
+# Database Setup Guide for RotaClock
 
 ## Step 1: Set Up Railway PostgreSQL Database
 1. Go to https://railway.app
@@ -48,7 +48,7 @@ After running all scripts, you should have:
 - Password authentication capability
 
 ## Step 7: Test Your Application
-Once the database is set up, your RotaCloud application should display:
+Once the database is set up, your RotaClock application should display:
 - Employee data in the admin dashboard
 - Shift schedules
 - Time tracking functionality

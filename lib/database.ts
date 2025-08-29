@@ -1063,7 +1063,7 @@ export async function getNotifications(limit = 50) {
     {
       id: '1',
       user_id: 'demo-user',
-      title: 'Welcome to RotaCloud',
+      title: 'Welcome to RotaClock',
       message: 'Your account has been set up successfully',
       type: 'info',
       read: false,
