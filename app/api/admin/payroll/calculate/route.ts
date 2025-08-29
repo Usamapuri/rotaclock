@@ -46,28 +46,35 @@ export async function POST(request: NextRequest) {
 
     // Calculate payroll for each employee
     for (const employee of employees) {
-      // Get APPROVED time entries for this employee in the period
-      // Only entries that have an approval record with status = 'approved' are counted
+      // Get APPROVED shift logs for this employee in the period
+      // Only shifts with approval_status = 'approved' are counted for payroll
       const shiftLogsResult = await query(`
         SELECT 
-          COALESCE(sl.total_shift_hours, 0) as hours_worked,
+          COALESCE(sl.approved_hours, sl.total_shift_hours, 0) as hours_worked,
+          COALESCE(sl.approved_rate, sl.hourly_rate, 0) as hourly_rate,
           sl.performance_rating,
           sl.is_late,
-          sl.is_no_show
+          sl.is_no_show,
+          sl.total_pay
         FROM shift_logs sl
-        JOIN time_entry_approvals tea ON tea.time_entry_id = sl.id AND tea.status = 'approved'
         WHERE sl.employee_id = $1 
           AND sl.clock_in_time >= $2 
           AND sl.clock_in_time <= $3
           AND sl.status = 'completed'
+          AND sl.approval_status = 'approved'
       `, [employee.id, period.start_date, period.end_date])
 
       const shiftLogs = shiftLogsResult.rows
 
-      // Calculate total hours worked
+      // Calculate total hours worked and pay from approved shifts
       const totalHours = shiftLogs.reduce((sum, log) => {
         const hours = parseFloat(log.hours_worked) || 0
         return sum + hours
+      }, 0)
+
+      const totalPay = shiftLogs.reduce((sum, log) => {
+        const pay = parseFloat(log.total_pay) || 0
+        return sum + pay
       }, 0)
       
       // Calculate overtime (hours over 40 per week)
@@ -76,7 +83,7 @@ export async function POST(request: NextRequest) {
       const overtimeHours = Math.max(0, totalHours - maxRegularHours)
       const regularHours = totalHours - overtimeHours
 
-      // Calculate pay
+      // Calculate pay (use approved rates and hours)
       const hourlyPay = regularHours * (employee.hourly_rate || 0)
       const overtimePay = overtimeHours * (employee.hourly_rate || 0) * 1.5 // 1.5x overtime rate
 
@@ -98,99 +105,63 @@ export async function POST(request: NextRequest) {
         bonuses += 1000 // PKR 1000 bonus for high performance
       }
 
-      // Get existing deductions and bonuses from database using email
-      const deductionsResult = await query(`
-        SELECT COALESCE(SUM(amount), 0) as total_deductions
-        FROM payroll_deductions
-        WHERE employee_email = $1
-      `, [employee.email])
+      // Calculate total pay
+      const totalCalculatedPay = totalPay + bonuses - deductions
 
-      const bonusesResult = await query(`
-        SELECT COALESCE(SUM(amount), 0) as total_bonuses
-        FROM payroll_bonuses
-        WHERE employee_email = $1
-      `, [employee.email])
-
-      const manualDeductions = deductionsResult.rows[0].total_deductions
-      const manualBonuses = bonusesResult.rows[0].total_bonuses
-
-      // Calculate final amounts
-      const grossPay = Number(employee.base_salary) + Number(hourlyPay) + Number(overtimePay) + Number(bonuses) + Number(manualBonuses)
-      const totalDeductions = Number(deductions) + Number(manualDeductions)
-      const netPay = grossPay - totalDeductions
-
-      // Insert or update payroll record using both employee_id and email
+      // Insert or update payroll record
       await query(`
         INSERT INTO payroll_records (
-          employee_id,
-          employee_email,
-          payroll_period_id,
-          base_salary,
-          hours_worked,
-          hourly_pay,
+          employee_id, 
+          period_id, 
+          total_hours, 
+          regular_hours, 
           overtime_hours,
+          hourly_rate,
+          regular_pay,
           overtime_pay,
-          bonus_amount,
-          deductions_amount,
-          gross_pay,
+          total_pay,
+          bonuses,
+          deductions,
           net_pay,
-          payment_status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending')
-        ON CONFLICT (employee_id, payroll_period_id) 
+          status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ON CONFLICT (employee_id, period_id) 
         DO UPDATE SET
-          employee_email = EXCLUDED.employee_email,
-          base_salary = EXCLUDED.base_salary,
-          hours_worked = EXCLUDED.hours_worked,
-          hourly_pay = EXCLUDED.hourly_pay,
+          total_hours = EXCLUDED.total_hours,
+          regular_hours = EXCLUDED.regular_hours,
           overtime_hours = EXCLUDED.overtime_hours,
+          hourly_rate = EXCLUDED.hourly_rate,
+          regular_pay = EXCLUDED.regular_pay,
           overtime_pay = EXCLUDED.overtime_pay,
-          bonus_amount = EXCLUDED.bonus_amount,
-          deductions_amount = EXCLUDED.deductions_amount,
-          gross_pay = EXCLUDED.gross_pay,
+          total_pay = EXCLUDED.total_pay,
+          bonuses = EXCLUDED.bonuses,
+          deductions = EXCLUDED.deductions,
           net_pay = EXCLUDED.net_pay,
           updated_at = NOW()
       `, [
-        employee.employee_code,
-        employee.email,
+        employee.id,
         periodId,
-        employee.base_salary,
         totalHours,
-        hourlyPay,
+        regularHours,
         overtimeHours,
+        employee.hourly_rate,
+        hourlyPay,
         overtimePay,
-        bonuses + manualBonuses,
-        totalDeductions,
-        grossPay,
-        netPay
+        totalPay,
+        bonuses,
+        deductions,
+        totalCalculatedPay,
+        'calculated'
       ])
     }
-
-    // Update period totals
-    const totalResult = await query(`
-      SELECT 
-        COUNT(*) as total_employees,
-        COALESCE(SUM(net_pay), 0) as total_amount
-      FROM payroll_records
-      WHERE payroll_period_id = $1
-    `, [periodId])
-
-    const totals = totalResult.rows[0]
-
-    await query(`
-      UPDATE payroll_periods
-      SET 
-        total_employees = $2,
-        total_payroll_amount = $3,
-        status = 'processing',
-        updated_at = NOW()
-      WHERE id = $1
-    `, [periodId, totals.total_employees, totals.total_amount])
 
     return NextResponse.json({
       success: true,
       message: 'Payroll calculated successfully',
-      total_employees: totals.total_employees,
-      total_amount: totals.total_amount
+      data: {
+        period_id: periodId,
+        employees_processed: employees.length
+      }
     })
 
   } catch (error) {

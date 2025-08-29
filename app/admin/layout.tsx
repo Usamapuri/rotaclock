@@ -16,6 +16,7 @@ import {
   FolderKanban,
   DollarSign,
   Briefcase,
+  CheckCircle,
 } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -32,11 +33,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const links = useMemo(() => {
     const base = [
       { href: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
-                { href: "/admin/employees", label: "Agents", icon: <Users /> },
+      { href: "/admin/employees", label: "Agents", icon: <Users /> },
       { href: "/admin/teams", label: "Teams", icon: <FolderKanban /> },
       { href: "/admin/team-leads", label: "Team Leads", icon: <UserPlus /> },
       { href: "/admin/projects", label: "Projects", icon: <Briefcase /> },
       { href: "/admin/scheduling", label: "Scheduling", icon: <Calendar /> },
+      { href: "/admin/shift-approvals", label: "Shift Approvals", icon: <CheckCircle /> },
       { href: "/admin/reports", label: "Reports", icon: <BarChart3 /> },
       { href: "/admin/timesheet", label: "Timesheet", icon: <Clock /> },
       { href: "/admin/onboarding", label: "Onboarding", icon: <Users /> },

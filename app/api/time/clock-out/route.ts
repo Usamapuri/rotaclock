@@ -49,23 +49,33 @@ export async function POST(request: NextRequest) {
     
     // Calculate total shift duration
     const totalShiftDuration = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60) // hours
-    const breakTimeUsed = Number(currentShift.break_time_used) || 0
+    const breakTimeUsed = Number(currentShift.break_time_used)
     const totalHours = totalShiftDuration - breakTimeUsed
 
-    // Update shift log (remove columns that don't exist in shift_logs table)
+    // Update shift log with clock out time and set approval status to pending
     const updateResult = await query(
       `UPDATE shift_logs SET 
         clock_out_time = $1, 
         total_shift_hours = $2, 
         break_time_used = $3, 
         status = $4,
+        approval_status = $5,
+        total_calls_taken = $6,
+        leads_generated = $7,
+        shift_remarks = $8,
+        performance_rating = $9,
         updated_at = NOW()
-      WHERE id = $5 RETURNING *`,
+      WHERE id = $10 RETURNING *`,
       [
         clockOutTime.toISOString(), 
         totalHours, 
         breakTimeUsed, 
-        'completed', 
+        'completed',
+        'pending', // Set approval status to pending
+        total_calls_taken || 0,
+        leads_generated || 0,
+        shift_remarks || '',
+        performance_rating || null,
         currentShift.id
       ]
     )
@@ -79,15 +89,30 @@ export async function POST(request: NextRequest) {
       WHERE id = $1
     `, [target_employee_id])
 
+    // Create notification for admin about pending approval
+    await query(`
+      INSERT INTO notifications (user_id, title, message, type, read, action_url)
+      SELECT 
+        e.id,
+        'Shift Approval Required',
+        $1,
+        'info',
+        false,
+        '/admin/shift-approvals'
+      FROM employees_new e 
+      WHERE e.role = 'admin'
+    `, [`${authResult.user.first_name} ${authResult.user.last_name} has completed a shift and requires approval`])
+
     return NextResponse.json({
       success: true,
       data: updatedShift,
-      message: 'Successfully clocked out with shift details',
+      message: 'Successfully clocked out. Shift submitted for approval.',
       totalShiftDuration: totalShiftDuration.toFixed(2),
       totalWorkHours: totalHours.toFixed(2),
       breakTimeUsed: breakTimeUsed.toFixed(2),
       totalCallsTaken: total_calls_taken || 0,
-      leadsGenerated: leads_generated || 0
+      leadsGenerated: leads_generated || 0,
+      approvalStatus: 'pending'
     })
 
   } catch (error) {
