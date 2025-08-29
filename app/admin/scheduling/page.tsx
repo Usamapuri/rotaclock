@@ -7,12 +7,13 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Calendar, Plus, RefreshCw, Settings, Users } from 'lucide-react'
+import { Calendar, Plus, RefreshCw, Settings, Users, Grid, List, Filter } from 'lucide-react'
 
-import WeekGrid from '@/components/scheduling/WeekGrid'
+import ModernWeekGrid from '@/components/scheduling/ModernWeekGrid'
 import EmployeeList from '@/components/scheduling/EmployeeList'
 import ShiftAssignmentModal from '@/components/scheduling/ShiftAssignmentModal'
 import ShiftTemplateModal from '@/components/scheduling/ShiftTemplateModal'
+import TemplateLibrary from '@/components/scheduling/TemplateLibrary'
 
 interface Employee {
   id: string
@@ -33,6 +34,7 @@ interface ShiftTemplate {
   department: string
   color: string
   required_staff: number
+  is_active?: boolean
 }
 
 export default function SchedulingPage() {
@@ -44,6 +46,8 @@ export default function SchedulingPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false)
 
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
@@ -64,7 +68,6 @@ export default function SchedulingPage() {
   const loadAll = async () => {
     try {
       setIsLoading(true)
-      // Load week first and use its employee list (already includes assignments)
       await loadWeek()
       await loadTemplates()
     } catch (e) {
@@ -72,16 +75,6 @@ export default function SchedulingPage() {
       toast.error('Failed to load scheduling data')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const loadEmployees = async () => {
-    const res = await fetch('/api/scheduling/employees')
-    const data = await res.json()
-    if (data.success) {
-      setEmployees(
-        data.data.map((e: any) => ({ ...e, assignments: {} }))
-      )
     }
   }
 
@@ -96,7 +89,6 @@ export default function SchedulingPage() {
     const res = await fetch(`/api/scheduling/week/${dateToLoad}`)
     const data = await res.json()
     if (!data.success) return
-    // Always use employees from week payload to avoid stale or partial merges
     setEmployees(data.data.employees.map((e: any) => ({ ...e, assignments: e.assignments || {} })))
   }
 
@@ -119,7 +111,36 @@ export default function SchedulingPage() {
 
   const handleAssignmentCreated = async () => {
     await loadWeek()
-    toast.success('Shift saved')
+    toast.success('Shift assigned successfully')
+  }
+
+  const handleTemplateSaved = async () => {
+    await loadTemplates()
+    toast.success('Template saved successfully')
+  }
+
+  const handleDragDrop = async (employeeId: string, date: string, templateId: string) => {
+    try {
+      const res = await fetch('/api/scheduling/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: employeeId,
+          date: date,
+          template_id: templateId
+        })
+      })
+      
+      if (res.ok) {
+        await loadWeek()
+        toast.success('Shift assigned via drag & drop')
+      } else {
+        toast.error('Failed to assign shift')
+      }
+    } catch (error) {
+      console.error('Drag drop error:', error)
+      toast.error('Failed to assign shift')
+    }
   }
 
   const stats = useMemo(() => {
@@ -149,98 +170,251 @@ export default function SchedulingPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Scheduling</h1>
-          <p className="text-gray-600">Plan and manage weekly shifts</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button variant="outline" onClick={() => { setEditingTemplate(null); setShowTemplateModal(true) }}>
-            <Settings className="h-4 w-4 mr-2" />
-            Templates
-          </Button>
-          <Button onClick={() => {
-            setAssignmentDate(selectedDate)
-            const defaultEmpId = selectedEmployee?.id || employees[0]?.id || ''
-            setAssignmentEmployeeId(defaultEmpId)
-            setShowAssignmentModal(true)
-          }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Quick Assign
-          </Button>
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Scheduling</h1>
+              <p className="text-gray-600">Plan and manage weekly shifts with drag & drop</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                >
+                  <Grid className="h-4 w-4 mr-2" />
+                  Grid
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="h-4 w-4 mr-2" />
+                  List
+                </Button>
+              </div>
+              
+              <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                onClick={() => setShowTemplateLibrary(true)}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Template Library
+              </Button>
+              
+              <Button 
+                onClick={() => {
+                  setAssignmentDate(selectedDate)
+                  const defaultEmpId = selectedEmployee?.id || employees[0]?.id || ''
+                  setAssignmentEmployeeId(defaultEmpId)
+                  setShowAssignmentModal(true)
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Quick Assign
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-gray-600">Total Employees</p><p className="text-2xl font-bold">{stats.totalEmployees}</p></div><Users className="h-8 w-8 text-blue-500"/></CardContent></Card>
-        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-gray-600">Assigned Employees</p><p className="text-2xl font-bold">{stats.assignedEmployees}</p></div><Calendar className="h-8 w-8 text-green-500"/></CardContent></Card>
-        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-gray-600">Total Assignments</p><p className="text-2xl font-bold">{stats.totalAssignments}</p></div><Settings className="h-8 w-8 text-purple-500"/></CardContent></Card>
-        <Card><CardContent className="p-4 flex items-center justify-between"><div><p className="text-sm text-gray-600">Coverage Rate</p><p className="text-2xl font-bold">{stats.coverageRate}%</p></div><div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">%</div></CardContent></Card>
+      <div className="container mx-auto px-6 py-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white shadow-sm border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Employees</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.totalEmployees}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white shadow-sm border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Assigned This Week</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.assignedEmployees}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white shadow-sm border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Shifts</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.totalAssignments}</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Settings className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white shadow-sm border-0">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Coverage Rate</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.coverageRate}%</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <span className="text-lg font-bold text-orange-600">%</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <Tabs defaultValue="schedule" className="space-y-6">
+          <TabsList className="bg-white shadow-sm border">
+            <TabsTrigger value="schedule" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              Week Schedule
+            </TabsTrigger>
+            <TabsTrigger value="employees" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              Employees
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              Shift Templates
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="schedule" className="space-y-6">
+            <ModernWeekGrid
+              employees={employees}
+              templates={templates}
+              selectedDate={selectedDate}
+              viewMode={viewMode}
+              onDateChange={handleDateChange}
+              onAssignShift={handleAssignShift}
+              onDragDrop={handleDragDrop}
+              onRemoveShift={(assignmentId: string) => {
+                setEmployees(prev => prev.map(e => {
+                  const updatedAssignments: any = {}
+                  Object.entries(e.assignments || {}).forEach(([d, arr]) => {
+                    updatedAssignments[d] = (arr as any[]).filter(a => a.id !== assignmentId)
+                  })
+                  return { ...e, assignments: updatedAssignments }
+                }))
+              }}
+              onAssignmentCreated={handleAssignmentCreated}
+            />
+          </TabsContent>
+          
+          <TabsContent value="employees" className="space-y-6">
+            <EmployeeList 
+              selectedEmployeeId={selectedEmployee?.id} 
+              onEmployeeSelect={e => setSelectedEmployee({
+                id: e.id,
+                employee_code: e.employee_code,
+                first_name: e.first_name,
+                last_name: e.last_name,
+                email: e.email,
+                department: e.department,
+                job_position: e.job_position,
+                assignments: {}
+              })} 
+            />
+          </TabsContent>
+          
+          <TabsContent value="templates" className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Shift Templates</h3>
+                  <p className="text-gray-600">Manage your shift templates and assign them to employees</p>
+                </div>
+                <Button 
+                  onClick={() => { setEditingTemplate(null); setShowTemplateModal(true) }}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Template
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {templates.map((template) => (
+                  <Card key={template.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div 
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: template.color }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setEditingTemplate(template); setShowTemplateModal(true) }}
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 mb-2">{template.name}</h4>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p>{template.start_time} - {template.end_time}</p>
+                        <p>{template.department} • {template.required_staff} staff</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Modals */}
+        <ShiftAssignmentModal
+          isOpen={showAssignmentModal}
+          onClose={() => setShowAssignmentModal(false)}
+          employee={employees.find(e => e.id === assignmentEmployeeId) || null}
+          date={assignmentDate}
+          templates={templates}
+          onAssignmentCreated={handleAssignmentCreated}
+        />
+
+        <ShiftTemplateModal
+          isOpen={showTemplateModal}
+          onClose={() => setShowTemplateModal(false)}
+          template={editingTemplate}
+          onTemplateSaved={handleTemplateSaved}
+        />
+
+        <TemplateLibrary
+          isOpen={showTemplateLibrary}
+          onClose={() => setShowTemplateLibrary(false)}
+          templates={templates}
+          onTemplateEdit={(template) => {
+            setEditingTemplate(template)
+            setShowTemplateLibrary(false)
+            setShowTemplateModal(true)
+          }}
+          onTemplateSaved={handleTemplateSaved}
+        />
       </div>
-
-      <Tabs defaultValue="schedule" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="schedule">Week Schedule</TabsTrigger>
-          <TabsTrigger value="employees">Employees</TabsTrigger>
-          <TabsTrigger value="templates">Shift Templates</TabsTrigger>
-        </TabsList>
-        <TabsContent value="schedule" className="space-y-4">
-          <WeekGrid
-            employees={employees}
-            templates={templates}
-            selectedDate={selectedDate}
-            onDateChange={handleDateChange}
-            onAssignShift={handleAssignShift}
-            onRemoveShift={(assignmentId: string) => {
-              // Optimistically remove from local state; API deletion happens inside ShiftCell
-              setEmployees(prev => prev.map(e => {
-                const updatedAssignments: any = {}
-                Object.entries(e.assignments || {}).forEach(([d, arr]) => {
-                  updatedAssignments[d] = (arr as any[]).filter(a => a.id !== assignmentId)
-                })
-                return { ...e, assignments: updatedAssignments }
-              }))
-            }}
-            onAssignmentCreated={handleAssignmentCreated}
-          />
-        </TabsContent>
-        <TabsContent value="employees" className="space-y-4">
-          <EmployeeList selectedEmployeeId={selectedEmployee?.id} onEmployeeSelect={e => setSelectedEmployee({
-            id: e.id,
-            employee_code: e.employee_code,
-            first_name: e.first_name,
-            last_name: e.last_name,
-            email: e.email,
-            department: e.department,
-            job_position: e.job_position,
-            assignments: {}
-          })} />
-        </TabsContent>
-        <TabsContent value="templates" className="space-y-4">
-          {/* Template list is already accessible via modal; keep page minimal for now */}
-        </TabsContent>
-      </Tabs>
-
-      <ShiftAssignmentModal
-        isOpen={showAssignmentModal}
-        onClose={() => setShowAssignmentModal(false)}
-        employee={employees.find(e => e.id === assignmentEmployeeId) || null}
-        date={assignmentDate}
-        templates={templates}
-        onAssignmentCreated={handleAssignmentCreated}
-      />
-
-      <ShiftTemplateModal
-        isOpen={showTemplateModal}
-        onClose={() => setShowTemplateModal(false)}
-        template={editingTemplate}
-        onTemplateSaved={async () => { await loadTemplates(); toast.success('Template saved') }}
-      />
     </div>
   )
 }
