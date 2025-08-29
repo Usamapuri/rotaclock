@@ -61,3 +61,4 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_employees_new_team_id ON employees_new(team_id);
   END IF;
 END$$;
+

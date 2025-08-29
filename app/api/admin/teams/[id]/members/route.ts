@@ -22,13 +22,13 @@ export async function GET(
 
     // Get team members with detailed information
     const result = await query(`
-      SELECT 
+      SELECT
         e.id,
         e.first_name,
         e.last_name,
         e.email,
         e.position,
-        e.employee_id,
+        e.employee_code as employee_id,
         e.created_at as joined_date,
         'member' as role
       FROM employees_new e

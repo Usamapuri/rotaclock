@@ -55,3 +55,4 @@ CREATE TABLE IF NOT EXISTS manager_projects (
 
 CREATE INDEX IF NOT EXISTS idx_manager_projects_manager_id ON manager_projects(manager_id);
 CREATE INDEX IF NOT EXISTS idx_manager_projects_project_id ON manager_projects(project_id);
+

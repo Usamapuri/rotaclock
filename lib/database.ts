@@ -116,7 +116,7 @@ process.on('SIGINT', () => {
 export interface Employee {
   id: string
   user_id?: string
-  employee_id: string
+  employee_code: string
   first_name: string
   last_name: string
   email: string
@@ -383,17 +383,17 @@ export async function getCurrentEmployee() {
   // For demo purposes, get the first employee from the database
   // In production, this would get the employee from the authenticated user
   const result = await query(`
-    SELECT * FROM employees_new 
-    WHERE is_active = true 
-    ORDER BY created_at ASC 
+    SELECT * FROM employees_new
+    WHERE is_active = true
+    ORDER BY created_at ASC
     LIMIT 1
   `)
-  
+
   if (result.rows.length === 0) {
     // Fallback to mock employee if no employees exist
     return {
       id: '00000000-0000-0000-0000-000000000001',
-      employee_id: 'EMP001',
+      employee_code: 'EMP001',
       first_name: 'John',
       last_name: 'Doe',
       email: 'john.doe@company.com',
@@ -405,7 +405,7 @@ export async function getCurrentEmployee() {
       updated_at: new Date().toISOString()
     }
   }
-  
+
   return result.rows[0]
 }
 
@@ -513,19 +513,19 @@ function verifyPassword(password: string, hash: string): boolean {
   }
 }
 
-// Authenticate employee by employee_id and password
-export async function authenticateEmployee(employeeId: string, password: string): Promise<Employee | null> {
+// Authenticate employee by employee_code and password
+export async function authenticateEmployee(employeeCode: string, password: string): Promise<Employee | null> {
   const result = await query(`
-    SELECT * FROM employees_new 
-    WHERE employee_id = $1 AND is_active = true
-  `, [employeeId])
+    SELECT * FROM employees_new
+    WHERE employee_code = $1 AND is_active = true
+  `, [employeeCode])
 
   if (result.rows.length === 0) {
     return null
   }
 
   const employee = result.rows[0]
-  
+
   if (!employee.password_hash) {
     return null
   }
@@ -569,12 +569,12 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
   
   const result = await query(`
     INSERT INTO employees_new (
-      employee_id, first_name, last_name, email, department, position, role,
+      employee_code, first_name, last_name, email, department, position, role,
       hire_date, manager_id, is_active, hourly_rate, max_hours_per_week, password_hash
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *
   `, [
-    employeeData.employee_id,
+    employeeData.employee_code,
     employeeData.first_name,
     employeeData.last_name,
     employeeData.email,
@@ -768,15 +768,15 @@ export async function getShiftAssignments(filters: {
   let paramIndex = 3
 
   if (filters.employee_id) {
-    // Check if the employee_id is a UUID or an employee ID string
+    // Check if the employee_id is a UUID or an employee code string
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filters.employee_id)
-    
+
     if (isUuid) {
       // If it's a UUID, filter by sa.employee_id (which stores the UUID)
       queryText += ` AND sa.employee_id = $${paramIndex}`
     } else {
-      // If it's an employee ID string (like EMP001), filter by e.employee_id
-      queryText += ` AND e.employee_id = $${paramIndex}`
+      // If it's an employee code string (like EMP001), filter by e.employee_code
+      queryText += ` AND e.employee_code = $${paramIndex}`
     }
     params.push(filters.employee_id)
     paramIndex++
@@ -1135,7 +1135,7 @@ export async function getLeaveRequests(filters?: {
       queryText += ` WHERE lr.employee_id = $${paramIndex}`
       params.push(filters.employee_id)
     } else {
-      queryText += ` WHERE e.employee_id = $${paramIndex}`
+      queryText += ` WHERE e.employee_code = $${paramIndex}`
       params.push(filters.employee_id)
     }
     paramIndex++
@@ -1581,7 +1581,7 @@ export async function getShiftLogs(filters: {
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   
   const result = await query(
-    `SELECT sl.*, e.first_name, e.last_name, e.employee_code as emp_id
+    `SELECT sl.*, e.first_name, e.last_name, e.employee_code as emp_code
      FROM shift_logs sl
      LEFT JOIN employees_new e ON sl.employee_id = e.id
      ${whereClause}
@@ -1762,9 +1762,9 @@ export async function getAttendanceSummary(filters: {
   }
   
   const result = await query(
-    `SELECT as.*, e.first_name, e.last_name, e.employee_id as emp_id, e.department
+    `SELECT as.*, e.first_name, e.last_name, e.employee_code as emp_id, e.department
      FROM attendance_summary as
-     LEFT JOIN employees e ON as.employee_id = e.id
+     LEFT JOIN employees_new e ON as.employee_id = e.id
      WHERE ${conditions.join(' AND ')}
      ORDER BY as.date DESC, e.first_name, e.last_name`,
     params

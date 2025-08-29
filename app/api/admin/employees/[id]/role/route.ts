@@ -90,7 +90,7 @@ export async function PUT(
         assigned_by,
         reason
       ) VALUES (
-        (SELECT employee_id FROM employees_new WHERE ${isUuid ? 'id' : 'email'} = $1),
+        (SELECT employee_code FROM employees_new WHERE ${isUuid ? 'id' : 'email'} = $1),
         $2,
         $3,
         $4,
