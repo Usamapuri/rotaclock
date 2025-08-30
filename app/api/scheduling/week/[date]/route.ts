@@ -103,7 +103,7 @@ export async function GET(
           st.color as color,
           st.department as template_department
         FROM shift_assignments_new sa
-        JOIN shift_templates st ON sa.template_id = st.id
+        LEFT JOIN shift_templates st ON sa.template_id = st.id
         WHERE sa.date >= $1 AND sa.date <= $2
       `
     }
