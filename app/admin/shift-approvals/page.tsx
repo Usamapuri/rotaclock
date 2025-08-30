@@ -167,8 +167,8 @@ export default function ShiftApprovalsPage() {
     setSelectedApproval(approval)
     setApprovalAction(action)
     setApprovalData({
-      approved_hours: approval.total_shift_hours,
-      approved_rate: approval.hourly_rate,
+      approved_hours: Number(approval.total_shift_hours) || 0,
+      approved_rate: Number(approval.hourly_rate) || 0,
       admin_notes: approval.admin_notes || '',
       rejection_reason: approval.rejection_reason || ''
     })
@@ -479,7 +479,7 @@ export default function ShiftApprovalsPage() {
                       id="approved_hours"
                       type="number"
                       step="0.25"
-                      value={approvalData.approved_hours}
+                      value={approvalData.approved_hours || ''}
                       onChange={(e) => setApprovalData(prev => ({ ...prev, approved_hours: parseFloat(e.target.value) || 0 }))}
                     />
                   </div>
@@ -489,7 +489,7 @@ export default function ShiftApprovalsPage() {
                       id="approved_rate"
                       type="number"
                       step="0.01"
-                      value={approvalData.approved_rate}
+                      value={approvalData.approved_rate || ''}
                       onChange={(e) => setApprovalData(prev => ({ ...prev, approved_rate: parseFloat(e.target.value) || 0 }))}
                     />
                   </div>

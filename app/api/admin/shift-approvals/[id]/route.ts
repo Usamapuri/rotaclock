@@ -6,8 +6,14 @@ import { z } from 'zod'
 // Validation schema for shift approval actions
 const approvalSchema = z.object({
   action: z.enum(['approve', 'reject', 'edit']),
-  approved_hours: z.number().min(0).optional(),
-  approved_rate: z.number().min(0).optional(),
+  approved_hours: z.union([z.string(), z.number()]).transform((val) => {
+    const num = typeof val === 'string' ? parseFloat(val) : val
+    return isNaN(num) ? 0 : num
+  }).pipe(z.number().min(0)).optional(),
+  approved_rate: z.union([z.string(), z.number()]).transform((val) => {
+    const num = typeof val === 'string' ? parseFloat(val) : val
+    return isNaN(num) ? 0 : num
+  }).pipe(z.number().min(0)).optional(),
   admin_notes: z.string().optional(),
   rejection_reason: z.string().optional()
 })
@@ -31,7 +37,14 @@ export async function PATCH(
 
     const shiftId = params.id
     const body = await request.json()
+    
+    // Log the incoming data for debugging
+    console.log('Incoming approval data:', body)
+    
     const validatedData = approvalSchema.parse(body)
+    
+    // Log the validated data
+    console.log('Validated approval data:', validatedData)
 
     // Get the current shift log
     const shiftResult = await query(
