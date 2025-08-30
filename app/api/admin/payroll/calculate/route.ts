@@ -51,18 +51,18 @@ export async function POST(request: NextRequest) {
       const shiftLogsResult = await query(`
         SELECT 
           COALESCE(sl.approved_hours, sl.total_shift_hours, 0) as hours_worked,
-          COALESCE(sl.approved_rate, sl.hourly_rate, 0) as hourly_rate,
+          COALESCE(sl.approved_rate, $1, 0) as hourly_rate,
           sl.performance_rating,
           sl.is_late,
           sl.is_no_show,
           sl.total_pay
         FROM shift_logs sl
-        WHERE sl.employee_id = $1 
-          AND sl.clock_in_time >= $2 
-          AND sl.clock_in_time <= $3
+        WHERE sl.employee_id = $2 
+          AND sl.clock_in_time >= $3 
+          AND sl.clock_in_time <= $4
           AND sl.status = 'completed'
           AND sl.approval_status = 'approved'
-      `, [employee.id, period.start_date, period.end_date])
+      `, [employee.hourly_rate, employee.id, period.start_date, period.end_date])
 
       const shiftLogs = shiftLogsResult.rows
 
