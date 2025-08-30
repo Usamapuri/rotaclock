@@ -4,7 +4,7 @@
 -- Add approval-related columns to shift_logs table
 ALTER TABLE shift_logs 
 ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) DEFAULT 'pending' CHECK (approval_status IN ('pending', 'approved', 'rejected', 'edited')),
-ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES employees(id),
+ADD COLUMN IF NOT EXISTS approved_by UUID,
 ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP WITH TIME ZONE,
 ADD COLUMN IF NOT EXISTS rejection_reason TEXT,
 ADD COLUMN IF NOT EXISTS admin_notes TEXT,
@@ -15,9 +15,9 @@ ADD COLUMN IF NOT EXISTS total_pay DECIMAL(10,2);
 -- Create shift_approvals table for tracking approval history
 CREATE TABLE IF NOT EXISTS shift_approvals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    shift_log_id UUID NOT NULL REFERENCES shift_logs(id) ON DELETE CASCADE,
-    employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    approver_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    shift_log_id UUID NOT NULL,
+    employee_id UUID NOT NULL,
+    approver_id UUID NOT NULL,
     action VARCHAR(20) NOT NULL CHECK (action IN ('approve', 'reject', 'edit')),
     original_hours DECIMAL(5,2),
     approved_hours DECIMAL(5,2),
@@ -54,55 +54,3 @@ SET approval_status = 'approved',
     approved_hours = total_shift_hours,
     approved_at = updated_at
 WHERE status = 'completed' AND approval_status = 'pending';
-
--- Create a view for easy access to pending approvals
-CREATE OR REPLACE VIEW pending_shift_approvals AS
-SELECT 
-    sl.id,
-    sl.employee_id,
-    sl.shift_assignment_id,
-    sl.clock_in_time,
-    sl.clock_out_time,
-    sl.total_shift_hours,
-    sl.break_time_used,
-    sl.total_calls_taken,
-    sl.leads_generated,
-    sl.shift_remarks,
-    sl.performance_rating,
-    sl.approval_status,
-    sl.created_at,
-    e.first_name,
-    e.last_name,
-    e.employee_code,
-    e.department,
-    e.job_position,
-    e.hourly_rate,
-    sa.date as shift_date,
-    s.name as shift_name,
-    s.start_time as scheduled_start_time,
-    s.end_time as scheduled_end_time
-FROM shift_logs sl
-JOIN employees_new e ON sl.employee_id = e.id
-LEFT JOIN shift_assignments sa ON sl.shift_assignment_id = sa.id
-LEFT JOIN shifts s ON sa.shift_id = s.id
-WHERE sl.approval_status = 'pending'
-ORDER BY sl.created_at DESC;
-
--- Create a view for approved shifts for payroll calculation
-CREATE OR REPLACE VIEW approved_shifts_for_payroll AS
-SELECT 
-    sl.id,
-    sl.employee_id,
-    sl.approved_hours,
-    sl.approved_rate,
-    sl.total_pay,
-    sl.approved_at,
-    DATE(sl.clock_in_time) as shift_date,
-    e.first_name,
-    e.last_name,
-    e.employee_code,
-    e.department
-FROM shift_logs sl
-JOIN employees_new e ON sl.employee_id = e.id
-WHERE sl.approval_status = 'approved'
-ORDER BY sl.approved_at DESC;

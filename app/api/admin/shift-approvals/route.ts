@@ -27,17 +27,17 @@ export async function GET(request: NextRequest) {
     let params: any[] = []
     
     if (status === 'pending') {
-      whereClause = 'WHERE sl.approval_status = $1'
-      params.push('pending')
+      whereClause = 'WHERE sl.approval_status = $1 AND sl.status = $2'
+      params.push('pending', 'completed')
     } else if (status === 'approved') {
-      whereClause = 'WHERE sl.approval_status = $1'
-      params.push('approved')
+      whereClause = 'WHERE sl.approval_status = $1 AND sl.status = $2'
+      params.push('approved', 'completed')
     } else if (status === 'rejected') {
-      whereClause = 'WHERE sl.approval_status = $1'
-      params.push('rejected')
+      whereClause = 'WHERE sl.approval_status = $1 AND sl.status = $2'
+      params.push('rejected', 'completed')
     } else if (status === 'all') {
-      whereClause = 'WHERE sl.approval_status IN ($1, $2, $3)'
-      params.push('pending', 'approved', 'rejected')
+      whereClause = 'WHERE sl.approval_status IN ($1, $2, $3) AND sl.status = $4'
+      params.push('pending', 'approved', 'rejected', 'completed')
     }
 
     // Get total count
@@ -83,8 +83,8 @@ export async function GET(request: NextRequest) {
         approver.last_name as approver_last_name
       FROM shift_logs sl
       JOIN employees_new e ON sl.employee_id = e.id
-      LEFT JOIN shift_assignments sa ON sl.shift_assignment_id = sa.id
-      LEFT JOIN shifts s ON sa.shift_id = s.id
+      LEFT JOIN shift_assignments_new sa ON sl.shift_assignment_id = sa.id
+      LEFT JOIN shift_templates s ON sa.template_id = s.id
       LEFT JOIN employees_new approver ON sl.approved_by = approver.id
       ${whereClause}
       ORDER BY sl.created_at DESC
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
         SUM(total_shift_hours) FILTER (WHERE approval_status = 'pending') as pending_hours,
         SUM(total_shift_hours) FILTER (WHERE approval_status = 'approved') as approved_hours
       FROM shift_logs
-      WHERE approval_status IN ('pending', 'approved', 'rejected')
+      WHERE approval_status IN ('pending', 'approved', 'rejected') AND status = 'completed'
     `
     const statsResult = await query(statsQuery)
     const stats = statsResult.rows[0]
