@@ -27,12 +27,12 @@ export function createApiAuthMiddleware() {
     if (employeeIdOrUuid) {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeIdOrUuid)
       const sql = isUuid
-        ? 'SELECT id, employee_id, email, role FROM employees_new WHERE id = $1 AND is_active = true'
-        : 'SELECT id, employee_id, email, role FROM employees_new WHERE employee_id = $1 AND is_active = true'
+        ? 'SELECT id, employee_code, email, role FROM employees_new WHERE id = $1 AND is_active = true'
+        : 'SELECT id, employee_code, email, role FROM employees_new WHERE employee_code = $1 AND is_active = true'
       const res = await query(sql, [employeeIdOrUuid])
       if (res.rows.length > 0) {
         const e = res.rows[0]
-        user = { id: e.id, email: e.email, role: e.role || 'employee', employeeId: e.id }
+        user = { id: e.id, email: e.email, role: e.role || 'employee', employeeId: e.employee_code }
         
         // Check if this user is being impersonated
         // For now, we'll rely on the client-side impersonation state

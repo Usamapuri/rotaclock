@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       // Fallback to legacy employees table if not found
       if (res.rows.length === 0) {
         res = await query(`
-          SELECT id, email, employee_id as employee_code, first_name, last_name, department, position as job_position, role, team_id
+          SELECT id, email, employee_code, first_name, last_name, department, job_position, role, team_id
           FROM employees_new
           WHERE email = $1 AND is_active = true
         `, [email])
