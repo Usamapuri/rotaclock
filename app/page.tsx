@@ -38,10 +38,10 @@ export default function LandingPage() {
                 <span className="text-gray-700">Solutions</span>
                 <ChevronDown className="h-4 w-4 text-gray-500" />
               </div>
-              <div className="flex items-center space-x-1 cursor-pointer hover:text-blue-600 transition-colors">
+              <Link href="/pricing" className="flex items-center space-x-1 hover:text-blue-600 transition-colors">
                 <span className="text-gray-700">Pricing</span>
                 <ChevronDown className="h-4 w-4 text-gray-500" />
-              </div>
+              </Link>
               <div className="flex items-center space-x-1 cursor-pointer hover:text-blue-600 transition-colors">
                 <span className="text-gray-700">Resources</span>
                 <ChevronDown className="h-4 w-4 text-gray-500" />
@@ -54,7 +54,7 @@ export default function LandingPage() {
               <Link href="/login">
                 <Button variant="ghost" className="text-gray-700 hover:text-blue-600 hover:bg-blue-50">Log in</Button>
               </Link>
-              <Link href="/login">
+              <Link href="/signup">
                 <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200">
                   Start Free Trial
                 </Button>
@@ -85,15 +85,15 @@ export default function LandingPage() {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-12">
-            <Link href="/login">
+            <Link href="/signup">
               <Button size="lg" className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-10 py-6 text-lg shadow-xl hover:shadow-2xl transition-all duration-200 transform hover:scale-105">
                 Start Your Free Trial
                 <ArrowRight className="ml-3 h-6 w-6" />
               </Button>
             </Link>
-            <Link href="/login">
+            <Link href="/pricing">
               <Button size="lg" variant="outline" className="px-10 py-6 text-lg border-2 hover:bg-blue-50 transition-all duration-200">
-                Watch Demo
+                View Pricing
               </Button>
             </Link>
           </div>
@@ -545,15 +545,15 @@ export default function LandingPage() {
             Start your free trial today and see the difference.
           </p>
           <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <Link href="/login">
+            <Link href="/signup">
               <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 px-10 py-6 text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-200 transform hover:scale-105">
                 Start Free Trial
                 <ArrowRight className="ml-3 h-6 w-6" />
               </Button>
             </Link>
-            <Link href="/login">
+            <Link href="/pricing">
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-blue-600 px-10 py-6 text-lg font-semibold">
-                Schedule Demo
+                View Pricing
               </Button>
             </Link>
           </div>
