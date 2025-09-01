@@ -112,44 +112,42 @@ export async function POST(request: NextRequest) {
       await query(`
         INSERT INTO payroll_records (
           employee_id, 
-          period_id, 
-          total_hours, 
-          regular_hours, 
+          payroll_period_id, 
+          base_salary,
+          hours_worked, 
+          hourly_pay, 
           overtime_hours,
-          hourly_rate,
-          regular_pay,
           overtime_pay,
-          total_pay,
-          bonuses,
-          deductions,
+          bonus_amount,
+          deductions_amount,
+          gross_pay,
           net_pay,
-          status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-        ON CONFLICT (employee_id, period_id) 
+          payment_status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (employee_id, payroll_period_id) 
         DO UPDATE SET
-          total_hours = EXCLUDED.total_hours,
-          regular_hours = EXCLUDED.regular_hours,
+          base_salary = EXCLUDED.base_salary,
+          hours_worked = EXCLUDED.hours_worked,
+          hourly_pay = EXCLUDED.hourly_pay,
           overtime_hours = EXCLUDED.overtime_hours,
-          hourly_rate = EXCLUDED.hourly_rate,
-          regular_pay = EXCLUDED.regular_pay,
           overtime_pay = EXCLUDED.overtime_pay,
-          total_pay = EXCLUDED.total_pay,
-          bonuses = EXCLUDED.bonuses,
-          deductions = EXCLUDED.deductions,
+          bonus_amount = EXCLUDED.bonus_amount,
+          deductions_amount = EXCLUDED.deductions_amount,
+          gross_pay = EXCLUDED.gross_pay,
           net_pay = EXCLUDED.net_pay,
+          payment_status = EXCLUDED.payment_status,
           updated_at = NOW()
       `, [
-        employee.id,
+        employee.employee_code,
         periodId,
+        employee.base_salary,
         totalHours,
-        regularHours,
-        overtimeHours,
-        employee.hourly_rate,
         hourlyPay,
+        overtimeHours,
         overtimePay,
-        totalPay,
         bonuses,
         deductions,
+        totalPay,
         totalCalculatedPay,
         'calculated'
       ])
