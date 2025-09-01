@@ -127,13 +127,30 @@ export default function SignupPage() {
     if (!validateStep(step)) return
 
     try {
-      // TODO: Implement organization signup API call
       console.log('Submitting organization signup:', formData)
       
-      // For now, just redirect to login
-      router.push('/login?message=signup-success')
+      const response = await fetch('/api/organizations/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        console.log('Organization created successfully:', result.data)
+        // Redirect to success page
+        router.push('/signup/success?email=' + encodeURIComponent(formData.adminEmail))
+      } else {
+        console.error('Signup failed:', result.error)
+        // Handle error - you might want to show this to the user
+        alert('Signup failed: ' + result.error)
+      }
     } catch (error) {
       console.error('Signup error:', error)
+      alert('An error occurred during signup. Please try again.')
     }
   }
 

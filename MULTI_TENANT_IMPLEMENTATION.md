@@ -37,8 +37,8 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
   - [ ] Test query performance with multiple tenants
 
 ### Phase 2: Authentication & Organization Management
-- [ ] **2.1** Create organization signup flow
-  - [ ] Design organization signup form
+- [x] **2.1** Create organization signup flow
+  - [x] Design organization signup form
   - [ ] Create organization creation API endpoint
   - [ ] Implement organization admin user creation
   - [ ] Add email verification for organization signup
@@ -57,12 +57,12 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
   - [ ] Add subscription status display
 
 ### Phase 3: Pricing & Subscription System
-- [ ] **3.1** Create pricing page
-  - [ ] Design pricing page with 3 tiers
-  - [ ] Add "Start Free Trial" button
-  - [ ] Create pricing comparison table
-  - [ ] Add feature highlights for each tier
-  - [ ] Test pricing page responsiveness
+- [x] **3.1** Create pricing page
+  - [x] Design pricing page with 3 tiers
+  - [x] Add "Start Free Trial" button
+  - [x] Create pricing comparison table
+  - [x] Add feature highlights for each tier
+  - [x] Test pricing page responsiveness
 
 - [ ] **3.2** Implement subscription management
   - [ ] Integrate Stripe for payment processing
@@ -161,9 +161,9 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
 ## 🚀 Current Status: **Phase 2 - Authentication & Organization Management**
 
 ### Next Immediate Steps:
-1. **Create pricing page** - Design pricing page with 3 tiers
-2. **Create organization signup flow** - Design organization signup form
-3. **Update authentication system** - Add tenant context to login
+1. **Create organization signup API** - Implement backend API for organization creation
+2. **Update authentication system** - Add tenant context to login
+3. **Start Phase 3.2** - Implement subscription management with Stripe
 
 ### Estimated Timeline:
 - **Phase 1**: 2-3 days (Database foundation)
