@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied. Team lead privileges required.' }, { status: 403 })
     }
 
-    // Return minimal session info
+    // Return minimal session info with tenant context
     return NextResponse.json({
       success: true,
       employee: {
@@ -35,6 +35,11 @@ export async function POST(request: NextRequest) {
         position: employee.position,
         role: 'team_lead',
         team_id: employee.team_id || null,
+        tenant_id: employee.tenant_id,
+        organization_id: employee.organization_id,
+        organization_name: employee.organization_name,
+        subscription_status: employee.subscription_status,
+        subscription_plan: employee.subscription_plan
       }
     })
   } catch (error) {

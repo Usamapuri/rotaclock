@@ -104,11 +104,11 @@ export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#FDFBF8] to-white">
       {/* Header */}
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
-          <Badge variant="secondary" className="mb-4">
+          <Badge variant="secondary" className="mb-4 bg-blue-50 text-blue-700 border-blue-200">
             <Star className="w-4 h-4 mr-2" />
             Most Popular Choice
           </Badge>
@@ -289,29 +289,29 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* CTA Section */}
-        <div className="text-center mt-20">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-12 text-white">
-            <h2 className="text-3xl font-bold mb-4">
-              Ready to get started?
-            </h2>
-            <p className="text-xl mb-8 opacity-90">
-              Join thousands of organizations using RotaCloud to manage their workforce
-            </p>
-            <div className="space-x-4">
-              <Button size="lg" variant="secondary" asChild>
-                <Link href="/signup">
-                  Start Free Trial
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="text-white border-white hover:bg-white hover:text-blue-600" asChild>
-                <Link href="/contact">
-                  Contact Sales
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
+                 {/* CTA Section */}
+         <div className="text-center mt-20">
+           <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-12 text-white">
+             <h2 className="text-3xl font-bold mb-4">
+               Ready to get started?
+             </h2>
+             <p className="text-xl mb-8 opacity-90">
+               Join thousands of organizations using RotaClock to manage their workforce
+             </p>
+             <div className="space-x-4">
+               <Button size="lg" variant="secondary" asChild>
+                 <Link href="/signup">
+                   Start Free Trial
+                 </Link>
+               </Button>
+               <Button size="lg" variant="outline" className="text-white border-white hover:bg-white hover:text-blue-600" asChild>
+                 <Link href="/contact">
+                   Contact Sales
+                 </Link>
+               </Button>
+             </div>
+           </div>
+         </div>
       </div>
     </div>
   )

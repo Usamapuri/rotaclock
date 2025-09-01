@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Return employee data (in production, you'd create a JWT token)
+    // Return employee data with tenant context (in production, you'd create a JWT token)
     return NextResponse.json({
       success: true,
       employee: {
@@ -32,7 +32,12 @@ export async function POST(request: NextRequest) {
         email: employee.email,
         department: employee.department,
         position: employee.position,
-        role: employee.role === 'team_lead' ? 'team_lead' : (employee.role === 'project_manager' ? 'project_manager' : 'employee')
+        role: employee.role === 'team_lead' ? 'team_lead' : (employee.role === 'project_manager' ? 'project_manager' : 'employee'),
+        tenant_id: employee.tenant_id,
+        organization_id: employee.organization_id,
+        organization_name: employee.organization_name,
+        subscription_status: employee.subscription_status,
+        subscription_plan: employee.subscription_plan
       }
     })
 

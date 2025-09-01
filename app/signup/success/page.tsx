@@ -20,16 +20,16 @@ export default function SignupSuccessPage() {
   }, [searchParams])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-[#FDFBF8] to-white py-12">
       <div className="container mx-auto px-4">
         <div className="max-w-2xl mx-auto">
           {/* Success Header */}
           <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-10 h-10 text-green-600" />
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-10 h-10 text-blue-600" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Welcome to RotaCloud!
+              Welcome to RotaClock!
             </h1>
             <p className="text-xl text-gray-600">
               Your organization has been created successfully
@@ -147,25 +147,25 @@ export default function SignupSuccessPage() {
             </CardContent>
           </Card>
 
-          {/* Trial Information */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
-                Free Trial Active
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                Your organization is now on a <strong>30-day free trial</strong>. You have full access to all features during this period.
-              </p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-sm text-green-800">
-                  <strong>No credit card required</strong> - You can upgrade to a paid plan anytime during or after your trial.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                     {/* Trial Information */}
+           <Card className="mb-8">
+             <CardHeader>
+               <CardTitle className="flex items-center">
+                 <CheckCircle className="w-5 h-5 mr-2 text-blue-600" />
+                 Free Trial Active
+               </CardTitle>
+             </CardHeader>
+             <CardContent>
+               <p className="text-gray-600 mb-4">
+                 Your organization is now on a <strong>30-day free trial</strong>. You have full access to all features during this period.
+               </p>
+               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                 <p className="text-sm text-blue-800">
+                   <strong>No credit card required</strong> - You can upgrade to a paid plan anytime during or after your trial.
+                 </p>
+               </div>
+             </CardContent>
+           </Card>
 
           {/* Action Buttons */}
           <div className="text-center space-y-4">

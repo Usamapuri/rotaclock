@@ -516,8 +516,10 @@ function verifyPassword(password: string, hash: string): boolean {
 // Authenticate employee by employee_code and password
 export async function authenticateEmployee(employeeCode: string, password: string): Promise<Employee | null> {
   const result = await query(`
-    SELECT * FROM employees_new
-    WHERE employee_code = $1 AND is_active = true
+    SELECT e.*, o.name as organization_name, o.tenant_id, o.subscription_status, o.subscription_plan
+    FROM employees_new e
+    LEFT JOIN organizations o ON e.organization_id = o.id
+    WHERE e.employee_code = $1 AND e.is_active = true
   `, [employeeCode])
 
   if (result.rows.length === 0) {
@@ -540,8 +542,10 @@ export async function authenticateEmployee(employeeCode: string, password: strin
 // Authenticate employee by email and password
 export async function authenticateEmployeeByEmail(email: string, password: string): Promise<Employee | null> {
   const result = await query(`
-    SELECT * FROM employees_new 
-    WHERE email = $1 AND is_active = true
+    SELECT e.*, o.name as organization_name, o.tenant_id, o.subscription_status, o.subscription_plan
+    FROM employees_new e
+    LEFT JOIN organizations o ON e.organization_id = o.id
+    WHERE e.email = $1 AND e.is_active = true
   `, [email])
 
   if (result.rows.length === 0) {

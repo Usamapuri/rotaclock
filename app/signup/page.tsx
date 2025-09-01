@@ -162,7 +162,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-[#FDFBF8] to-white py-12">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
@@ -171,7 +171,7 @@ export default function SignupPage() {
               Create Your Organization
             </h1>
             <p className="text-gray-600">
-              Get started with RotaCloud in just a few steps
+              Get started with RotaClock in just a few steps
             </p>
           </div>
 
