@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         '/admin/shift-approvals'
       FROM employees_new e 
       WHERE e.role = 'admin'
-    `, [`${authResult.user.first_name} ${authResult.user.last_name} has completed a shift and requires approval`])
+    `, [`${authResult.user.name || 'Employee'} has completed a shift and requires approval`])
 
     return NextResponse.json({
       success: true,

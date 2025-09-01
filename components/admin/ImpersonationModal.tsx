@@ -69,7 +69,7 @@ export function ImpersonationModal({ isOpen, onClose, onImpersonate }: Impersona
     try {
       const response = await apiService.get('/admin/employees')
       if (response.success) {
-        const activeEmployees = response.employees.filter((emp: Employee) => emp.is_active)
+        const activeEmployees = (response as any).employees?.filter((emp: Employee) => emp.is_active) || []
         setEmployees(activeEmployees)
         
         // Extract unique departments

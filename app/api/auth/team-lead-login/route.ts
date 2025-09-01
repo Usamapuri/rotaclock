@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       success: true,
       employee: {
         id: employee.id,
-        employee_id: employee.employee_id,
+        employee_id: employee.employee_code,
         first_name: employee.first_name,
         last_name: employee.last_name,
         email: employee.email,
