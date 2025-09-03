@@ -100,14 +100,17 @@ export async function GET(request: NextRequest) {
     // Pending requests
     const swapRequestsResult = await query(`
       SELECT COUNT(*) as pending_swap_requests
-      FROM shift_swaps 
-      WHERE status = 'pending' AND tenant_id = $1
+      FROM shift_swaps ss
+      JOIN employees r ON ss.requester_id = r.id
+      JOIN employees t ON ss.target_id = t.id
+      WHERE ss.status = 'pending' AND r.tenant_id = $1 AND t.tenant_id = $1
     `, [tenantContext.tenant_id])
 
     const leaveRequestsResult = await query(`
       SELECT COUNT(*) as pending_leave_requests
-      FROM leave_requests 
-      WHERE status = 'pending' AND tenant_id = $1
+      FROM leave_requests lr
+      JOIN employees e ON lr.employee_id = e.id
+      WHERE lr.status = 'pending' AND e.tenant_id = $1
     `, [tenantContext.tenant_id])
 
     // Current attendance (shift_logs has tenant_id; time_entries_new does not)
@@ -161,7 +164,7 @@ export async function GET(request: NextRequest) {
         e.job_position as position,
         e.is_active,
         CASE 
-          WHEN sl.status = 'active' THEN 'online'
+          WHEN e.is_online = true THEN 'online'
           WHEN te.status = 'break' THEN 'break'
           ELSE 'offline'
         END as status
