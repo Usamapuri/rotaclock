@@ -1,6 +1,8 @@
 // API Service Layer for RotaClock
 // This file contains all API functions to interact with the backend
 
+import { AuthService } from './auth'
+
 export interface ApiResponse<T = any> {
   data?: T
   error?: string
@@ -254,11 +256,25 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
+      const headers: Record<string, any> = {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      }
+
+      // Attach Authorization header from current user if not already present
+      if (!headers['authorization']) {
+        try {
+          const user = AuthService.getCurrentUser()
+          if (user?.id) {
+            headers['authorization'] = `Bearer ${user.id}`
+          }
+        } catch (_) {
+          // ignore
+        }
+      }
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers,
         ...options,
       })
 
