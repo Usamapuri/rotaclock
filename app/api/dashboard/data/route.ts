@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get employees with tenant filtering
+    // Employees
     const employeesResult = await query(`
       SELECT 
         COUNT(*) as total_employees,
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       WHERE tenant_id = $1
     `, [tenantContext.tenant_id])
 
-    // Get current week shift assignments with tenant filtering
+    // Current week shift assignments
     const weekStart = new Date()
     weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1) // Monday
     const weekEnd = new Date(weekStart)
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
       WHERE date >= $1 AND date <= $2 AND tenant_id = $3
     `, [weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0], tenantContext.tenant_id])
 
-    // Get pending requests with tenant filtering
+    // Pending requests
     const swapRequestsResult = await query(`
       SELECT COUNT(*) as pending_swap_requests
       FROM shift_swaps 
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
       WHERE status = 'pending' AND tenant_id = $1
     `, [tenantContext.tenant_id])
 
-    // Get current attendance with tenant filtering
+    // Current attendance (shift_logs has tenant_id; time_entries_new does not)
     const attendanceResult = await query(`
       SELECT COUNT(*) as current_attendance
       FROM shift_logs 
@@ -119,8 +119,9 @@ export async function GET(request: NextRequest) {
 
     const timeEntriesResult = await query(`
       SELECT COUNT(*) as active_time_entries
-      FROM time_entries_new 
-      WHERE status IN ('in-progress', 'break') AND tenant_id = $1
+      FROM time_entries_new te
+      JOIN employees_new e ON te.employee_id = e.id
+      WHERE te.status IN ('in-progress', 'break') AND e.tenant_id = $1
     `, [tenantContext.tenant_id])
 
     const stats = {
@@ -137,7 +138,7 @@ export async function GET(request: NextRequest) {
       attendanceRate: 0
     }
 
-    // Calculate derived stats
+    // Derived stats
     if (stats.totalEmployees > 0) {
       stats.avgHoursPerEmployee = Math.round(168 / stats.totalEmployees)
     }
@@ -147,7 +148,7 @@ export async function GET(request: NextRequest) {
       stats.attendanceRate = Math.round((stats.currentAttendance / totalTimeEntries) * 100)
     }
 
-    // Get recent employees with status and tenant filtering
+    // Recent employees
     const employeesDataResult = await query(`
       SELECT 
         e.id,
@@ -165,13 +166,13 @@ export async function GET(request: NextRequest) {
         END as status
       FROM employees_new e
       LEFT JOIN shift_logs sl ON e.id = sl.employee_id AND sl.status = 'active' AND sl.tenant_id = e.tenant_id
-      LEFT JOIN time_entries_new te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break') AND te.tenant_id = e.tenant_id
+      LEFT JOIN time_entries_new te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break')
       WHERE e.is_active = true AND e.tenant_id = $1
       ORDER BY e.first_name, e.last_name
       LIMIT 10
     `, [tenantContext.tenant_id])
 
-    // Get recent shift assignments with tenant filtering
+    // Recent shift assignments
     const shiftsDataResult = await query(`
       SELECT 
         sa.id,
@@ -190,7 +191,7 @@ export async function GET(request: NextRequest) {
       LIMIT 10
     `, [tenantContext.tenant_id])
 
-    // Get recent swap requests with tenant filtering
+    // Recent swap requests
     const swapRequestsDataResult = await query(`
       SELECT 
         ss.id,
@@ -209,7 +210,7 @@ export async function GET(request: NextRequest) {
       LIMIT 5
     `, [tenantContext.tenant_id])
 
-    // Get recent leave requests with tenant filtering
+    // Recent leave requests
     const leaveRequestsDataResult = await query(`
       SELECT 
         lr.id,

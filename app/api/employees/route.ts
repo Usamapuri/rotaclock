@@ -87,10 +87,10 @@ export async function GET(request: NextRequest) {
         COUNT(te.id) as total_time_entries,
         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
       FROM employees_new e
-      LEFT JOIN teams_new t ON e.team_id = t.id AND t.tenant_id = e.tenant_id
+      LEFT JOIN teams t ON e.team_id = t.id
       LEFT JOIN employees_new m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
       LEFT JOIN shift_assignments_new sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
-      LEFT JOIN time_entries_new te ON e.id = te.employee_id AND te.tenant_id = e.tenant_id
+      LEFT JOIN time_entries_new te ON e.id = te.employee_id
       WHERE e.tenant_id = $1
     `
     const params: any[] = [tenantContext.tenant_id]
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     queryText += ` ORDER BY e.first_name, e.last_name`
 
     // Get total count with tenant filtering
-    const countQuery = queryText.replace(/SELECT.*FROM/, 'SELECT COUNT(DISTINCT e.id) as total FROM')
+    const countQuery = queryText.replace(/SELECT[\s\S]*?FROM/, 'SELECT COUNT(DISTINCT e.id) as total FROM')
     const countResult = await query(countQuery, params)
     const total = parseInt(countResult.rows[0].total)
 
