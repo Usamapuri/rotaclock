@@ -71,7 +71,12 @@ export default function EmployeeList({
       setIsLoading(true)
       setError(null)
       
-      const response = await fetch('/api/scheduling/employees')
+      const user = (await import('@/lib/auth')).AuthService.getCurrentUser()
+      const response = await fetch('/api/scheduling/employees', {
+        headers: {
+          'authorization': user?.id ? `Bearer ${user.id}` : ''
+        }
+      })
       const data = await response.json()
       
       if (data.success) {

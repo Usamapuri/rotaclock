@@ -102,7 +102,12 @@ export default function AdminEmployees() {
   const loadEmployees = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/employees')
+      const user = AuthService.getCurrentUser()
+      const response = await fetch('/api/employees', {
+        headers: {
+          'authorization': user?.id ? `Bearer ${user.id}` : ''
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setEmployees(data.data)
