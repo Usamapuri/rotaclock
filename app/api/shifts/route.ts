@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query, getShifts, createShift, updateShift, deleteShift } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
+import { getTenantContext } from '@/lib/tenant'
 
 // Validation schemas
 const createShiftSchema = z.object({
@@ -14,7 +15,7 @@ const createShiftSchema = z.object({
   hourly_rate: z.number().positive().optional(),
   color: z.string().min(1, 'Color is required'),
   is_active: z.boolean().default(true),
-  created_by: z.string().uuid().optional()
+  created_by: z.string().uuid().optional(),
 })
 
 const updateShiftSchema = createShiftSchema.partial()
@@ -25,13 +26,24 @@ const updateShiftSchema = createShiftSchema.partial()
  */
 export async function GET(request: NextRequest) {
   try {
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
+
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const department = searchParams.get('department')
     const is_active = searchParams.get('is_active')
 
     // Build filters
-    const filters: any = {}
+    const filters: any = { tenant_id: tenantContext.tenant_id }
     if (department) filters.department = department
     if (is_active !== null) filters.is_active = is_active === 'true'
 
@@ -39,9 +51,8 @@ export async function GET(request: NextRequest) {
     const shifts = await getShifts(filters)
 
     return NextResponse.json({
-      data: shifts
+      data: shifts,
     })
-
   } catch (error) {
     console.error('Error in GET /api/shifts:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -57,28 +68,46 @@ export async function POST(request: NextRequest) {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
     // Parse and validate request body
     const body = await request.json()
     const validatedData = createShiftSchema.parse(body)
 
-    // Create shift
-    const shift = await createShift(validatedData)
+    // Insert directly to ensure tenant fields
+    const insert = await query(
+      `INSERT INTO shift_templates (
+        name, description, start_time, end_time, department, 
+        required_staff, hourly_rate, color, is_active, created_by, tenant_id, organization_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *`,
+      [
+        validatedData.name,
+        validatedData.description || null,
+        validatedData.start_time,
+        validatedData.end_time,
+        validatedData.department || null,
+        validatedData.required_staff,
+        validatedData.hourly_rate || null,
+        validatedData.color,
+        validatedData.is_active,
+        validatedData.created_by || user.id,
+        tenantContext.tenant_id,
+        tenantContext.organization_id,
+      ]
+    )
 
-    return NextResponse.json({ 
-      data: shift,
-      message: 'Shift created successfully' 
-    }, { status: 201 })
-
+    return NextResponse.json({ data: insert.rows[0], message: 'Shift created successfully' }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      }, { status: 400 })
+      return NextResponse.json({ error: 'Validation error', details: error.errors }, { status: 400 })
     }
 
     console.error('Error in POST /api/shifts:', error)
@@ -95,8 +124,13 @@ export async function PUT(request: NextRequest) {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -106,23 +140,28 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Shift ID is required' }, { status: 400 })
     }
 
+    // Ensure the shift belongs to tenant
+    const existing = await query('SELECT id FROM shift_templates WHERE id = $1 AND tenant_id = $2', [id, tenantContext.tenant_id])
+    if (existing.rows.length === 0) {
+      return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
+    }
+
     // Validate update data
     const validatedData = updateShiftSchema.parse(updateData)
 
     // Update shift
-    const shift = await updateShift(id, validatedData)
+    const fields = Object.keys(validatedData)
+    const values = Object.values(validatedData)
+    const setClauses = fields.map((field, idx) => `${field} = $${idx + 3}`).join(', ')
+    const updated = await query(
+      `UPDATE shift_templates SET ${setClauses}, updated_at = NOW() WHERE id = $1 AND tenant_id = $2 RETURNING *`,
+      [id, tenantContext.tenant_id, ...values]
+    )
 
-    return NextResponse.json({ 
-      data: shift,
-      message: 'Shift updated successfully' 
-    })
-
+    return NextResponse.json({ data: updated.rows[0], message: 'Shift updated successfully' })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      }, { status: 400 })
+      return NextResponse.json({ error: 'Validation error', details: error.errors }, { status: 400 })
     }
 
     if (error instanceof Error && error.message === 'Shift not found') {
@@ -143,8 +182,13 @@ export async function DELETE(request: NextRequest) {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -154,13 +198,22 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Shift ID is required' }, { status: 400 })
     }
 
-    // Delete shift
-    await deleteShift(id)
+    // Ensure no assignments within tenant
+    const assignmentResult = await query(
+      `SELECT COUNT(*) as assignment_count FROM shift_assignments_new WHERE template_id = $1 AND tenant_id = $2`,
+      [id, tenantContext.tenant_id]
+    )
+    if (parseInt(assignmentResult.rows[0].assignment_count) > 0) {
+      return NextResponse.json({ error: 'Cannot delete shift that has assignments. Please remove assignments first.' }, { status: 400 })
+    }
 
-    return NextResponse.json({ 
-      message: 'Shift deleted successfully' 
-    })
+    // Delete shift in tenant
+    const deleted = await query('DELETE FROM shift_templates WHERE id = $1 AND tenant_id = $2 RETURNING id', [id, tenantContext.tenant_id])
+    if (deleted.rows.length === 0) {
+      return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
+    }
 
+    return NextResponse.json({ message: 'Shift deleted successfully' })
   } catch (error) {
     if (error instanceof Error && error.message === 'Shift not found') {
       return NextResponse.json({ error: 'Shift not found' }, { status: 404 })

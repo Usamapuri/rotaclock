@@ -749,6 +749,7 @@ export async function getShiftAssignments(filters: {
   end_date: string
   employee_id?: string
   status?: string
+  tenant_id?: string
 }) {
   let queryText = `
     SELECT 
@@ -763,13 +764,19 @@ export async function getShiftAssignments(filters: {
       aba.last_name as assigned_by_last_name,
       aba.email as assigned_by_email
     FROM shift_assignments_new sa
-    LEFT JOIN employees_new e ON sa.employee_id = e.id
-    LEFT JOIN shift_templates st ON sa.template_id = st.id
-    LEFT JOIN employees_new aba ON sa.assigned_by = aba.id
+    LEFT JOIN employees_new e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
+    LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
+    LEFT JOIN employees_new aba ON sa.assigned_by = aba.id AND aba.tenant_id = sa.tenant_id
     WHERE sa.date >= $1 AND sa.date <= $2
   `
   const params: any[] = [filters.start_date, filters.end_date]
   let paramIndex = 3
+
+  if (filters.tenant_id) {
+    queryText += ` AND sa.tenant_id = $${paramIndex}`
+    params.push(filters.tenant_id)
+    paramIndex++
+  }
 
   if (filters.employee_id) {
     // Check if the employee_id is a UUID or an employee code string
@@ -828,6 +835,7 @@ export async function getTimeEntries(filters: {
   start_date?: string
   end_date?: string
   status?: string
+  tenant_id?: string
 }) {
   let queryText = `
     SELECT 
@@ -841,24 +849,37 @@ export async function getTimeEntries(filters: {
   const params: any[] = []
   let paramIndex = 1
 
+  // Start WHERE when first condition appears; collect conditions
+  const conditions: string[] = []
+
+  if (filters.tenant_id) {
+    conditions.push(`e.tenant_id = $${paramIndex}`)
+    params.push(filters.tenant_id)
+    paramIndex++
+  }
+
   if (filters.employee_id) {
-    queryText += ` WHERE te.employee_id = $${paramIndex}`
+    conditions.push(`te.employee_id = $${paramIndex}`)
     params.push(filters.employee_id)
     paramIndex++
   }
   if (filters.start_date) {
-    queryText += filters.employee_id ? ` AND te.clock_in >= $${paramIndex}` : ` WHERE te.clock_in >= $${paramIndex}`
+    conditions.push(`te.clock_in >= $${paramIndex}`)
     params.push(filters.start_date)
     paramIndex++
   }
   if (filters.end_date) {
-    queryText += (filters.employee_id || filters.start_date) ? ` AND te.clock_in <= $${paramIndex}` : ` WHERE te.clock_in <= $${paramIndex}`
+    conditions.push(`te.clock_in <= $${paramIndex}`)
     params.push(filters.end_date)
     paramIndex++
   }
   if (filters.status) {
-    queryText += (filters.employee_id || filters.start_date || filters.end_date) ? ` AND te.status = $${paramIndex}` : ` WHERE te.status = $${paramIndex}`
+    conditions.push(`te.status = $${paramIndex}`)
     params.push(filters.status)
+  }
+
+  if (conditions.length > 0) {
+    queryText += ` WHERE ${conditions.join(' AND ')}`
   }
 
   queryText += ' ORDER BY te.created_at DESC'
@@ -950,6 +971,7 @@ export async function getAttendanceStats(filters: {
   start_date: string
   end_date: string
   department?: string
+  tenant_id?: string
 }) {
   let queryText = `
     SELECT 
@@ -967,10 +989,17 @@ export async function getAttendanceStats(filters: {
     LEFT JOIN time_entries_new te ON e.id = te.employee_id 
       AND te.clock_in >= $1 
       AND te.clock_in <= $2
+      AND (te.tenant_id = e.tenant_id)
     WHERE e.is_active = true
   `
   const params: any[] = [filters.start_date, filters.end_date]
   let paramIndex = 3
+
+  if (filters.tenant_id) {
+    queryText += ` AND e.tenant_id = $${paramIndex}`
+    params.push(filters.tenant_id)
+    paramIndex++
+  }
 
   if (filters.department) {
     queryText += ` AND e.department = $${paramIndex}`
@@ -993,6 +1022,7 @@ export async function getPayrollStats(filters: {
   start_date: string
   end_date: string
   department?: string
+  tenant_id?: string
 }) {
   let queryText = `
     SELECT 
@@ -1011,10 +1041,17 @@ export async function getPayrollStats(filters: {
       AND te.clock_in >= $1 
       AND te.clock_in <= $2
       AND te.status = 'completed'
+      AND (te.tenant_id = e.tenant_id)
     WHERE e.is_active = true
   `
   const params: any[] = [filters.start_date, filters.end_date]
   let paramIndex = 3
+
+  if (filters.tenant_id) {
+    queryText += ` AND e.tenant_id = $${paramIndex}`
+    params.push(filters.tenant_id)
+    paramIndex++
+  }
 
   if (filters.department) {
     queryText += ` AND e.department = $${paramIndex}`
@@ -1036,8 +1073,10 @@ export async function getPayrollStats(filters: {
 export async function getDepartmentStats(filters: {
   start_date: string
   end_date: string
+  tenant_id?: string
 }) {
-  const result = await query(`
+  const params: any[] = [filters.start_date, filters.end_date]
+  let queryText = `
     SELECT 
       e.department,
       COUNT(DISTINCT e.id) as employee_count,
@@ -1050,11 +1089,23 @@ export async function getDepartmentStats(filters: {
       AND te.clock_in >= $1 
       AND te.clock_in <= $2
       AND te.status = 'completed'
+      AND (te.tenant_id = e.tenant_id)
     WHERE e.is_active = true
+  `
+  let paramIndex = 3
+
+  if (filters.tenant_id) {
+    queryText += ` AND e.tenant_id = $${paramIndex}`
+    params.push(filters.tenant_id)
+    paramIndex++
+  }
+
+  queryText += `
     GROUP BY e.department
     ORDER BY total_hours DESC
-  `, [filters.start_date, filters.end_date])
+  `
 
+  const result = await query(queryText, params)
   return result.rows
 }
 
@@ -1194,18 +1245,19 @@ export async function createLeaveRequest(leaveData: Omit<LeaveRequest, 'id' | 'c
 /**
  * Create a shift swap request
  */
-export async function createShiftSwap(swapData: Omit<ShiftSwap, 'id' | 'created_at' | 'updated_at' | 'status'>) {
+export async function createShiftSwap(swapData: Omit<ShiftSwap, 'id' | 'created_at' | 'updated_at' | 'status'>, tenantId?: string) {
   const result = await query(`
     INSERT INTO shift_swaps (
-      requester_id, target_id, original_shift_id, requested_shift_id, reason, status
-    ) VALUES ($1, $2, $3, $4, $5, 'pending')
+      requester_id, target_id, original_shift_id, requested_shift_id, reason, status${tenantId ? ', tenant_id' : ''}
+    ) VALUES ($1, $2, $3, $4, $5, 'pending'${tenantId ? ', $6' : ''})
     RETURNING *
   `, [
     swapData.requester_id,
     swapData.target_id,
     swapData.original_shift_id,
     swapData.requested_shift_id,
-    swapData.reason
+    swapData.reason,
+    ...(tenantId ? [tenantId] as any[] : [])
   ])
 
   return result.rows[0]
@@ -1218,6 +1270,7 @@ export async function getShiftSwaps(filters?: {
   requester_id?: string
   target_id?: string
   status?: string
+  tenant_id?: string
 }) {
   let queryText = `
     SELECT 
@@ -1237,21 +1290,32 @@ export async function getShiftSwaps(filters?: {
     LEFT JOIN employees_new aba ON ss.approved_by = aba.id
   `
   const params: any[] = []
+  const conditions: string[] = []
   let paramIndex = 1
 
+  if (filters?.tenant_id) {
+    conditions.push(`ss.tenant_id = $${paramIndex}`)
+    params.push(filters.tenant_id)
+    paramIndex++
+  }
+
   if (filters?.requester_id) {
-    queryText += ` WHERE ss.requester_id = $${paramIndex}`
+    conditions.push(`ss.requester_id = $${paramIndex}`)
     params.push(filters.requester_id)
     paramIndex++
   }
   if (filters?.target_id) {
-    queryText += filters?.requester_id ? ` AND ss.target_id = $${paramIndex}` : ` WHERE ss.target_id = $${paramIndex}`
+    conditions.push(`ss.target_id = $${paramIndex}`)
     params.push(filters.target_id)
     paramIndex++
   }
   if (filters?.status) {
-    queryText += (filters?.requester_id || filters?.target_id) ? ` AND ss.status = $${paramIndex}` : ` WHERE ss.status = $${paramIndex}`
+    conditions.push(`ss.status = $${paramIndex}`)
     params.push(filters.status)
+  }
+
+  if (conditions.length > 0) {
+    queryText += ` WHERE ${conditions.join(' AND ')}`
   }
 
   queryText += ' ORDER BY ss.created_at DESC'

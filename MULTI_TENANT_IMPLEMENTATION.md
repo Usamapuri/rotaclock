@@ -19,17 +19,17 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
   - [x] Create database migration scripts
   - [x] Test data isolation between tenants
 
-- [ ] **1.2** Update existing tables for multi-tenancy
-  - [ ] Add tenant_id to `employees_new`
-  - [ ] Add tenant_id to `shift_logs`
-  - [ ] Add tenant_id to `payroll_periods`
-  - [ ] Add tenant_id to `payroll_records`
-  - [ ] Add tenant_id to `shift_assignments_new`
-  - [ ] Add tenant_id to `shift_templates`
-  - [ ] Add tenant_id to `employee_salaries`
-  - [ ] Add tenant_id to `payroll_deductions`
-  - [ ] Add tenant_id to `payroll_bonuses`
-  - [ ] Add tenant_id to `notifications`
+- [x] **1.2** Update existing tables for multi-tenancy
+  - [x] Add tenant_id to `employees_new`
+  - [x] Add tenant_id to `shift_logs`
+  - [x] Add tenant_id to `payroll_periods`
+  - [x] Add tenant_id to `payroll_records`
+  - [x] Add tenant_id to `shift_assignments_new`
+  - [x] Add tenant_id to `shift_templates`
+  - [x] Add tenant_id to `employee_salaries`
+  - [x] Add tenant_id to `payroll_deductions`
+  - [x] Add tenant_id to `payroll_bonuses`
+  - [x] Add tenant_id to `notifications`
 
 - [ ] **1.3** Create database indexes for performance
   - [ ] Add composite indexes on (tenant_id, id) for all tables
@@ -79,24 +79,26 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
   - [ ] Create billing notifications
 
 ### Phase 4: Multi-Tenant API Updates
-- [ ] **4.1** Update all API endpoints for tenant isolation
-  - [ ] Modify employee management APIs
-  - [ ] Update shift management APIs
-  - [ ] Fix payroll calculation APIs
-  - [ ] Update reporting APIs
-  - [ ] Test API isolation between tenants
+- [x] **4.1** Update all API endpoints for tenant isolation
+  - [x] Modify employee management APIs
+  - [x] Update shift management stats in dashboard API
+  - [x] Fix payroll periods APIs
+  - [x] Update reporting APIs (attendance, payroll, departments)
+  - [x] Update shifts APIs (CRUD, assignments, start/end/verify)
+  - [x] Update swap request APIs
+  - [x] Test API isolation between tenants (unit tests added)
 
-- [ ] **4.2** Add tenant middleware
-  - [ ] Create tenant validation middleware
-  - [ ] Add tenant context to all requests
-  - [ ] Implement tenant-based data filtering
-  - [ ] Test middleware functionality
+- [x] **4.2** Add tenant middleware
+  - [x] Create tenant validation middleware
+  - [x] Add tenant context to all requests
+  - [x] Implement tenant-based data filtering
+  - [x] Test middleware functionality
 
 - [ ] **4.3** Update database queries
-  - [ ] Add tenant_id filter to all SELECT queries
-  - [ ] Add tenant_id to all INSERT/UPDATE queries
-  - [ ] Update foreign key relationships
-  - [ ] Test data isolation
+  - [x] Add tenant_id filter to core SELECT queries
+  - [x] Add tenant_id to core INSERT/UPDATE queries
+  - [ ] Update remaining foreign key relationships
+  - [ ] Test data isolation across all legacy endpoints
 
 ### Phase 5: Frontend Multi-Tenancy
 - [ ] **5.1** Update React components for tenant context
@@ -126,7 +128,7 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
 
 ### Phase 7: Testing & Quality Assurance
 - [ ] **7.1** Multi-tenant testing
-  - [ ] Test data isolation between tenants
+  - [x] Test API data isolation between tenants (unit tests)
   - [ ] Verify authentication isolation
   - [ ] Test subscription management
   - [ ] Validate billing system
@@ -158,12 +160,13 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
 
 ---
 
-## 🚀 Current Status: **Phase 2 - Authentication & Organization Management**
+## 🚀 Current Status: **Phase 4 - Multi-Tenant API Updates (nearing completion)**
 
 ### Next Immediate Steps:
-1. **Test authentication system** - Test tenant context across multiple tenants
-2. **Start Phase 3.2** - Implement subscription management with Stripe
-3. **Add email verification** - Implement email verification for new organizations
+1. Close out remaining Phase 4.3 items (foreign keys pass tenant_id; legacy endpoints)
+2. Begin Phase 5.1: introduce a TenantContext provider and wire data fetchers
+3. Start Phase 3.2: implement Stripe subscription scaffolding and webhooks
+4. Add integration tests for end-to-end tenant isolation
 
 ### Estimated Timeline:
 - **Phase 1**: 2-3 days (Database foundation)
@@ -203,3 +206,16 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
 - Consider rate limiting per tenant
 - Plan for tenant-specific customizations
 - Consider analytics and usage tracking per tenant
+
+---
+
+## ✅ Recent Progress
+- Added `lib/tenant.ts` to re-export tenant helpers, fixing import issues
+- Ensured tenant filtering on: `GET /api/dashboard/data`, `GET/POST /api/employees`, `GET/POST /api/admin/payroll/periods`
+- Added unit test: `GET /api/employees` validates tenant context and pagination
+- Tenantized reporting APIs: attendance, payroll, departments
+- Tenantized time APIs: entries, clock-in/out
+- Tenantized shifts APIs: CRUD, assignments, start/end/verify-start
+- Tenantized swap requests APIs: create, list, approve/reject
+- Added unit tests for tenant isolation across reports/time/shifts routes
+- Ran Phase 1.2 migration on Railway PostgreSQL; verified tenant_id present and non-null across key tables

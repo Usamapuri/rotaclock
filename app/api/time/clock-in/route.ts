@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createShiftLog, getShiftAssignments, isEmployeeClockedIn } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +10,11 @@ export async function POST(request: NextRequest) {
     const authResult = await authMiddleware(request)
     if (!('isAuthenticated' in authResult) || !authResult.isAuthenticated || !authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(authResult.user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
     const { employee_id } = await request.json()
@@ -40,7 +46,8 @@ export async function POST(request: NextRequest) {
     const shiftAssignments = await getShiftAssignments({
       start_date: today,
       end_date: today,
-      employee_id: target_employee_id
+      employee_id: target_employee_id,
+      tenant_id: tenantContext.tenant_id,
     })
 
     let shift_assignment_id = null

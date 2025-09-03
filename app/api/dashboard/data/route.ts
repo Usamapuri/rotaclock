@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
 // Simple in-memory cache for dashboard data
 const cache = new Map<string, { data: any, timestamp: number }>()
@@ -38,8 +40,28 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Authentication and tenant context
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    
+    if (!isAuthenticated || !user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get tenant context
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json(
+        { success: false, error: 'No tenant context found' },
+        { status: 403 }
+      )
+    }
+
     // Check cache first
-    const cacheKey = 'dashboard-data'
+    const cacheKey = `dashboard-data-${tenantContext.tenant_id}`
     const cached = cache.get(cacheKey)
     const now = Date.now()
     
@@ -52,15 +74,16 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get employees
+    // Get employees with tenant filtering
     const employeesResult = await query(`
       SELECT 
         COUNT(*) as total_employees,
         COUNT(*) FILTER (WHERE is_active = true) as active_employees
       FROM employees_new
-    `)
+      WHERE tenant_id = $1
+    `, [tenantContext.tenant_id])
 
-    // Get current week shift assignments
+    // Get current week shift assignments with tenant filtering
     const weekStart = new Date()
     weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1) // Monday
     const weekEnd = new Date(weekStart)
@@ -71,34 +94,34 @@ export async function GET(request: NextRequest) {
         COUNT(*) as total_shifts,
         COUNT(*) FILTER (WHERE status = 'completed') as completed_shifts
       FROM shift_assignments_new 
-      WHERE date >= $1 AND date <= $2
-    `, [weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0]])
+      WHERE date >= $1 AND date <= $2 AND tenant_id = $3
+    `, [weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0], tenantContext.tenant_id])
 
-    // Get pending requests
+    // Get pending requests with tenant filtering
     const swapRequestsResult = await query(`
       SELECT COUNT(*) as pending_swap_requests
       FROM shift_swaps 
-      WHERE status = 'pending'
-    `)
+      WHERE status = 'pending' AND tenant_id = $1
+    `, [tenantContext.tenant_id])
 
     const leaveRequestsResult = await query(`
       SELECT COUNT(*) as pending_leave_requests
       FROM leave_requests 
-      WHERE status = 'pending'
-    `)
+      WHERE status = 'pending' AND tenant_id = $1
+    `, [tenantContext.tenant_id])
 
-    // Get current attendance
+    // Get current attendance with tenant filtering
     const attendanceResult = await query(`
       SELECT COUNT(*) as current_attendance
       FROM shift_logs 
-      WHERE status = 'active'
-    `)
+      WHERE status = 'active' AND tenant_id = $1
+    `, [tenantContext.tenant_id])
 
     const timeEntriesResult = await query(`
       SELECT COUNT(*) as active_time_entries
       FROM time_entries_new 
-      WHERE status IN ('in-progress', 'break')
-    `)
+      WHERE status IN ('in-progress', 'break') AND tenant_id = $1
+    `, [tenantContext.tenant_id])
 
     const stats = {
       totalEmployees: parseInt(employeesResult.rows[0]?.total_employees || '0'),
@@ -124,7 +147,7 @@ export async function GET(request: NextRequest) {
       stats.attendanceRate = Math.round((stats.currentAttendance / totalTimeEntries) * 100)
     }
 
-    // Get recent employees with status
+    // Get recent employees with status and tenant filtering
     const employeesDataResult = await query(`
       SELECT 
         e.id,
@@ -141,14 +164,14 @@ export async function GET(request: NextRequest) {
           ELSE 'offline'
         END as status
       FROM employees_new e
-      LEFT JOIN shift_logs sl ON e.id = sl.employee_id AND sl.status = 'active'
-      LEFT JOIN time_entries_new te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break')
-      WHERE e.is_active = true
+      LEFT JOIN shift_logs sl ON e.id = sl.employee_id AND sl.status = 'active' AND sl.tenant_id = e.tenant_id
+      LEFT JOIN time_entries_new te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break') AND te.tenant_id = e.tenant_id
+      WHERE e.is_active = true AND e.tenant_id = $1
       ORDER BY e.first_name, e.last_name
       LIMIT 10
-    `)
+    `, [tenantContext.tenant_id])
 
-    // Get recent shift assignments
+    // Get recent shift assignments with tenant filtering
     const shiftsDataResult = await query(`
       SELECT 
         sa.id,
@@ -160,14 +183,14 @@ export async function GET(request: NextRequest) {
         st.start_time,
         st.end_time
       FROM shift_assignments_new sa
-      JOIN employees_new e ON sa.employee_id = e.id
-      JOIN shift_templates st ON sa.template_id = st.id
-      WHERE sa.date >= CURRENT_DATE
+      JOIN employees_new e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
+      JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
+      WHERE sa.date >= CURRENT_DATE AND sa.tenant_id = $1
       ORDER BY sa.date, st.start_time
       LIMIT 10
-    `)
+    `, [tenantContext.tenant_id])
 
-    // Get recent swap requests
+    // Get recent swap requests with tenant filtering
     const swapRequestsDataResult = await query(`
       SELECT 
         ss.id,
@@ -179,13 +202,14 @@ export async function GET(request: NextRequest) {
         t.last_name as target_last_name,
         ss.reason
       FROM shift_swaps ss
-      JOIN employees_new r ON ss.requester_id = r.id
-      JOIN employees_new t ON ss.target_id = t.id
+      JOIN employees_new r ON ss.requester_id = r.id AND r.tenant_id = ss.tenant_id
+      JOIN employees_new t ON ss.target_id = t.id AND t.tenant_id = ss.tenant_id
+      WHERE ss.tenant_id = $1
       ORDER BY ss.created_at DESC
       LIMIT 5
-    `)
+    `, [tenantContext.tenant_id])
 
-    // Get recent leave requests
+    // Get recent leave requests with tenant filtering
     const leaveRequestsDataResult = await query(`
       SELECT 
         lr.id,
@@ -198,10 +222,11 @@ export async function GET(request: NextRequest) {
         e.last_name,
         lr.reason
       FROM leave_requests lr
-      JOIN employees_new e ON lr.employee_id = e.id
+      JOIN employees_new e ON lr.employee_id = e.id AND e.tenant_id = lr.tenant_id
+      WHERE lr.tenant_id = $1
       ORDER BY lr.created_at DESC
       LIMIT 5
-    `)
+    `, [tenantContext.tenant_id])
 
     const responseData = {
       stats,

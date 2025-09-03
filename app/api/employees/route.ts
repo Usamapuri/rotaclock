@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 
@@ -30,6 +31,26 @@ const updateEmployeeSchema = createEmployeeSchema.partial()
  */
 export async function GET(request: NextRequest) {
   try {
+    // Authentication and tenant context
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    
+    if (!isAuthenticated || !user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get tenant context
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json(
+        { success: false, error: 'No tenant context found' },
+        { status: 403 }
+      )
+    }
+
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const department = searchParams.get('department')
@@ -41,7 +62,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = (page - 1) * limit
 
-    // Build query
+    // Build query with tenant filtering
     let queryText = `
       SELECT 
         e.id,
@@ -66,14 +87,14 @@ export async function GET(request: NextRequest) {
         COUNT(te.id) as total_time_entries,
         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
       FROM employees_new e
-      LEFT JOIN teams_new t ON e.team_id = t.id
-      LEFT JOIN employees_new m ON e.manager_id = m.id
-      LEFT JOIN shift_assignments_new sa ON e.id = sa.employee_id
-      LEFT JOIN time_entries_new te ON e.id = te.employee_id
-      WHERE 1=1
+      LEFT JOIN teams_new t ON e.team_id = t.id AND t.tenant_id = e.tenant_id
+      LEFT JOIN employees_new m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
+      LEFT JOIN shift_assignments_new sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
+      LEFT JOIN time_entries_new te ON e.id = te.employee_id AND te.tenant_id = e.tenant_id
+      WHERE e.tenant_id = $1
     `
-    const params: any[] = []
-    let paramIndex = 1
+    const params: any[] = [tenantContext.tenant_id]
+    let paramIndex = 2
 
     if (department) {
       queryText += ` AND e.department = $${paramIndex++}`
@@ -106,7 +127,7 @@ export async function GET(request: NextRequest) {
     queryText += ` GROUP BY e.id, e.employee_code, e.first_name, e.last_name, e.email, e.department, e.job_position, e.role, e.hire_date, e.manager_id, e.team_id, e.hourly_rate, e.max_hours_per_week, e.is_active, e.is_online, e.last_online, t.name, m.first_name, m.last_name`
     queryText += ` ORDER BY e.first_name, e.last_name`
 
-    // Get total count
+    // Get total count with tenant filtering
     const countQuery = queryText.replace(/SELECT.*FROM/, 'SELECT COUNT(DISTINCT e.id) as total FROM')
     const countResult = await query(countQuery, params)
     const total = parseInt(countResult.rows[0].total)
@@ -141,21 +162,35 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Use demo authentication
+    // Authentication and tenant context
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    
+    if (!isAuthenticated || !user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
-    // For demo purposes, allow admin access
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden: Admin access required' }, { status: 403 })
+    // Get tenant context
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json(
+        { success: false, error: 'No tenant context found' },
+        { status: 403 }
+      )
     }
 
-    // Parse and validate request body
     const body = await request.json()
     const validatedData = createEmployeeSchema.parse(body)
+
+    // Add tenant_id to the employee data
+    const employeeData = {
+      ...validatedData,
+      tenant_id: tenantContext.tenant_id,
+      organization_id: tenantContext.organization_id
+    }
 
     // Check if employee_code already exists
     const existingEmployeeResult = await query(
@@ -190,8 +225,8 @@ export async function POST(request: NextRequest) {
     const insertQuery = `
       INSERT INTO employees_new (
         employee_code, first_name, last_name, email, department, job_position,
-        role, hire_date, manager_id, team_id, hourly_rate, max_hours_per_week, is_active, password_hash
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        role, hire_date, manager_id, team_id, hourly_rate, max_hours_per_week, is_active, password_hash, tenant_id, organization_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `
 
@@ -209,7 +244,9 @@ export async function POST(request: NextRequest) {
       validatedData.hourly_rate,
       validatedData.max_hours_per_week,
       validatedData.is_active,
-      passwordHash
+      passwordHash,
+      tenantContext.tenant_id,
+      tenantContext.organization_id
     ])
 
     const newEmployee = insertResult.rows[0]

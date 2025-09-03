@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query, getShiftAssignments, createShiftAssignment } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { z } from 'zod'
+import { getTenantContext } from '@/lib/tenant'
 
 // Validation schemas
 const createShiftAssignmentSchema = z.object({
@@ -12,7 +13,7 @@ const createShiftAssignmentSchema = z.object({
   end_time: z.string().optional(),
   status: z.enum(['assigned', 'confirmed', 'completed', 'cancelled', 'swap-requested']).default('assigned'),
   assigned_by: z.string().uuid().optional(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
 })
 
 /**
@@ -21,6 +22,17 @@ const createShiftAssignmentSchema = z.object({
  */
 export async function GET(request: NextRequest) {
   try {
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
+
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const start_date = searchParams.get('start_date')
@@ -29,15 +41,14 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
 
     if (!start_date || !end_date) {
-      return NextResponse.json({ 
-        error: 'Start date and end date are required' 
-      }, { status: 400 })
+      return NextResponse.json({ error: 'Start date and end date are required' }, { status: 400 })
     }
 
     // Build filters
     const filters: any = {
       start_date,
-      end_date
+      end_date,
+      tenant_id: tenantContext.tenant_id,
     }
     if (employee_id) filters.employee_id = employee_id
     if (status) filters.status = status
@@ -46,9 +57,8 @@ export async function GET(request: NextRequest) {
     const assignments = await getShiftAssignments(filters)
 
     return NextResponse.json({
-      data: assignments
+      data: assignments,
     })
-
   } catch (error) {
     console.error('Error in GET /api/shifts/assignments:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -64,63 +74,76 @@ export async function POST(request: NextRequest) {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
     // Parse and validate request body
     const body = await request.json()
     const validatedData = createShiftAssignmentSchema.parse(body)
 
-    // Check if employee exists
+    // Check if employee exists in tenant
     const employeeResult = await query(
-      'SELECT id FROM employees WHERE id = $1 AND is_active = true',
-      [validatedData.employee_id]
+      'SELECT id FROM employees_new WHERE id = $1 AND is_active = true AND tenant_id = $2',
+      [validatedData.employee_id, tenantContext.tenant_id]
     )
 
     if (employeeResult.rows.length === 0) {
       return NextResponse.json({ error: 'Employee not found or inactive' }, { status: 404 })
     }
 
-    // Check if shift exists
+    // Check if shift exists in tenant
     const shiftResult = await query(
-      'SELECT id FROM shifts WHERE id = $1 AND is_active = true',
-      [validatedData.shift_id]
+      'SELECT id FROM shift_templates WHERE id = $1 AND is_active = true AND tenant_id = $2',
+      [validatedData.shift_id, tenantContext.tenant_id]
     )
 
     if (shiftResult.rows.length === 0) {
       return NextResponse.json({ error: 'Shift not found or inactive' }, { status: 404 })
     }
 
-    // Check for conflicting assignments
+    // Check for conflicting assignments within tenant
     const conflictResult = await query(
-      `SELECT id, status FROM shift_assignments 
+      `SELECT id, status FROM shift_assignments_new 
        WHERE employee_id = $1 
        AND date = $2 
-       AND status NOT IN ('cancelled')`,
-      [validatedData.employee_id, validatedData.date]
+       AND status NOT IN ('cancelled')
+       AND tenant_id = $3`,
+      [validatedData.employee_id, validatedData.date, tenantContext.tenant_id]
     )
 
     if (conflictResult.rows.length > 0) {
-      return NextResponse.json({ 
-        error: 'Employee already has an assignment on this date' 
-      }, { status: 409 })
+      return NextResponse.json({ error: 'Employee already has an assignment on this date' }, { status: 409 })
     }
 
-    // Create shift assignment
-    const assignment = await createShiftAssignment(validatedData)
+    // Create shift assignment in tenant
+    const assignment = await query(
+      `INSERT INTO shift_assignments_new (
+        employee_id, template_id, date, start_time, end_time, status, assigned_by, notes, tenant_id, organization_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [
+        validatedData.employee_id,
+        validatedData.shift_id,
+        validatedData.date,
+        validatedData.start_time || null,
+        validatedData.end_time || null,
+        validatedData.status,
+        validatedData.assigned_by || user.id,
+        validatedData.notes || null,
+        tenantContext.tenant_id,
+        tenantContext.organization_id,
+      ]
+    )
 
-    return NextResponse.json({ 
-      data: assignment,
-      message: 'Shift assignment created successfully' 
-    }, { status: 201 })
-
+    return NextResponse.json({ data: assignment.rows[0], message: 'Shift assignment created successfully' }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      }, { status: 400 })
+      return NextResponse.json({ error: 'Validation error', details: error.errors }, { status: 400 })
     }
 
     console.error('Error in POST /api/shifts/assignments:', error)

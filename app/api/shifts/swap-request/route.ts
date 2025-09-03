@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
 const authMiddleware = createApiAuthMiddleware()
 
@@ -10,6 +11,11 @@ export async function POST(request: NextRequest) {
     const authResult = await authMiddleware(request)
     if (!('isAuthenticated' in authResult) || !authResult.isAuthenticated || !authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(authResult.user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
     const { target_employee_id, reason, swap_date } = await request.json()
@@ -22,13 +28,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get the requester's shift for the swap date
+    // Get the requester's shift for the swap date within tenant
     const requesterShiftResult = await query(`
       SELECT sa.id as assignment_id, sa.template_id, st.name as shift_name
       FROM shift_assignments_new sa
-      JOIN shift_templates st ON sa.template_id = st.id
-      WHERE sa.employee_id = $1 AND sa.date = $2
-    `, [requester_id, swap_date])
+      JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
+      WHERE sa.employee_id = $1 AND sa.date = $2 AND sa.tenant_id = $3
+    `, [requester_id, swap_date, tenantContext.tenant_id])
 
     if (requesterShiftResult.rows.length === 0) {
       return NextResponse.json(
@@ -39,13 +45,13 @@ export async function POST(request: NextRequest) {
 
     const requesterShift = requesterShiftResult.rows[0]
 
-    // Get the target employee's shift for the swap date
+    // Get the target employee's shift for the swap date within tenant
     const targetShiftResult = await query(`
       SELECT sa.id as assignment_id, sa.template_id, st.name as shift_name
       FROM shift_assignments_new sa
-      JOIN shift_templates st ON sa.template_id = st.id
-      WHERE sa.employee_id = $1 AND sa.date = $2
-    `, [target_employee_id, swap_date])
+      JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
+      WHERE sa.employee_id = $1 AND sa.date = $2 AND sa.tenant_id = $3
+    `, [target_employee_id, swap_date, tenantContext.tenant_id])
 
     if (targetShiftResult.rows.length === 0) {
       return NextResponse.json(
@@ -56,12 +62,12 @@ export async function POST(request: NextRequest) {
 
     const targetShift = targetShiftResult.rows[0]
 
-    // Check if a swap request already exists
+    // Check if a swap request already exists within tenant
     const existingSwapResult = await query(`
       SELECT id FROM shift_swaps 
       WHERE requester_id = $1 AND target_id = $2 AND original_shift_id = $3 AND requested_shift_id = $4
-      AND status = 'pending'
-    `, [requester_id, target_employee_id, requesterShift.template_id, targetShift.template_id])
+      AND status = 'pending' AND tenant_id = $5
+    `, [requester_id, target_employee_id, requesterShift.template_id, targetShift.template_id, tenantContext.tenant_id])
 
     if (existingSwapResult.rows.length > 0) {
       return NextResponse.json(
@@ -70,7 +76,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create the swap request
+    // Create the swap request with tenant scope
     const swapResult = await query(`
       INSERT INTO shift_swaps (
         requester_id,
@@ -79,46 +85,39 @@ export async function POST(request: NextRequest) {
         requested_shift_id,
         status,
         reason,
+        tenant_id,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, 'pending', $5, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, 'pending', $5, $6, NOW(), NOW())
       RETURNING *
-    `, [requester_id, target_employee_id, requesterShift.template_id, targetShift.template_id, reason])
+    `, [requester_id, target_employee_id, requesterShift.template_id, targetShift.template_id, reason, tenantContext.tenant_id])
 
     const swapRequest = swapResult.rows[0]
 
     // Get employee names for notifications
     const requesterResult = await query(`
-      SELECT first_name, last_name FROM employees_new WHERE id = $1
-    `, [requester_id])
+      SELECT first_name, last_name FROM employees_new WHERE id = $1 AND tenant_id = $2
+    `, [requester_id, tenantContext.tenant_id])
 
     const targetResult = await query(`
-      SELECT first_name, last_name FROM employees_new WHERE id = $1
-    `, [target_employee_id])
+      SELECT first_name, last_name FROM employees_new WHERE id = $1 AND tenant_id = $2
+    `, [target_employee_id, tenantContext.tenant_id])
 
     const requester = requesterResult.rows[0]
     const target = targetResult.rows[0]
 
-    // Create notifications for all relevant parties
+    // Create notifications for all relevant parties within tenant
     const notificationRecipients = [
-      // Admin
-      { user_id: 'ADM001', title: 'Shift Swap Request', message: `${requester.first_name} ${requester.last_name} wants to swap ${requesterShift.shift_name} shift with ${target.first_name} ${target.last_name}'s ${targetShift.shift_name} shift on ${swap_date}`, type: 'info' },
-      // Project Manager
-      { user_id: 'PM001', title: 'Shift Swap Request', message: `${requester.first_name} ${requester.last_name} wants to swap ${requesterShift.shift_name} shift with ${target.first_name} ${target.last_name}'s ${targetShift.shift_name} shift on ${swap_date}`, type: 'info' },
-      // Team Lead
-      { user_id: 'TL001', title: 'Shift Swap Request', message: `${requester.first_name} ${requester.last_name} wants to swap ${requesterShift.shift_name} shift with ${target.first_name} ${target.last_name}'s ${targetShift.shift_name} shift on ${swap_date}`, type: 'info' },
-      // Requester
       { user_id: requester_id, title: 'Shift Swap Request Sent', message: `Your swap request with ${target.first_name} ${target.last_name} for ${swap_date} is pending approval`, type: 'info' },
-      // Target
       { user_id: target_employee_id, title: 'Shift Swap Request Received', message: `${requester.first_name} ${requester.last_name} wants to swap shifts with you on ${swap_date}`, type: 'info' }
     ]
 
     for (const notification of notificationRecipients) {
       await query(`
         INSERT INTO notifications (
-          user_id, title, message, type, created_at
-        ) VALUES ($1, $2, $3, $4, NOW())
-      `, [notification.user_id, notification.title, notification.message, notification.type])
+          user_id, title, message, type, created_at, tenant_id
+        ) VALUES ($1, $2, $3, $4, NOW(), $5)
+      `, [notification.user_id, notification.title, notification.message, notification.type, tenantContext.tenant_id])
     }
 
     return NextResponse.json({

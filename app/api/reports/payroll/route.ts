@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPayrollStats } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
 /**
  * GET /api/reports/payroll
@@ -11,8 +12,13 @@ export async function GET(request: NextRequest) {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
     // Get query parameters
@@ -28,7 +34,8 @@ export async function GET(request: NextRequest) {
     // Build filters
     const filters: any = {
       start_date,
-      end_date
+      end_date,
+      tenant_id: tenantContext.tenant_id,
     }
     if (department) filters.department = department
 
@@ -40,10 +47,9 @@ export async function GET(request: NextRequest) {
       filters: {
         start_date,
         end_date,
-        department
-      }
+        department,
+      },
     })
-
   } catch (error) {
     console.error('Error in GET /api/reports/payroll:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

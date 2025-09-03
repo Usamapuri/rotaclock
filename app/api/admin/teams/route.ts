@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
 export async function GET(request: NextRequest) {
 	try {
@@ -8,6 +9,9 @@ export async function GET(request: NextRequest) {
 		const { user, isAuthenticated } = await auth(request)
 		if (!isAuthenticated) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 		if (user?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+		const tenant = await getTenantContext(user.id)
+		if (!tenant) return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
 
 		const { searchParams } = new URL(request.url)
 		const department = searchParams.get('department')
@@ -21,19 +25,20 @@ export async function GET(request: NextRequest) {
 				e.email as team_lead_email,
 				COUNT(ta.employee_id) as member_count
 			FROM teams t
-			LEFT JOIN employees_new e ON t.team_lead_id = e.id
+			LEFT JOIN employees_new e ON t.team_lead_id = e.id AND e.tenant_id = t.tenant_id
 			LEFT JOIN team_assignments ta ON t.id = ta.team_id AND ta.is_active = true
+			WHERE t.tenant_id = $1
 		`
-		const params: any[] = []
-		let idx = 1
+		const params: any[] = [tenant.tenant_id]
+		let idx = 2
 		if (department) {
-			sql += ` WHERE t.department = $${idx}`
+			sql += ` AND t.department = $${idx}`
 			params.push(department)
 			idx++
 		}
 		if (isActive !== null) {
 			const active = isActive === 'true'
-			sql += department ? ` AND t.is_active = $${idx}` : ` WHERE t.is_active = $${idx}`
+			sql += ` AND t.is_active = $${idx}`
 			params.push(active)
 			idx++
 		}
@@ -54,23 +59,25 @@ export async function POST(request: NextRequest) {
 		if (!isAuthenticated) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 		if (user?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+		const tenant = await getTenantContext(user.id)
+		if (!tenant) return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+
     const { name, department, team_lead_id, description } = await request.json()
 		if (!name || !department || !team_lead_id) {
 			return NextResponse.json({ error: 'name, department, team_lead_id are required' }, { status: 400 })
 		}
 
-		const leadCheck = await query('SELECT id FROM employees_new WHERE id = $1', [team_lead_id])
+		const leadCheck = await query('SELECT id FROM employees_new WHERE id = $1 AND tenant_id = $2', [team_lead_id, tenant.tenant_id])
 		if (leadCheck.rows.length === 0) {
 			return NextResponse.json({ error: 'Invalid team_lead_id' }, { status: 400 })
 		}
 
-    // Ensure the selected employee has team_lead role
-    await query(`UPDATE employees_new SET role = 'team_lead', updated_at = NOW() WHERE id = $1`, [team_lead_id])
+    await query(`UPDATE employees_new SET role = 'team_lead', updated_at = NOW() WHERE id = $1 AND tenant_id = $2`, [team_lead_id, tenant.tenant_id])
 
     const createRes = await query(
-			`INSERT INTO teams (name, department, team_lead_id, description)
-			 VALUES ($1,$2,$3,$4) RETURNING *`,
-			[name, department, team_lead_id, description || null]
+			`INSERT INTO teams (name, department, team_lead_id, description, tenant_id, organization_id)
+			 VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+			[name, department, team_lead_id, description || null, tenant.tenant_id, tenant.organization_id]
 		)
 		return NextResponse.json({ success: true, data: createRes.rows[0] }, { status: 201 })
 	} catch (err) {
