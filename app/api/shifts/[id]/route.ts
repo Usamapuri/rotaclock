@@ -28,7 +28,7 @@ export async function GET(
     const result = await query(
       `SELECT s.*, e.id as employee_id, e.first_name, e.last_name, e.email
        FROM shift_templates s
-       LEFT JOIN employees_new e ON s.created_by = e.id AND e.tenant_id = s.tenant_id
+       LEFT JOIN employees e ON s.created_by = e.id AND e.tenant_id = s.tenant_id
        WHERE s.id = $1 AND s.tenant_id = $2`,
       [id, tenantContext.tenant_id]
     )
@@ -148,7 +148,7 @@ export async function DELETE(
 
     // Check if shift has assignments in tenant
     const assignmentResult = await query(
-      `SELECT COUNT(*) as assignment_count FROM shift_assignments_new WHERE template_id = $1 AND tenant_id = $2`,
+      `SELECT COUNT(*) as assignment_count FROM shift_assignments WHERE template_id = $1 AND tenant_id = $2`,
       [id, tenantContext.tenant_id]
     )
 

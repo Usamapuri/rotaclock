@@ -83,10 +83,10 @@ interface ShiftLog {
   id: string
   employee_id: string
   shift_assignment_id?: string
-  clock_in_time: string
-  clock_out_time?: string
-  total_shift_hours?: number
-  break_time_used: number
+  clock_in: string
+  clock_out?: string
+  total_hours?: number
+  break_hours: number
   max_break_allowed: number
   is_late: boolean
   is_no_show: boolean
@@ -654,7 +654,7 @@ export default function AdminDashboard() {
     const activeShiftLog = shiftLogs.find(log => 
       log.employee_id === employeeId && 
       log.status === 'active' && 
-      !log.clock_out_time
+      !log.clock_out
     )
     
     if (activeShiftLog) {
@@ -1093,10 +1093,10 @@ export default function AdminDashboard() {
                           {log.employee?.first_name} {log.employee?.last_name}
                         </p>
                         <p className="text-sm text-gray-500">
-                          Clocked in at {log.clock_in_time ? new Date(log.clock_in_time).toLocaleTimeString() : 'Unknown'}
+                          Clocked in at {log.clock_in ? new Date(log.clock_in).toLocaleTimeString() : 'Unknown'}
                         </p>
                         <p className="text-xs text-gray-400">
-                          Break time used: {(typeof log.break_time_used === 'string' ? parseFloat(log.break_time_used) : log.break_time_used || 0).toFixed(2)}h / {(typeof log.max_break_allowed === 'string' ? parseFloat(log.max_break_allowed) : log.max_break_allowed || 1)}h
+                          Break time used: {(typeof log.break_hours === 'string' ? parseFloat(log.break_hours) : log.break_hours || 0).toFixed(2)}h / {(typeof log.max_break_allowed === 'string' ? parseFloat(log.max_break_allowed) : log.max_break_allowed || 1)}h
                         </p>
                       </div>
                       <Badge variant="default">Active</Badge>

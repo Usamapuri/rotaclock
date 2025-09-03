@@ -302,7 +302,7 @@ export async function sendBroadcastMessage(message: string, userIds: string[]) {
 export async function sendBroadcastToAllEmployees(message: string) {
   try {
     // For now, use employee IDs as user IDs since we don't have a separate user system
-    const result = await query('SELECT id FROM employees_new WHERE is_active = true')
+    const result = await query('SELECT id FROM employees WHERE is_active = true')
     const employeeIds = result.rows.map(emp => emp.id)
     
     // Create notifications using employee IDs as user IDs

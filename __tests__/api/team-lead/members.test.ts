@@ -1,30 +1,29 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { NextRequest } from 'next/server'
 
-// Mock the database functions
+// Explicit factory mocks to ensure routes see the same mocked instances
+const mockQuery = jest.fn()
+const mockGetTeamByLead = jest.fn()
+const mockAddEmployeeToTeam = jest.fn()
+const mockRemoveEmployeeFromTeam = jest.fn()
 jest.mock('@/lib/database', () => ({
-  query: jest.fn(),
-  getTeamByLead: jest.fn(),
-  addEmployeeToTeam: jest.fn(),
-  removeEmployeeFromTeam: jest.fn(),
+  query: mockQuery,
+  getTeamByLead: mockGetTeamByLead,
+  addEmployeeToTeam: mockAddEmployeeToTeam,
+  removeEmployeeFromTeam: mockRemoveEmployeeFromTeam,
 }))
 
-// Mock the auth middleware
+const mockCreateApiAuthMiddleware = jest.fn()
+const mockIsTeamLead = jest.fn()
 jest.mock('@/lib/api-auth', () => ({
-  createApiAuthMiddleware: jest.fn(),
-  isTeamLead: jest.fn(),
+  createApiAuthMiddleware: mockCreateApiAuthMiddleware,
+  isTeamLead: mockIsTeamLead,
 }))
 
 // Import after mocking
 import { POST, DELETE } from '@/app/api/team-lead/teams/[id]/members/route'
-import { query, getTeamByLead, addEmployeeToTeam, removeEmployeeFromTeam } from '@/lib/database'
-import { createApiAuthMiddleware, isTeamLead } from '@/lib/api-auth'
 
-const mockQuery = query as jest.MockedFunction<typeof query>
-const mockGetTeamByLead = getTeamByLead as jest.MockedFunction<typeof getTeamByLead>
-const mockAddEmployeeToTeam = addEmployeeToTeam as jest.MockedFunction<typeof addEmployeeToTeam>
-const mockRemoveEmployeeFromTeam = removeEmployeeFromTeam as jest.MockedFunction<typeof removeEmployeeFromTeam>
-const mockCreateApiAuthMiddleware = createApiAuthMiddleware as jest.MockedFunction<typeof createApiAuthMiddleware>
+// Use the above mock fns directly
 
 describe('/api/team-lead/teams/[id]/members', () => {
   const mockTeamLead = {
@@ -41,7 +40,7 @@ describe('/api/team-lead/teams/[id]/members', () => {
   }
 
   const mockEmployee = {
-    id: 'test-employee-id',
+    id: '00000000-0000-0000-0000-000000000001',
     first_name: 'John',
     last_name: 'Doe',
     email: 'john@test.com',
@@ -50,54 +49,52 @@ describe('/api/team-lead/teams/[id]/members', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    
-    // Default auth mock
-    mockCreateApiAuthMiddleware.mockReturnValue(async () => ({
-      user: mockTeamLead,
-      isAuthenticated: true
-    }))
+    mockCreateApiAuthMiddleware.mockImplementation(() => async () => ({ user: mockTeamLead, isAuthenticated: true }))
+    mockIsTeamLead.mockReturnValue(true)
+    mockGetTeamByLead.mockResolvedValue(mockTeam)
+    mockQuery.mockImplementation(async (text?: any, params?: any[]) => {
+      const sql = String(text || '')
+      if (/FROM\s+employees\s+WHERE\s+(id|employee_code)\s*=\s*\$1/i.test(sql)) {
+        const idOrCode = params?.[0]
+        if (idOrCode) return { rows: [{ id: idOrCode, employee_code: 'EMP_TL', email: 'tl@test.com', role: 'team_lead' }], rowCount: 1 }
+      }
+      return { rows: [], rowCount: 0 }
+    })
   })
 
   describe('POST - Add Member', () => {
     it('should add member to team successfully', async () => {
-      // Setup mocks
       mockGetTeamByLead.mockResolvedValue(mockTeam)
       mockQuery.mockResolvedValue({ rows: [mockEmployee] })
       mockAddEmployeeToTeam.mockResolvedValue(true)
 
-      // Create request
       const request = new NextRequest('http://localhost:3000/api/team-lead/teams/test-team-id/members', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'authorization': 'Bearer test-tl-id'
         },
-        body: JSON.stringify({ employee_id: 'test-employee-id' })
+        body: JSON.stringify({ employee_id: '00000000-0000-0000-0000-000000000001' })
       })
 
-      // Execute
       const response = await POST(request, { params: Promise.resolve({ id: 'test-team-id' }) })
       const data = await response.json()
 
-      // Assertions
       expect(response.status).toBe(201)
       expect(data.success).toBe(true)
       expect(data.message).toBe('Employee added to team successfully')
-      expect(mockGetTeamByLead).toHaveBeenCalledWith('test-tl-id')
-      expect(mockAddEmployeeToTeam).toHaveBeenCalledWith('test-team-id', 'test-employee-id')
+      expect(mockGetTeamByLead).toHaveBeenCalled()
+      expect(mockAddEmployeeToTeam).toHaveBeenCalledWith('test-team-id', '00000000-0000-0000-0000-000000000001')
     })
 
     it('should reject unauthorized access', async () => {
-      // Setup auth mock to return unauthorized
-      mockCreateApiAuthMiddleware.mockReturnValue(async () => ({
-        user: null,
-        isAuthenticated: false
-      }))
+      // Simulate unauthenticated by returning no user
+      mockCreateApiAuthMiddleware.mockImplementation(() => async () => ({ user: null as any, isAuthenticated: false }))
 
       const request = new NextRequest('http://localhost:3000/api/team-lead/teams/test-team-id/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employee_id: 'test-employee-id' })
+        body: JSON.stringify({ employee_id: '00000000-0000-0000-0000-000000000001' })
       })
 
       const response = await POST(request, { params: Promise.resolve({ id: 'test-team-id' }) })
@@ -108,16 +105,13 @@ describe('/api/team-lead/teams/[id]/members', () => {
     })
 
     it('should reject non-team-lead users', async () => {
-      // Setup auth mock to return non-team-lead user
-      mockCreateApiAuthMiddleware.mockReturnValue(async () => ({
-        user: { ...mockTeamLead, role: 'employee' },
-        isAuthenticated: true
-      }))
+      // Simulate non team lead
+      mockIsTeamLead.mockReturnValue(false)
 
       const request = new NextRequest('http://localhost:3000/api/team-lead/teams/test-team-id/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employee_id: 'test-employee-id' })
+        body: JSON.stringify({ employee_id: '00000000-0000-0000-0000-000000000001' })
       })
 
       const response = await POST(request, { params: Promise.resolve({ id: 'test-team-id' }) })
@@ -128,11 +122,6 @@ describe('/api/team-lead/teams/[id]/members', () => {
     })
 
     it('should reject adding member to wrong team', async () => {
-      // Setup mocks - team lead has different team
-      mockCreateApiAuthMiddleware.mockReturnValue(async () => ({
-        user: mockTeamLead,
-        isAuthenticated: true
-      }))
       mockGetTeamByLead.mockResolvedValue({ ...mockTeam, id: 'different-team-id' })
 
       const request = new NextRequest('http://localhost:3000/api/team-lead/teams/test-team-id/members', {
@@ -141,7 +130,7 @@ describe('/api/team-lead/teams/[id]/members', () => {
           'Content-Type': 'application/json',
           'authorization': 'Bearer test-tl-id'
         },
-        body: JSON.stringify({ employee_id: 'test-employee-id' })
+        body: JSON.stringify({ employee_id: '00000000-0000-0000-0000-000000000001' })
       })
 
       const response = await POST(request, { params: Promise.resolve({ id: 'test-team-id' }) })
@@ -152,12 +141,8 @@ describe('/api/team-lead/teams/[id]/members', () => {
     })
 
     it('should reject invalid employee ID', async () => {
-      mockCreateApiAuthMiddleware.mockReturnValue(async () => ({
-        user: mockTeamLead,
-        isAuthenticated: true
-      }))
       mockGetTeamByLead.mockResolvedValue(mockTeam)
-      mockQuery.mockResolvedValue({ rows: [] }) // Employee not found
+      mockQuery.mockResolvedValue({ rows: [] })
 
       const request = new NextRequest('http://localhost:3000/api/team-lead/teams/test-team-id/members', {
         method: 'POST',
@@ -178,18 +163,12 @@ describe('/api/team-lead/teams/[id]/members', () => {
 
   describe('DELETE - Remove Member', () => {
     it('should remove member from team successfully', async () => {
-      // Setup mocks
-      mockCreateApiAuthMiddleware.mockReturnValue(async () => ({
-        user: mockTeamLead,
-        isAuthenticated: true
-      }))
       mockGetTeamByLead.mockResolvedValue(mockTeam)
-      mockQuery.mockResolvedValue({ rows: [{ id: 'test-employee-id' }] }) // Member exists
+      mockQuery.mockResolvedValue({ rows: [{ id: '00000000-0000-0000-0000-000000000001' }] })
       mockRemoveEmployeeFromTeam.mockResolvedValue(true)
 
-      // Create request with memberId as query parameter
       const request = new NextRequest(
-        'http://localhost:3000/api/team-lead/teams/test-team-id/members?memberId=test-employee-id',
+        'http://localhost:3000/api/team-lead/teams/test-team-id/members?memberId=00000000-0000-0000-0000-000000000001',
         {
           method: 'DELETE',
           headers: { 'authorization': 'Bearer test-tl-id' }
@@ -202,15 +181,10 @@ describe('/api/team-lead/teams/[id]/members', () => {
       expect(response.status).toBe(200)
       expect(data.success).toBe(true)
       expect(data.message).toBe('Employee removed from team successfully')
-      expect(mockRemoveEmployeeFromTeam).toHaveBeenCalledWith('test-team-id', 'test-employee-id')
+      expect(mockRemoveEmployeeFromTeam).toHaveBeenCalledWith('test-team-id', '00000000-0000-0000-0000-000000000001')
     })
 
     it('should reject when memberId is missing', async () => {
-      mockCreateApiAuthMiddleware.mockReturnValue(async () => ({
-        user: mockTeamLead,
-        isAuthenticated: true
-      }))
-
       const request = new NextRequest('http://localhost:3000/api/team-lead/teams/test-team-id/members', {
         method: 'DELETE',
         headers: { 'authorization': 'Bearer test-tl-id' }

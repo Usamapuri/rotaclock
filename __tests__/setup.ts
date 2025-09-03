@@ -1,6 +1,56 @@
 import '@testing-library/jest-dom'
 import { TextEncoder, TextDecoder } from 'util'
 
+// Prevent real PostgreSQL connections during tests
+jest.mock('pg', () => {
+  const mockClient = {
+    query: jest.fn(async () => ({ rows: [], rowCount: 0 })),
+    release: jest.fn()
+  }
+  class MockPool {
+    connect = jest.fn(async () => mockClient)
+    query = jest.fn(async () => ({ rows: [], rowCount: 0 }))
+    on = jest.fn()
+    end = jest.fn()
+  }
+  return {
+    Pool: jest.fn(() => new MockPool()),
+  }
+})
+
+// Mock NextResponse
+jest.mock('next/server', () => ({
+  NextRequest: class MockNextRequest {
+    private _url: string
+    method: string
+    body: any
+    headers: any
+
+    constructor(url: string, init?: any) {
+      this._url = url
+      this.method = init?.method || 'GET'
+      this.body = init?.body
+      this.headers = new Map(Object.entries(init?.headers || {}))
+    }
+
+    get url() {
+      return this._url
+    }
+
+    async json() {
+      return this.body ? JSON.parse(this.body) : {}
+    }
+  },
+  NextResponse: {
+    json: (body: any, init?: any) => ({
+      status: init?.status || 200,
+      body,
+      headers: init?.headers || {},
+      json: async () => body
+    })
+  }
+}))
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {
@@ -60,6 +110,10 @@ global.Response = class MockResponse {
 
   async json() {
     return this.body
+  }
+
+  static json(body: any, init?: any) {
+    return new MockResponse(body, init)
   }
 }
 

@@ -21,7 +21,7 @@ export async function GET(
     const result = await query(
       `SELECT e.employee_code as employee_id, e.email, e.first_name, e.last_name, e.role,
               r.display_name as role_display_name, r.description as role_description, r.permissions, r.dashboard_access
-       FROM employees_new e
+       FROM employees e
        LEFT JOIN roles r ON e.role = r.name AND r.tenant_id = e.tenant_id
        WHERE ${isUuid ? 'e.id' : 'e.email'} = $1 AND e.tenant_id = $2`,
       [id, tenant.tenant_id]
@@ -59,7 +59,7 @@ export async function PUT(
     }
 
     const currentRoleResult = await query(
-      `SELECT role, email FROM employees_new WHERE ${isUuid ? 'id' : 'email'} = $1 AND tenant_id = $2`,
+      `SELECT role, email FROM employees WHERE ${isUuid ? 'id' : 'email'} = $1 AND tenant_id = $2`,
       [id, tenant.tenant_id]
     )
 
@@ -71,7 +71,7 @@ export async function PUT(
     const email = currentRoleResult.rows[0].email
 
     await query(
-      `UPDATE employees_new SET role = $1, updated_at = NOW() WHERE ${isUuid ? 'id' : 'email'} = $2 AND tenant_id = $3`,
+      `UPDATE employees SET role = $1, updated_at = NOW() WHERE ${isUuid ? 'id' : 'email'} = $2 AND tenant_id = $3`,
       [new_role, id, tenant.tenant_id]
     )
 
@@ -79,7 +79,7 @@ export async function PUT(
       `INSERT INTO role_assignments (
          employee_id, employee_email, old_role, new_role, assigned_by, reason, tenant_id, organization_id
        ) VALUES (
-         (SELECT employee_code FROM employees_new WHERE ${isUuid ? 'id' : 'email'} = $1 AND tenant_id = $2),
+         (SELECT employee_code FROM employees WHERE ${isUuid ? 'id' : 'email'} = $1 AND tenant_id = $2),
          $3, $4, $5, $6, $7, $2, $8
        )`,
       [id, tenant.tenant_id, email, old_role, new_role, assigned_by || user!.id, reason || 'Role update', tenant.organization_id]
@@ -88,7 +88,7 @@ export async function PUT(
     const result = await query(
       `SELECT e.employee_code as employee_id, e.email, e.first_name, e.last_name, e.role,
               r.display_name as role_display_name, r.description as role_description, r.permissions, r.dashboard_access
-       FROM employees_new e
+       FROM employees e
        LEFT JOIN roles r ON e.role = r.name AND r.tenant_id = e.tenant_id
        WHERE ${isUuid ? 'e.id' : 'e.email'} = $1 AND e.tenant_id = $2`,
       [id, tenant.tenant_id]

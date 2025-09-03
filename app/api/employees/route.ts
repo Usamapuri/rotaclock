@@ -86,11 +86,11 @@ export async function GET(request: NextRequest) {
         COUNT(sa.id) as total_assignments,
         COUNT(te.id) as total_time_entries,
         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
-      FROM employees_new e
+      FROM employees e
       LEFT JOIN teams t ON e.team_id = t.id
-      LEFT JOIN employees_new m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
-      LEFT JOIN shift_assignments_new sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
-      LEFT JOIN time_entries_new te ON e.id = te.employee_id
+      LEFT JOIN employees m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
+      LEFT JOIN shift_assignments sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
+      LEFT JOIN time_entries te ON e.id = te.employee_id
       WHERE e.tenant_id = $1
     `
     const params: any[] = [tenantContext.tenant_id]
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
 
     // Check if employee_code already exists
     const existingEmployeeResult = await query(
-      'SELECT id FROM employees_new WHERE employee_code = $1',
+      'SELECT id FROM employees WHERE employee_code = $1',
       [validatedData.employee_code]
     )
 
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
 
     // Check if email already exists
     const existingEmailResult = await query(
-      'SELECT id FROM employees_new WHERE email = $1',
+      'SELECT id FROM employees WHERE email = $1',
       [validatedData.email]
     )
 
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
 
     // Create employee
     const insertQuery = `
-      INSERT INTO employees_new (
+      INSERT INTO employees (
         employee_code, first_name, last_name, email, department, job_position,
         role, hire_date, manager_id, team_id, hourly_rate, max_hours_per_week, is_active, password_hash, tenant_id, organization_id
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
@@ -305,7 +305,7 @@ export async function PUT(request: NextRequest) {
     const values = Object.values(validatedData)
     const setClauses = fields.map((field, idx) => `${field} = $${idx + 2}`).join(', ')
     const updateQuery = `
-      UPDATE employees_new
+      UPDATE employees
       SET ${setClauses}, updated_at = NOW()
       WHERE id = $1
       RETURNING *
@@ -361,7 +361,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete employee
-    await query('DELETE FROM employees_new WHERE id = $1', [id])
+    await query('DELETE FROM employees WHERE id = $1', [id])
 
     return NextResponse.json({ 
       message: 'Employee deleted successfully' 

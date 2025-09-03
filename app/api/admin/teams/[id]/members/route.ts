@@ -26,7 +26,7 @@ export async function GET(
 
     const result = await query(`
       SELECT e.id, e.first_name, e.last_name, e.email, e.position, e.employee_code as employee_id, e.created_at as joined_date, 'member' as role
-      FROM employees_new e
+      FROM employees e
       WHERE e.team_id = $1 AND e.is_active = true AND e.tenant_id = $2
       ORDER BY e.first_name, e.last_name
     `, [teamId, tenant.tenant_id])
@@ -61,7 +61,7 @@ export async function POST(
       return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     }
 
-    const employeeCheck = await query('SELECT id, team_id FROM employees_new WHERE id = $1 AND is_active = true AND tenant_id = $2', [employee_id, tenant.tenant_id])
+    const employeeCheck = await query('SELECT id, team_id FROM employees WHERE id = $1 AND is_active = true AND tenant_id = $2', [employee_id, tenant.tenant_id])
     if (employeeCheck.rows.length === 0) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
     }
@@ -70,7 +70,7 @@ export async function POST(
     }
 
     const result = await query(
-      `UPDATE employees_new SET team_id = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING *`,
+      `UPDATE employees SET team_id = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING *`,
       [teamId, employee_id, tenant.tenant_id]
     )
 

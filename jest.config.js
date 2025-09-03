@@ -20,7 +20,9 @@ const customJestConfig = {
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',
     '<rootDir>/coverage/',
-    '<rootDir>/dist/'
+    '<rootDir>/dist/',
+    '<rootDir>/tests/', // Exclude Playwright tests
+    '<rootDir>/__tests__/setup.ts' // Exclude setup file
   ],
 }
 

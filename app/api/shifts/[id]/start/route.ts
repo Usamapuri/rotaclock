@@ -27,8 +27,8 @@ export async function POST(
 
     // Check if shift exists and get current status (in tenant)
     const shiftResult = await query(
-      `SELECT id, status, employee_id, start_time, end_time
-       FROM shifts
+      `SELECT id, status, employee_id, date, start_time, end_time
+       FROM shift_assignments
        WHERE id = $1 AND tenant_id = $2`,
       [id, tenantContext.tenant_id]
     )
@@ -41,7 +41,7 @@ export async function POST(
 
     // Check if user is the employee assigned to this shift
     const employeeResult = await query(
-      `SELECT id FROM employees_new WHERE user_id = $1 AND tenant_id = $2`,
+      `SELECT id FROM employees WHERE id = $1 AND tenant_id = $2`,
       [user.id, tenantContext.tenant_id]
     )
 
@@ -65,7 +65,7 @@ export async function POST(
 
     // Check if employee has any other active shifts in tenant
     const activeShiftsResult = await query(
-      `SELECT id FROM shifts WHERE employee_id = $1 AND status = 'in-progress' AND tenant_id = $2`,
+      `SELECT id FROM shift_assignments WHERE employee_id = $1 AND status = 'in-progress' AND tenant_id = $2`,
       [shift.employee_id, tenantContext.tenant_id]
     )
 
@@ -75,8 +75,8 @@ export async function POST(
 
     // Start the shift
     const updatedShiftResult = await query(
-      `UPDATE shifts
-       SET status = 'in-progress', start_time = $1, updated_at = NOW()
+      `UPDATE shift_assignments
+       SET status = 'in-progress', actual_start_time = $1, updated_at = NOW()
        WHERE id = $2 AND tenant_id = $3
        RETURNING *`,
       [now.toISOString(), id, tenantContext.tenant_id]

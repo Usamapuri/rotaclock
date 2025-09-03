@@ -33,7 +33,7 @@ export async function PUT(
 
     const currentTeamLeadId = teamCheck.rows[0].team_lead_id
 
-    const newLeadCheck = await query('SELECT id FROM employees_new WHERE id = $1 AND is_active = true AND tenant_id = $2', [new_team_lead_id, tenant.tenant_id])
+    const newLeadCheck = await query('SELECT id FROM employees WHERE id = $1 AND is_active = true AND tenant_id = $2', [new_team_lead_id, tenant.tenant_id])
     if (newLeadCheck.rows.length === 0) {
       return NextResponse.json({ error: 'New team lead not found' }, { status: 404 })
     }

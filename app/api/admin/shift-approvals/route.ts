@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
     // Get total count
     const countQuery = `
       SELECT COUNT(*) as total
-      FROM shift_logs sl
-      JOIN employees_new e ON sl.employee_id = e.id
+      FROM time_entries sl
+      JOIN employees e ON sl.employee_id = e.id
       ${whereClause}
     `
     const countResult = await query(countQuery, params)
@@ -55,11 +55,11 @@ export async function GET(request: NextRequest) {
       SELECT 
         sl.id,
         sl.employee_id,
-        sl.shift_assignment_id,
-        sl.clock_in_time,
-        sl.clock_out_time,
-        sl.total_shift_hours,
-        sl.break_time_used,
+        sl.assignment_id,
+        sl.clock_in,
+        sl.clock_out,
+        sl.total_hours,
+        sl.break_hours,
         sl.total_calls_taken,
         sl.leads_generated,
         sl.shift_remarks,
@@ -81,11 +81,11 @@ export async function GET(request: NextRequest) {
         s.end_time as scheduled_end_time,
         approver.first_name as approver_first_name,
         approver.last_name as approver_last_name
-      FROM shift_logs sl
-      JOIN employees_new e ON sl.employee_id = e.id
-      LEFT JOIN shift_assignments_new sa ON sl.shift_assignment_id = sa.id
+      FROM time_entries sl
+      JOIN employees e ON sl.employee_id = e.id
+      LEFT JOIN shift_assignments sa ON sl.assignment_id = sa.id
       LEFT JOIN shift_templates s ON sa.template_id = s.id
-      LEFT JOIN employees_new approver ON sl.approved_by = approver.id
+      LEFT JOIN employees approver ON sl.approved_by = approver.id
       ${whereClause}
       ORDER BY sl.created_at DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE approval_status = 'rejected') as rejected_count,
         SUM(total_shift_hours) FILTER (WHERE approval_status = 'pending') as pending_hours,
         SUM(total_shift_hours) FILTER (WHERE approval_status = 'approved') as approved_hours
-      FROM shift_logs
+      FROM time_entries
       WHERE approval_status IN ('pending', 'approved', 'rejected') AND status = 'completed'
     `
     const statsResult = await query(statsQuery)

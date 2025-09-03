@@ -23,10 +23,10 @@ export async function POST(
     const team = await query('SELECT id FROM teams WHERE id = $1 AND tenant_id = $2', [teamId, tenant.tenant_id])
     if (team.rows.length === 0) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
 
-    const emp = await query('SELECT id FROM employees_new WHERE id = $1 AND is_active = true AND tenant_id = $2', [team_lead_id, tenant.tenant_id])
+    const emp = await query('SELECT id FROM employees WHERE id = $1 AND is_active = true AND tenant_id = $2', [team_lead_id, tenant.tenant_id])
     if (emp.rows.length === 0) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
 
-    await query("UPDATE employees_new SET role = 'team_lead', updated_at = NOW() WHERE id = $1 AND tenant_id = $2", [team_lead_id, tenant.tenant_id])
+    await query("UPDATE employees SET role = 'team_lead', updated_at = NOW() WHERE id = $1 AND tenant_id = $2", [team_lead_id, tenant.tenant_id])
 
     const updated = await query('UPDATE teams SET team_lead_id = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3 RETURNING *', [team_lead_id, teamId, tenant.tenant_id])
 

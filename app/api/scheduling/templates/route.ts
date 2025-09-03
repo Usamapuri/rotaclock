@@ -189,7 +189,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Shift template not found' }, { status: 404 })
     }
 
-    const activeAssignments = await query('SELECT COUNT(*) as count FROM shift_assignments_new WHERE template_id = $1 AND tenant_id = $2', [templateId, tenantContext.tenant_id])
+    const activeAssignments = await query('SELECT COUNT(*) as count FROM shift_assignments WHERE template_id = $1 AND tenant_id = $2', [templateId, tenantContext.tenant_id])
     if (parseInt(activeAssignments.rows[0].count) > 0) {
       return NextResponse.json({ success: false, error: 'Cannot delete template that has active assignments' }, { status: 409 })
     }

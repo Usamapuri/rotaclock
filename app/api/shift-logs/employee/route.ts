@@ -14,30 +14,30 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get shift logs for the employee
+    // Proxy shift logs to unified time_entries for the employee
     const result = await query(`
       SELECT 
         id,
         employee_id,
-        shift_assignment_id,
-        clock_in_time,
-        clock_out_time,
-        total_shift_hours,
-        break_time_used,
-        max_break_allowed,
-        is_late,
-        is_no_show,
-        late_minutes,
+        assignment_id as shift_assignment_id,
+        clock_in as clock_in_time,
+        clock_out as clock_out_time,
+        total_hours as total_shift_hours,
+        break_hours as break_time_used,
+        NULL::numeric as max_break_allowed,
+        FALSE as is_late,
+        FALSE as is_no_show,
+        0 as late_minutes,
         status,
-        total_calls_taken,
-        leads_generated,
-        performance_rating,
-        shift_remarks,
+        NULL::int as total_calls_taken,
+        NULL::int as leads_generated,
+        NULL::int as performance_rating,
+        notes as shift_remarks,
         created_at,
         updated_at
-      FROM shift_logs 
+      FROM time_entries 
       WHERE employee_id = $1
-      ORDER BY clock_in_time DESC
+      ORDER BY clock_in DESC
       LIMIT $2
     `, [employeeId, limit])
 

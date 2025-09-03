@@ -52,11 +52,11 @@ export async function GET(request: NextRequest) {
         rsa.start_time as requested_start_time,
         rsa.end_time as requested_end_time
       FROM shift_swaps ss
-      LEFT JOIN employees_new r ON ss.requester_id = r.id
-      LEFT JOIN employees_new t ON ss.target_id = t.id
-      LEFT JOIN employees_new aba ON ss.approved_by = aba.id
-      LEFT JOIN shift_assignments_new osa ON ss.original_shift_id = osa.id
-      LEFT JOIN shift_assignments_new rsa ON ss.requested_shift_id = rsa.id
+      LEFT JOIN employees r ON ss.requester_id = r.id
+      LEFT JOIN employees t ON ss.target_id = t.id
+      LEFT JOIN employees aba ON ss.approved_by = aba.id
+      LEFT JOIN shift_assignments osa ON ss.original_shift_id = osa.id
+      LEFT JOIN shift_assignments rsa ON ss.requested_shift_id = rsa.id
       WHERE (r.team_id = $1 OR t.team_id = $1)
     `
 

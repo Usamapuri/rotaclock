@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     // Check if employee exists in tenant
     const employeeResult = await query(
-      'SELECT id FROM employees_new WHERE id = $1 AND is_active = true AND tenant_id = $2',
+      'SELECT id FROM employees WHERE id = $1 AND is_active = true AND tenant_id = $2',
       [validatedData.employee_id, tenantContext.tenant_id]
     )
 
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     // Check for conflicting assignments within tenant
     const conflictResult = await query(
-      `SELECT id, status FROM shift_assignments_new 
+      `SELECT id, status FROM shift_assignments 
        WHERE employee_id = $1 
        AND date = $2 
        AND status NOT IN ('cancelled')
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     // Create shift assignment in tenant
     const assignment = await query(
-      `INSERT INTO shift_assignments_new (
+      `INSERT INTO shift_assignments (
         employee_id, template_id, date, start_time, end_time, status, assigned_by, notes, tenant_id, organization_id
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [

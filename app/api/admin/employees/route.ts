@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         e.is_active,
         e.is_online,
         e.last_online
-      FROM employees_new e
+      FROM employees e
       WHERE e.tenant_id = $1
     `
     const params: any[] = [tenant.tenant_id]

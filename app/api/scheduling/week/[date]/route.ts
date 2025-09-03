@@ -41,7 +41,7 @@ export async function GET(
     // Employees for tenant
     let employeesQuery = `
       SELECT id, employee_code, first_name, last_name, email, department, job_position
-      FROM employees_new
+      FROM employees
       WHERE is_active = true AND tenant_id = $1
     `
     const employeesParams: any[] = [tenantContext.tenant_id]
@@ -58,7 +58,7 @@ export async function GET(
     // Determine if override columns exist
     const colCheck = await query(`
       SELECT 1 FROM information_schema.columns 
-      WHERE table_name = 'shift_assignments_new' AND column_name = 'override_name' LIMIT 1
+      WHERE table_name = 'shift_assignments' AND column_name = 'override_name' LIMIT 1
     `)
     const hasOverrides = colCheck.rows.length > 0
 
@@ -83,7 +83,7 @@ export async function GET(
           COALESCE(sa.override_end_time, st.end_time) as end_time,
           COALESCE(sa.override_color, st.color) as color,
           st.department as template_department
-        FROM shift_assignments_new sa
+        FROM shift_assignments sa
         LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
         WHERE sa.date >= $1 AND sa.date <= $2 AND sa.tenant_id = $3
       `
@@ -102,7 +102,7 @@ export async function GET(
           st.end_time as end_time,
           st.color as color,
           st.department as template_department
-        FROM shift_assignments_new sa
+        FROM shift_assignments sa
         LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
         WHERE sa.date >= $1 AND sa.date <= $2 AND sa.tenant_id = $3
       `

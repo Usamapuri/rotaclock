@@ -14,7 +14,7 @@ export async function getTenantContext(userId: string): Promise<TenantContext | 
     const result = await query(`
       SELECT e.tenant_id, e.organization_id, o.name as organization_name, 
              o.subscription_status, o.subscription_plan
-      FROM employees_new e
+      FROM employees e
       LEFT JOIN organizations o ON e.organization_id = o.id
       WHERE e.id = $1
     `, [userId])

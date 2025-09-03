@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     }
     
     const result = await query(
-      `SELECT e.id, e.first_name, e.last_name, e.email, e.employee_id, e.is_active
-       FROM employees_new e
+      `SELECT e.id, e.first_name, e.last_name, e.email, e.employee_code as employee_id, e.is_active
+       FROM employees e
        WHERE e.team_id = $1 AND e.is_active = true
        ORDER BY e.first_name, e.last_name`,
       [team.id]

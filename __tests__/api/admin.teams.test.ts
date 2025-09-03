@@ -1,33 +1,32 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { NextRequest } from 'next/server'
 
+// Create mock functions
+const mockQuery = jest.fn()
+const mockCreateApiAuthMiddleware = jest.fn()
+const mockGetTenantContext = jest.fn()
+const mockIsAdmin = jest.fn()
+
 jest.mock('@/lib/database', () => ({
-	query: jest.fn(),
+	query: mockQuery,
 }))
 
 jest.mock('@/lib/api-auth', () => ({
-	createApiAuthMiddleware: jest.fn(),
-	isAdmin: jest.fn(),
+	createApiAuthMiddleware: mockCreateApiAuthMiddleware,
+	isAdmin: mockIsAdmin,
 }))
 
 jest.mock('@/lib/tenant', () => ({
-	getTenantContext: jest.fn(),
+	getTenantContext: mockGetTenantContext,
 }))
 
 import { GET as TEAMS_GET, POST as TEAMS_POST } from '@/app/api/admin/teams/route'
 import { GET as MEMBERS_GET, POST as MEMBERS_POST } from '@/app/api/admin/teams/[id]/members/route'
-import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
-import { getTenantContext } from '@/lib/tenant'
-
-const mockQuery = query as jest.MockedFunction<typeof query>
-const mockCreateApiAuthMiddleware = createApiAuthMiddleware as jest.MockedFunction<typeof createApiAuthMiddleware>
-const mockGetTenantContext = getTenantContext as jest.MockedFunction<typeof getTenantContext>
 
 describe('admin/teams tenant scoping', () => {
 	beforeEach(() => {
 		jest.clearAllMocks()
-		mockCreateApiAuthMiddleware.mockReturnValue(async () => ({ user: { id: 'admin', role: 'admin' } as any, isAuthenticated: true }))
+		mockCreateApiAuthMiddleware.mockImplementation(() => async () => ({ user: { id: 'admin', role: 'admin' } as any, isAuthenticated: true }))
 		mockGetTenantContext.mockResolvedValue({ tenant_id: 't1', organization_id: 'o1' } as any)
 	})
 
@@ -77,7 +76,7 @@ describe('admin/teams tenant scoping', () => {
 		})
 		const res = await MEMBERS_POST(req, { params: { id: 'X' } })
 		expect(res.status).toBe(200)
-		const updateCall = mockQuery.mock.calls.find(([sql]) => (sql as string).startsWith('UPDATE employees_new'))
+		const updateCall = mockQuery.mock.calls.find(([sql]) => (sql as string).startsWith('UPDATE employees'))
 		expect(updateCall?.[0]).toContain('tenant_id = $3')
 	})
 })

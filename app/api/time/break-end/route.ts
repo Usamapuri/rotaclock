@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const breakEndTime = new Date()
-    const breakStartTime = new Date(currentBreak.break_start_time)
+    const breakStartTime = new Date(currentBreak.break_start)
     const breakDuration = (breakEndTime.getTime() - breakStartTime.getTime()) / (1000 * 60 * 60) // hours
 
     // Update break log to complete it
@@ -44,24 +44,17 @@ export async function POST(request: NextRequest) {
       status: 'completed'
     })
 
-    // Update shift log to add the break time used and keep it active
-    // First get the current shift log to get the current break time used
-    const shiftLogResult = await query(
-      'SELECT break_time_used FROM shift_logs WHERE id = $1',
-      [currentBreak.shift_log_id]
-    )
-    
-    const currentBreakTimeUsed = shiftLogResult.rows[0]?.break_time_used || 0
-    const newBreakTimeUsed = currentBreakTimeUsed + breakDuration
-
-    await updateShiftLog(currentBreak.shift_log_id, {
-      break_time_used: newBreakTimeUsed,
-      status: 'active' // Keep the shift active after break ends
+    // Update time entry: set break end and return to in-progress
+    const newBreakTimeUsed = (currentBreak.break_hours || 0) + breakDuration
+    await updateBreakLog(currentBreak.id, {
+      break_end_time: breakEndTime.toISOString(),
+      break_duration: newBreakTimeUsed,
+      status: 'in-progress'
     })
 
     // Update employee online status to show they're back from break
     await query(`
-      UPDATE employees_new 
+      UPDATE employees 
       SET is_online = true, last_online = NOW()
       WHERE id = $1
     `, [target_employee_id])

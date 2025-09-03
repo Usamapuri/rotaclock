@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Fetch target user data within same tenant
     const targetUserQuery = `
       SELECT id, employee_code as employee_id, email, first_name, last_name, role, department, job_position as position, is_active
-      FROM employees_new 
+      FROM employees 
       WHERE id = $1 AND tenant_id = $2 AND is_active = true
     `
     const targetUserResult = await query(targetUserQuery, [targetUserId, tenant.tenant_id])

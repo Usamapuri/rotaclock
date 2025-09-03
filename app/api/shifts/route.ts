@@ -200,7 +200,7 @@ export async function DELETE(request: NextRequest) {
 
     // Ensure no assignments within tenant
     const assignmentResult = await query(
-      `SELECT COUNT(*) as assignment_count FROM shift_assignments_new WHERE template_id = $1 AND tenant_id = $2`,
+      `SELECT COUNT(*) as assignment_count FROM shift_assignments WHERE template_id = $1 AND tenant_id = $2`,
       [id, tenantContext.tenant_id]
     )
     if (parseInt(assignmentResult.rows[0].assignment_count) > 0) {

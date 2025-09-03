@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         e.id, e.employee_code, e.email, e.first_name, e.last_name,
         COALESCE(e.hourly_rate, 0) as hourly_rate,
         COALESCE(es.base_salary, 20000) as base_salary
-      FROM employees_new e
+      FROM employees e
       LEFT JOIN employee_salaries es ON es.employee_id = e.employee_code AND es.tenant_id = e.tenant_id
       WHERE e.is_active = true AND e.tenant_id = $1
     `, [tenantContext.tenant_id])
@@ -44,20 +44,18 @@ export async function POST(request: NextRequest) {
     for (const employee of employees) {
       const shiftLogsResult = await query(`
         SELECT 
-          COALESCE(sl.approved_hours, sl.total_shift_hours, 0) as hours_worked,
-          COALESCE(sl.approved_rate, $1, 0) as hourly_rate,
-          sl.performance_rating,
-          sl.is_late,
-          sl.is_no_show,
-          sl.total_pay
-        FROM shift_logs sl
-        WHERE sl.employee_id = $2 
-          AND sl.clock_in_time >= $3 
-          AND sl.clock_in_time <= $4
-          AND sl.status = 'completed'
-          AND sl.approval_status = 'approved'
-          AND sl.tenant_id = $5
-      `, [employee.hourly_rate, employee.id, period.start_date, period.end_date, tenantContext.tenant_id])
+          COALESCE(te.total_hours, 0) as hours_worked,
+          $1 as hourly_rate,
+          NULL::int as performance_rating,
+          FALSE as is_late,
+          FALSE as is_no_show,
+          COALESCE(te.total_hours, 0) * $1 as total_pay
+        FROM time_entries te
+        WHERE te.employee_id = $2 
+          AND te.clock_in >= $3 
+          AND te.clock_in <= $4
+          AND te.status = 'completed'
+      `, [employee.hourly_rate, employee.id, period.start_date, period.end_date])
 
       const shiftLogs = shiftLogsResult.rows
 

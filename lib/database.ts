@@ -383,7 +383,7 @@ export async function getCurrentEmployee() {
   // For demo purposes, get the first employee from the database
   // In production, this would get the employee from the authenticated user
   const result = await query(`
-    SELECT * FROM employees_new
+    SELECT * FROM employees
     WHERE is_active = true
     ORDER BY created_at ASC
     LIMIT 1
@@ -436,8 +436,8 @@ export async function getEmployee(id: string) {
       m.first_name as manager_first_name,
       m.last_name as manager_last_name,
       m.email as manager_email
-    FROM employees_new e
-    LEFT JOIN employees_new m ON e.manager_id = m.id
+    FROM employees e
+    LEFT JOIN employees m ON e.manager_id = m.id
     WHERE e.id = $1
   `, [id])
 
@@ -462,8 +462,8 @@ export async function getEmployees(filters?: {
       m.first_name as manager_first_name,
       m.last_name as manager_last_name,
       m.email as manager_email
-    FROM employees_new e
-    LEFT JOIN employees_new m ON e.manager_id = m.id
+    FROM employees e
+    LEFT JOIN employees m ON e.manager_id = m.id
   `
   const params: any[] = []
   let paramIndex = 1
@@ -517,7 +517,7 @@ function verifyPassword(password: string, hash: string): boolean {
 export async function authenticateEmployee(employeeCode: string, password: string): Promise<Employee | null> {
   const result = await query(`
     SELECT e.*, o.name as organization_name, o.tenant_id, o.subscription_status, o.subscription_plan
-    FROM employees_new e
+    FROM employees e
     LEFT JOIN organizations o ON e.organization_id = o.id
     WHERE e.employee_code = $1 AND e.is_active = true
   `, [employeeCode])
@@ -543,7 +543,7 @@ export async function authenticateEmployee(employeeCode: string, password: strin
 export async function authenticateEmployeeByEmail(email: string, password: string): Promise<Employee | null> {
   const result = await query(`
     SELECT e.*, o.name as organization_name, o.tenant_id, o.subscription_status, o.subscription_plan
-    FROM employees_new e
+    FROM employees e
     LEFT JOIN organizations o ON e.organization_id = o.id
     WHERE e.email = $1 AND e.is_active = true
   `, [email])
@@ -572,7 +572,7 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
   console.log('Password hash generated:', passwordHash ? 'yes' : 'no')
   
   const result = await query(`
-    INSERT INTO employees_new (
+    INSERT INTO employees (
       employee_code, first_name, last_name, email, department, position, role,
       hire_date, manager_id, is_active, hourly_rate, max_hours_per_week, password_hash
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -605,7 +605,7 @@ export async function updateEmployee(id: string, employeeData: Partial<Employee>
   const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ')
   
   const result = await query(`
-    UPDATE employees_new 
+    UPDATE employees 
     SET ${setClause}, updated_at = NOW()
     WHERE id = $1
     RETURNING *
@@ -623,7 +623,7 @@ export async function updateEmployee(id: string, employeeData: Partial<Employee>
  */
 export async function deleteEmployee(id: string) {
   const result = await query(`
-    DELETE FROM employees_new 
+    DELETE FROM employees 
     WHERE id = $1
     RETURNING id
   `, [id])
@@ -670,7 +670,7 @@ export async function getShift(id: string) {
            e.last_name, 
            e.email
     FROM shift_templates s
-    LEFT JOIN employees_new e ON s.created_by = e.id
+    LEFT JOIN employees e ON s.created_by = e.id
     WHERE s.id = $1
   `, [id])
   
@@ -763,10 +763,10 @@ export async function getShiftAssignments(filters: {
       aba.first_name as assigned_by_first_name,
       aba.last_name as assigned_by_last_name,
       aba.email as assigned_by_email
-    FROM shift_assignments_new sa
-    LEFT JOIN employees_new e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
+    FROM shift_assignments sa
+    LEFT JOIN employees e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
     LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
-    LEFT JOIN employees_new aba ON sa.assigned_by = aba.id AND aba.tenant_id = sa.tenant_id
+    LEFT JOIN employees aba ON sa.assigned_by = aba.id AND aba.tenant_id = sa.tenant_id
     WHERE sa.date >= $1 AND sa.date <= $2
   `
   const params: any[] = [filters.start_date, filters.end_date]
@@ -809,7 +809,7 @@ export async function getShiftAssignments(filters: {
 export async function createShiftAssignment(assignmentData: Omit<ShiftAssignment, 'id' | 'created_at' | 'updated_at'>) {
   const result = await query(`
     INSERT INTO shift_assignments (
-      employee_id, shift_id, date, start_time, end_time, 
+      employee_id, template_id, date, start_time, end_time, 
       status, assigned_by, notes
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *
@@ -843,8 +843,8 @@ export async function getTimeEntries(filters: {
       e.first_name as employee_first_name,
       e.last_name as employee_last_name,
       e.email as employee_email
-    FROM time_entries_new te
-    LEFT JOIN employees_new e ON te.employee_id = e.id
+    FROM time_entries te
+    LEFT JOIN employees e ON te.employee_id = e.id
   `
   const params: any[] = []
   let paramIndex = 1
@@ -893,7 +893,7 @@ export async function getTimeEntries(filters: {
  */
 export async function createTimeEntry(timeEntryData: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at'>) {
   const result = await query(`
-    INSERT INTO time_entries_new (
+    INSERT INTO time_entries (
       employee_id, shift_assignment_id, clock_in, status, 
       notes, location_lat, location_lng
     ) VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -919,7 +919,7 @@ export async function updateTimeEntry(id: string, timeEntryData: Partial<TimeEnt
   const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ')
   
   const result = await query(`
-    UPDATE time_entries_new 
+    UPDATE time_entries 
     SET ${setClause}, updated_at = NOW()
     WHERE id = $1
     RETURNING *
@@ -937,9 +937,9 @@ export async function updateTimeEntry(id: string, timeEntryData: Partial<TimeEnt
  */
 export async function isEmployeeClockedIn(employeeId: string) {
   const result = await query(`
-    SELECT id FROM shift_logs 
+    SELECT id FROM time_entries 
     WHERE employee_id = $1 
-    AND status = 'active'
+    AND status = 'in-progress'
   `, [employeeId])
 
   return result.rows.length > 0
@@ -951,14 +951,16 @@ export async function isEmployeeClockedIn(employeeId: string) {
 export async function getCurrentTimeEntry(employeeId: string) {
   const result = await query(`
     SELECT 
-      sl.*,
+      te.*,
       e.first_name as employee_first_name,
       e.last_name as employee_last_name,
       e.email as employee_email
-    FROM shift_logs sl
-    LEFT JOIN employees_new e ON sl.employee_id = e.id
-    WHERE sl.employee_id = $1 
-    AND sl.status = 'active'
+    FROM time_entries te
+    LEFT JOIN employees e ON te.employee_id = e.id
+    WHERE te.employee_id = $1 
+    AND te.status = 'in-progress'
+    ORDER BY te.created_at DESC
+    LIMIT 1
   `, [employeeId])
 
   return result.rows[0] || null
@@ -985,8 +987,8 @@ export async function getAttendanceStats(filters: {
       SUM(te.total_hours) as total_hours,
       AVG(te.total_hours) as avg_hours_per_day,
       COUNT(CASE WHEN te.clock_in::time > '09:00:00' THEN 1 END) as late_clock_ins
-    FROM employees_new e
-    LEFT JOIN time_entries_new te ON e.id = te.employee_id 
+    FROM employees e
+    LEFT JOIN time_entries te ON e.id = te.employee_id 
       AND te.clock_in >= $1 
       AND te.clock_in <= $2
       AND (te.tenant_id = e.tenant_id)
@@ -1036,8 +1038,8 @@ export async function getPayrollStats(filters: {
       SUM(CASE WHEN te.total_hours <= 8 THEN te.total_hours * e.hourly_rate ELSE 8 * e.hourly_rate END) as regular_pay,
       SUM(CASE WHEN te.total_hours <= 8 THEN te.total_hours * e.hourly_rate ELSE 8 * e.hourly_rate END) + 
       SUM(CASE WHEN te.total_hours > 8 THEN (te.total_hours - 8) * 1.5 * e.hourly_rate ELSE 0 END) as total_pay
-    FROM employees_new e
-    LEFT JOIN time_entries_new te ON e.id = te.employee_id 
+    FROM employees e
+    LEFT JOIN time_entries te ON e.id = te.employee_id 
       AND te.clock_in >= $1 
       AND te.clock_in <= $2
       AND te.status = 'completed'
@@ -1084,8 +1086,8 @@ export async function getDepartmentStats(filters: {
       AVG(te.total_hours) as avg_hours_per_employee,
       SUM(CASE WHEN te.total_hours <= 8 THEN te.total_hours * e.hourly_rate ELSE 8 * e.hourly_rate END) +
       SUM(CASE WHEN te.total_hours > 8 THEN (te.total_hours - 8) * 1.5 * e.hourly_rate ELSE 0 END) as total_payroll
-    FROM employees_new e
-    LEFT JOIN time_entries_new te ON e.id = te.employee_id 
+    FROM employees e
+    LEFT JOIN time_entries te ON e.id = te.employee_id 
       AND te.clock_in >= $1 
       AND te.clock_in <= $2
       AND te.status = 'completed'
@@ -1178,8 +1180,8 @@ export async function getLeaveRequests(filters?: {
       aba.last_name as approved_by_last_name,
       aba.email as approved_by_email
     FROM leave_requests lr
-    LEFT JOIN employees_new e ON lr.employee_id = e.id
-    LEFT JOIN employees_new aba ON lr.approved_by = aba.id
+    LEFT JOIN employees e ON lr.employee_id = e.id
+    LEFT JOIN employees aba ON lr.approved_by = aba.id
   `
   const params: any[] = []
   let paramIndex = 1
@@ -1285,9 +1287,9 @@ export async function getShiftSwaps(filters?: {
       aba.last_name as approved_by_last_name,
       aba.email as approved_by_email
     FROM shift_swaps ss
-    LEFT JOIN employees_new r ON ss.requester_id = r.id
-    LEFT JOIN employees_new t ON ss.target_id = t.id
-    LEFT JOIN employees_new aba ON ss.approved_by = aba.id
+    LEFT JOIN employees r ON ss.requester_id = r.id
+    LEFT JOIN employees t ON ss.target_id = t.id
+    LEFT JOIN employees aba ON ss.approved_by = aba.id
   `
   const params: any[] = []
   const conditions: string[] = []
@@ -1473,289 +1475,117 @@ export interface AttendanceSummary {
 // Create shift logs tables
 export async function createShiftLogsTables() {
   try {
-    console.log('🔄 Creating shift logs tables...');
-    
-    // Create shift logs table
-    await query(`
-      CREATE TABLE IF NOT EXISTS shift_logs (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-        shift_assignment_id UUID REFERENCES shift_assignments(id) ON DELETE SET NULL,
-        clock_in_time TIMESTAMP WITH TIME ZONE NOT NULL,
-        clock_out_time TIMESTAMP WITH TIME ZONE,
-        total_shift_hours DECIMAL(5,2),
-        break_time_used DECIMAL(5,2) DEFAULT 0,
-        max_break_allowed DECIMAL(5,2) DEFAULT 1.0,
-        is_late BOOLEAN DEFAULT FALSE,
-        is_no_show BOOLEAN DEFAULT FALSE,
-        late_minutes INTEGER DEFAULT 0,
-        status VARCHAR(20) DEFAULT 'active',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // Create break logs table
-    await query(`
-      CREATE TABLE IF NOT EXISTS break_logs (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        shift_log_id UUID NOT NULL REFERENCES shift_logs(id) ON DELETE CASCADE,
-        employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-        break_start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-        break_end_time TIMESTAMP WITH TIME ZONE,
-        break_duration DECIMAL(5,2),
-        break_type VARCHAR(20) DEFAULT 'lunch',
-        status VARCHAR(20) DEFAULT 'active',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // Create attendance summary table
-    await query(`
-      CREATE TABLE IF NOT EXISTS attendance_summary (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-        date DATE NOT NULL,
-        total_shifts INTEGER DEFAULT 0,
-        total_hours_worked DECIMAL(5,2) DEFAULT 0,
-        total_break_time DECIMAL(5,2) DEFAULT 0,
-        late_count INTEGER DEFAULT 0,
-        no_show_count INTEGER DEFAULT 0,
-        on_time_count INTEGER DEFAULT 0,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        UNIQUE(employee_id, date)
-      );
-    `);
-    
-    // Create indexes
-    await query('CREATE INDEX IF NOT EXISTS idx_shift_logs_employee_id ON shift_logs(employee_id);');
-    await query('CREATE INDEX IF NOT EXISTS idx_shift_logs_date ON shift_logs(DATE(clock_in_time));');
-    await query('CREATE INDEX IF NOT EXISTS idx_break_logs_shift_log_id ON break_logs(shift_log_id);');
-    await query('CREATE INDEX IF NOT EXISTS idx_break_logs_employee_id ON break_logs(employee_id);');
-    await query('CREATE INDEX IF NOT EXISTS idx_attendance_summary_employee_date ON attendance_summary(employee_id, date);');
-    
-    console.log('✅ Shift logs tables created successfully!');
+    console.log('⚠️ Skipping creation of legacy shift_logs/break_logs tables; using time_entries instead.');
     return true;
   } catch (error) {
-    console.error('❌ Error creating shift logs tables:', error);
+    console.error('Error (should not occur):', error);
     return false;
   }
 }
 
 // Create a new shift log
 export async function createShiftLog(shiftLogData: Omit<ShiftLog, 'id' | 'created_at' | 'updated_at'>) {
-  const { employee_id, shift_assignment_id, clock_in_time, max_break_allowed = 1.0 } = shiftLogData;
-  
-  // Get the assigned shift to check for lateness
-  let is_late = false;
-  let is_no_show = false;
-  let late_minutes = 0;
-  
-  if (shift_assignment_id) {
-    const shiftAssignment = await query(
-      'SELECT sa.*, s.start_time FROM shift_assignments sa JOIN shifts s ON sa.shift_id = s.id WHERE sa.id = $1',
-      [shift_assignment_id]
-    );
-    
-    if (shiftAssignment.rows.length > 0) {
-      const assignment = shiftAssignment.rows[0];
-      const shiftStartTime = new Date(`${assignment.date}T${assignment.start_time || assignment.shift_start_time}`);
-      const clockInTime = new Date(clock_in_time);
-      const minutesLate = Math.floor((clockInTime.getTime() - shiftStartTime.getTime()) / (1000 * 60));
-      
-      if (minutesLate > 30) {
-        is_no_show = true;
-        late_minutes = minutesLate;
-      } else if (minutesLate > 5) {
-        is_late = true;
-        late_minutes = minutesLate;
-      }
-    }
-  }
-  
+  const { employee_id, shift_assignment_id, clock_in_time } = shiftLogData;
   const result = await query(
-    `INSERT INTO shift_logs (
-      employee_id, shift_assignment_id, clock_in_time, max_break_allowed, 
-      is_late, is_no_show, late_minutes
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [employee_id, shift_assignment_id, clock_in_time, max_break_allowed, is_late, is_no_show, late_minutes]
+    `INSERT INTO time_entries (
+      employee_id, assignment_id, date, clock_in, status
+    ) VALUES ($1, $2, $3, $4, 'in-progress') RETURNING *`,
+    [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time]
   );
-  
   return result.rows[0];
 }
 
 // Update shift log (clock out)
 export async function updateShiftLog(id: string, shiftLogData: Partial<ShiftLog>) {
-  const { clock_out_time, total_shift_hours, break_time_used, status = 'completed' } = shiftLogData;
-  
+  const { clock_out_time, total_shift_hours, break_time_used, status } = shiftLogData;
   const result = await query(
-    `UPDATE shift_logs SET 
-      clock_out_time = $1, 
-      total_shift_hours = $2, 
-      break_time_used = $3, 
-      status = $4,
+    `UPDATE time_entries SET 
+      clock_out = COALESCE($1, clock_out), 
+      total_hours = COALESCE($2, total_hours), 
+      break_hours = COALESCE($3, break_hours), 
+      status = COALESCE($4, status),
       updated_at = NOW()
     WHERE id = $5 RETURNING *`,
-    [clock_out_time, total_shift_hours, break_time_used, status, id]
+    [clock_out_time || null, total_shift_hours || null, break_time_used || null, status || 'completed', id]
   );
-  
   return result.rows[0];
 }
 
 // Get shift logs for an employee
-export async function getShiftLogs(filters: {
-  employee_id?: string
-  start_date?: string
-  end_date?: string
-  status?: string
-}) {
-  let conditions = [];
-  let params = [];
-  let paramCount = 0;
-  
-  if (filters.employee_id) {
-    // Accept UUID or employee_id string
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filters.employee_id);
-    paramCount++;
-    if (isUuid) {
-      conditions.push(`sl.employee_id = $${paramCount}`);
-      params.push(filters.employee_id);
-    } else {
-      conditions.push(`e.employee_id = $${paramCount}`);
-      params.push(filters.employee_id);
-    }
-  }
-  
-  if (filters.start_date) {
-    paramCount++;
-    conditions.push(`DATE(sl.clock_in_time) >= $${paramCount}`);
-    params.push(filters.start_date);
-  }
-  
-  if (filters.end_date) {
-    paramCount++;
-    conditions.push(`DATE(sl.clock_in_time) <= $${paramCount}`);
-    params.push(filters.end_date);
-  }
-  
-  if (filters.status) {
-    paramCount++;
-    conditions.push(`sl.status = $${paramCount}`);
-    params.push(filters.status);
-  }
-  
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  
-  const result = await query(
-    `SELECT sl.*, e.first_name, e.last_name, e.employee_code as emp_code
-     FROM shift_logs sl
-     LEFT JOIN employees_new e ON sl.employee_id = e.id
-     ${whereClause}
-     ORDER BY sl.clock_in_time DESC`,
-    params
-  );
-  
-  return result.rows;
+export async function getShiftLogs(filters: { employee_id?: string; start_date?: string; end_date?: string; status?: string; }) {
+  const conditions: string[] = []
+  const params: any[] = []
+  let i = 0
+  if (filters.employee_id) { i++; conditions.push(`te.employee_id = $${i}`); params.push(filters.employee_id) }
+  if (filters.start_date) { i++; conditions.push(`DATE(te.clock_in) >= $${i}`); params.push(filters.start_date) }
+  if (filters.end_date) { i++; conditions.push(`DATE(te.clock_in) <= $${i}`); params.push(filters.end_date) }
+  if (filters.status) { i++; conditions.push(`te.status = $${i}`); params.push(filters.status) }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  const res = await query(
+    `SELECT te.*, e.first_name, e.last_name, e.employee_code as emp_code
+     FROM time_entries te
+     LEFT JOIN employees e ON te.employee_id = e.id
+     ${where}
+     ORDER BY te.clock_in DESC`,
+     params
+  )
+  return res.rows
 }
 
 // Create a break log
 export async function createBreakLog(breakLogData: Omit<BreakLog, 'id' | 'created_at' | 'updated_at'>) {
-  const result = await query(
-    `INSERT INTO break_logs (
-      shift_log_id, employee_id, break_start_time, break_type
-    ) VALUES ($1, $2, $3, $4) RETURNING *`,
-    [breakLogData.shift_log_id, breakLogData.employee_id, breakLogData.break_start_time, breakLogData.break_type]
-  );
-  
-  return result.rows[0];
+  const { shift_log_id, employee_id, break_start_time } = breakLogData
+  // represent an active break by setting status='break' and break_start
+  const res = await query(
+    `UPDATE time_entries SET status='break', break_start = $1, updated_at = NOW()
+     WHERE id = $2 AND employee_id = $3 RETURNING *`,
+    [break_start_time, shift_log_id, employee_id]
+  )
+  return res.rows[0]
 }
 
 // Update break log (end break)
 export async function updateBreakLog(id: string, breakLogData: Partial<BreakLog>) {
-  const { break_end_time, break_duration, status = 'completed' } = breakLogData;
-  
-  const result = await query(
-    `UPDATE break_logs SET 
-      break_end_time = $1, 
-      break_duration = $2, 
-      status = $3,
-      updated_at = NOW()
-    WHERE id = $4 RETURNING *`,
-    [break_end_time, break_duration, status, id]
-  );
-  
-  return result.rows[0];
+  const { break_end_time, break_duration, status } = breakLogData
+  const res = await query(
+    `UPDATE time_entries SET break_end = COALESCE($1, break_end), break_hours = COALESCE($2, break_hours), status = COALESCE($3, status), updated_at = NOW()
+     WHERE id = $4 RETURNING *`,
+    [break_end_time || null, break_duration || null, status || 'in-progress', id]
+  )
+  return res.rows[0]
 }
 
 // Get break logs with filters
-export async function getBreakLogs(filters: {
-  employee_id?: string
-  shift_log_id?: string
-  start_date?: string
-  end_date?: string
-  status?: string
-}) {
-  let conditions = [];
-  let params = [];
-  let paramCount = 0;
-  
-  if (filters.employee_id) {
-    paramCount++;
-    conditions.push(`bl.employee_id = $${paramCount}`);
-    params.push(filters.employee_id);
-  }
-  
-  if (filters.shift_log_id) {
-    paramCount++;
-    conditions.push(`bl.shift_log_id = $${paramCount}`);
-    params.push(filters.shift_log_id);
-  }
-  
-  if (filters.start_date) {
-    paramCount++;
-    conditions.push(`DATE(bl.break_start_time) >= $${paramCount}`);
-    params.push(filters.start_date);
-  }
-  
-  if (filters.end_date) {
-    paramCount++;
-    conditions.push(`DATE(bl.break_start_time) <= $${paramCount}`);
-    params.push(filters.end_date);
-  }
-  
-  if (filters.status) {
-    paramCount++;
-    conditions.push(`bl.status = $${paramCount}`);
-    params.push(filters.status);
-  }
-  
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  
-  const result = await query(
-    `SELECT bl.*, e.first_name, e.last_name
-     FROM break_logs bl
-     LEFT JOIN employees_new e ON bl.employee_id = e.id
-     ${whereClause}
-     ORDER BY bl.break_start_time DESC`,
+export async function getBreakLogs(filters: { employee_id?: string; shift_log_id?: string; start_date?: string; end_date?: string; status?: string; }) {
+  const conditions: string[] = []
+  const params: any[] = []
+  let i = 0
+  if (filters.employee_id) { i++; conditions.push(`te.employee_id = $${i}`); params.push(filters.employee_id) }
+  if (filters.shift_log_id) { i++; conditions.push(`te.id = $${i}`); params.push(filters.shift_log_id) }
+  if (filters.start_date) { i++; conditions.push(`DATE(te.break_start) >= $${i}`); params.push(filters.start_date) }
+  if (filters.end_date) { i++; conditions.push(`DATE(te.break_start) <= $${i}`); params.push(filters.end_date) }
+  if (filters.status) { i++; conditions.push(`te.status = $${i}`); params.push(filters.status) }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  const res = await query(
+    `SELECT te.*, e.first_name, e.last_name
+     FROM time_entries te
+     LEFT JOIN employees e ON te.employee_id = e.id
+     ${where}
+     ORDER BY te.break_start DESC`,
     params
-  );
-  
-  return result.rows;
+  )
+  return res.rows
 }
 
 // Get current active break for an employee
 export async function getCurrentBreak(employeeId: string) {
-  const result = await query(
-    `SELECT bl.*, sl.status as shift_status FROM break_logs bl
-     JOIN shift_logs sl ON bl.shift_log_id = sl.id
-     WHERE bl.employee_id = $1 AND bl.status = 'active' AND sl.status = 'active'
-     ORDER BY bl.break_start_time DESC LIMIT 1`,
+  const res = await query(
+    `SELECT te.* FROM time_entries te
+     WHERE te.employee_id = $1 AND te.status = 'break'
+     ORDER BY te.break_start DESC LIMIT 1`,
     [employeeId]
-  );
-  
-  return result.rows[0] || null;
+  )
+  return res.rows[0] || null
 }
 
 // Update attendance summary for a date
@@ -1832,7 +1662,7 @@ export async function getAttendanceSummary(filters: {
   const result = await query(
     `SELECT as.*, e.first_name, e.last_name, e.employee_code as emp_id, e.department
      FROM attendance_summary as
-     LEFT JOIN employees_new e ON as.employee_id = e.id
+     LEFT JOIN employees e ON as.employee_id = e.id
      WHERE ${conditions.join(' AND ')}
      ORDER BY as.date DESC, e.first_name, e.last_name`,
     params
@@ -1846,10 +1676,10 @@ export async function getAttendanceSummary(filters: {
  */
 export async function isEmployeeClockedInByEmail(email: string) {
   const result = await query(`
-    SELECT sl.id FROM shift_logs sl
-    JOIN employees_new e ON sl.employee_id = e.id
+    SELECT te.id FROM time_entries te
+    JOIN employees e ON te.employee_id = e.id
     WHERE e.email = $1 
-    AND sl.status = 'active'
+    AND te.status = 'in-progress'
   `, [email])
 
   return result.rows.length > 0
@@ -1875,8 +1705,8 @@ export async function getShiftAssignmentsByEmail(filters: {
       st.name as shift_name,
       st.start_time as shift_start_time,
       st.end_time as shift_end_time
-    FROM shift_assignments_new sa
-    JOIN employees_new e ON sa.employee_id = e.id
+    FROM shift_assignments sa
+    JOIN employees e ON sa.employee_id = e.id
     JOIN shift_templates st ON sa.template_id = st.id
     WHERE sa.date >= $1 AND sa.date <= $2 AND e.email = $3
   `
@@ -1907,7 +1737,7 @@ export async function createShiftLogByEmail(shiftLogData: {
   
   // Get employee UUID by email
   const employeeResult = await query(`
-    SELECT id FROM employees_new WHERE email = $1
+    SELECT id FROM employees WHERE email = $1
   `, [email])
   
   if (employeeResult.rows.length === 0) {
@@ -1923,7 +1753,7 @@ export async function createShiftLogByEmail(shiftLogData: {
   
   if (shift_assignment_id) {
     const shiftAssignment = await query(
-      'SELECT sa.*, st.start_time FROM shift_assignments_new sa JOIN shift_templates st ON sa.template_id = st.id WHERE sa.id = $1',
+      'SELECT sa.*, st.start_time FROM shift_assignments sa JOIN shift_templates st ON sa.template_id = st.id WHERE sa.id = $1',
       [shift_assignment_id]
     );
     
@@ -1944,11 +1774,10 @@ export async function createShiftLogByEmail(shiftLogData: {
   }
   
   const result = await query(
-    `INSERT INTO shift_logs (
-      employee_id, shift_assignment_id, clock_in_time, max_break_allowed, 
-      is_late, is_no_show, late_minutes
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [employee_id, shift_assignment_id, clock_in_time, max_break_allowed, is_late, is_no_show, late_minutes]
+    `INSERT INTO time_entries (
+      employee_id, assignment_id, date, clock_in, status
+    ) VALUES ($1, $2, $3, $4, 'in-progress') RETURNING *`,
+    [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time]
   );
   
   return result.rows[0];
@@ -1959,7 +1788,7 @@ export async function createShiftLogByEmail(shiftLogData: {
  */
 export async function getEmployeeByEmail(email: string) {
   const result = await query(`
-    SELECT * FROM employees_new WHERE email = $1 AND is_active = true
+    SELECT * FROM employees WHERE email = $1 AND is_active = true
   `, [email])
   
   return result.rows[0] || null
@@ -1990,7 +1819,7 @@ export async function getTeamByLead(leadId: string) {
 export async function getTeamMembers(teamId: string) {
   const result = await query(`
     SELECT e.*, ta.assigned_date, ta.is_active as assignment_active
-    FROM employees_new e
+    FROM employees e
     JOIN team_assignments ta ON e.id = ta.employee_id
     WHERE ta.team_id = $1 AND ta.is_active = true AND e.is_active = true
     ORDER BY e.first_name, e.last_name
@@ -2039,7 +1868,7 @@ export async function addEmployeeToTeam(teamId: string, employeeId: string) {
   
   // Update employee's team_id
   await query(`
-    UPDATE employees_new SET team_id = $1, updated_at = NOW()
+    UPDATE employees SET team_id = $1, updated_at = NOW()
     WHERE id = $2
   `, [teamId, employeeId])
   
@@ -2059,7 +1888,7 @@ export async function removeEmployeeFromTeam(teamId: string, employeeId: string)
   
   // Clear employee's team_id if it matches
   await query(`
-    UPDATE employees_new 
+    UPDATE employees 
     SET team_id = NULL, updated_at = NOW()
     WHERE id = $2 AND team_id = $1
   `, [teamId, employeeId])

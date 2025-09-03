@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { project_id, manager_id } = assignManagerSchema.parse(body)
 
-    const managerCheck = await query('SELECT id, role FROM employees_new WHERE id = $1 AND role = $2 AND is_active = true AND tenant_id = $3', [manager_id, 'project_manager', tenant.tenant_id])
+    const managerCheck = await query('SELECT id, role FROM employees WHERE id = $1 AND role = $2 AND is_active = true AND tenant_id = $3', [manager_id, 'project_manager', tenant.tenant_id])
     if (managerCheck.rows.length === 0) {
       return NextResponse.json({ error: 'Employee not found or not a project manager' }, { status: 400 })
     }

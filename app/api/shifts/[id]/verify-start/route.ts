@@ -53,7 +53,7 @@ export async function POST(
 			`SELECT 
 				s.id,
 				s.employee_id,
-				s.shift_template_id,
+				s.template_id,
 				s.start_time,
 				s.end_time,
 				s.status,
@@ -62,8 +62,8 @@ export async function POST(
 				st.name as template_name,
 				st.start_time as template_start_time,
 				st.end_time as template_end_time
-			FROM shifts s
-			LEFT JOIN shift_templates st ON s.shift_template_id = st.id AND st.tenant_id = s.tenant_id
+			FROM shift_assignments s
+			LEFT JOIN shift_templates st ON s.template_id = st.id AND st.tenant_id = s.tenant_id
 			WHERE s.id = $1 AND s.tenant_id = $2`,
 			[id, tenantContext.tenant_id]
 		)
@@ -117,10 +117,10 @@ export async function POST(
 
 		// Update shift status to in_progress within tenant
 		const updatedShiftResult = await query(
-			`UPDATE shifts
+			`UPDATE shift_assignments
 			 SET status = 'in_progress', actual_start_time = $1
 			 WHERE id = $2 AND tenant_id = $3
-			 RETURNING id, employee_id, shift_template_id, start_time, end_time, status, actual_start_time, actual_end_time`,
+			 RETURNING id, employee_id, template_id, start_time, end_time, status, actual_start_time, actual_end_time`,
 			[now.toISOString(), id, tenantContext.tenant_id]
 		)
 
@@ -134,7 +134,7 @@ export async function POST(
 		try {
 			await query(
 				`INSERT INTO time_entries (
-					employee_id, shift_id, entry_type, timestamp, location_data, device_info, tenant_id
+					employee_id, assignment_id, entry_type, timestamp, location_data, device_info, tenant_id
 				) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 				[
 					shift.employee_id,

@@ -209,8 +209,8 @@ export async function GET(request: NextRequest) {
         s.start_time as shift_start_time,
         s.end_time as shift_end_time
       FROM time_entries te
-      LEFT JOIN shift_assignments sa ON te.shift_assignment_id = sa.id
-      LEFT JOIN shifts s ON sa.shift_id = s.id
+      LEFT JOIN shift_assignments sa ON te.assignment_id = sa.id
+      LEFT JOIN shift_templates s ON sa.template_id = s.id
       WHERE te.employee_id = $1
     `
     const params: any[] = [employee.id]

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Employee is already on break' }, { status: 400 })
     }
 
-    const shiftLogs = await getShiftLogs({ employee_id: target_employee_id, status: 'active' })
+    const shiftLogs = await getShiftLogs({ employee_id: target_employee_id, status: 'in-progress' })
     if (shiftLogs.length === 0) {
       return NextResponse.json({ error: 'No active shift found' }, { status: 404 })
     }
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Break time limit reached for this shift' }, { status: 400 })
     }
 
-    const shiftStartTime = new Date(currentShift.clock_in_time)
+    const shiftStartTime = new Date(currentShift.clock_in)
     const breakStartTime = new Date()
     const elapsedShiftTime = (breakStartTime.getTime() - shiftStartTime.getTime()) / (1000 * 60 * 60)
 
@@ -49,11 +49,11 @@ export async function POST(request: NextRequest) {
       employee_id: target_employee_id,
       break_start_time: breakStartTime.toISOString(),
       break_type: 'lunch',
-      status: 'active',
+      status: 'break',
     })
 
     await query(
-      `UPDATE employees_new SET is_online = true, last_online = NOW() WHERE id = $1 AND tenant_id = $2`,
+      `UPDATE employees SET is_online = true, last_online = NOW() WHERE id = $1 AND tenant_id = $2`,
       [target_employee_id, tenantContext.tenant_id]
     )
 

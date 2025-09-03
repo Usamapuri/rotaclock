@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
 		// Use authenticated user's ID if employee_id not provided
 		const target_employee_id = employee_id || requester_id
 
-		// Simple direct database query to get active shift
+		// Get active time entry (in-progress)
 		const result = await query(
-			'SELECT * FROM shift_logs WHERE employee_id = $1 AND status = $2 AND tenant_id = $3 ORDER BY created_at DESC LIMIT 1',
-			[target_employee_id, 'active', tenantContext.tenant_id]
+			"SELECT * FROM time_entries WHERE employee_id = $1 AND status = $2 AND tenant_id = $3 ORDER BY created_at DESC LIMIT 1",
+			[target_employee_id, 'in-progress', tenantContext.tenant_id]
 		)
 		
 		if (result.rows.length === 0) {
@@ -51,37 +51,27 @@ export async function POST(request: NextRequest) {
 
 		const currentShift = result.rows[0]
 		const clockOutTime = new Date()
-		const clockInTime = new Date(currentShift.clock_in_time)
+		const clockInTime = new Date(currentShift.clock_in)
 		
 		// Calculate total shift duration
 		const totalShiftDuration = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60) // hours
-		const breakTimeUsed = Number(currentShift.break_time_used)
+		const breakTimeUsed = Number(currentShift.break_hours)
 		const totalHours = totalShiftDuration - breakTimeUsed
 
-		// Update shift log with clock out time and set approval status to pending
+		// Update time entry with clock out and totals
 		const updateResult = await query(
-			`UPDATE shift_logs SET 
-				clock_out_time = $1, 
-				total_shift_hours = $2, 
-				break_time_used = $3, 
+			`UPDATE time_entries SET 
+				clock_out = $1, 
+				total_hours = $2, 
+				break_hours = $3, 
 				status = $4,
-				approval_status = $5,
-				total_calls_taken = $6,
-				leads_generated = $7,
-				shift_remarks = $8,
-				performance_rating = $9,
 				updated_at = NOW()
-			WHERE id = $10 AND tenant_id = $11 RETURNING *`,
+			WHERE id = $5 AND tenant_id = $6 RETURNING *`,
 			[
 				clockOutTime.toISOString(), 
 				totalHours, 
 				breakTimeUsed, 
 				'completed',
-				'pending', // Set approval status to pending
-				total_calls_taken || 0,
-				leads_generated || 0,
-				shift_remarks || '',
-				performance_rating || null,
 				currentShift.id,
 				tenantContext.tenant_id,
 			]
@@ -89,10 +79,10 @@ export async function POST(request: NextRequest) {
 		
 		const updatedShift = updateResult.rows[0]
 
-		// Update employee online status to offline (use employees_new table)
+		// Update employee online status to offline
 		await query(
 			`
-				UPDATE employees_new 
+				UPDATE employees 
 				SET is_online = false, last_online = NOW()
 				WHERE id = $1 AND tenant_id = $2
 			`,
@@ -111,7 +101,7 @@ export async function POST(request: NextRequest) {
 					 false,
 					 '/admin/shift-approvals',
 					 $2
-				FROM employees_new e 
+				FROM employees e 
 				WHERE e.role = 'admin' AND e.tenant_id = $2
 			`,
 			[`${authResult.user.name || 'Employee'} has completed a shift and requires approval`, tenantContext.tenant_id]

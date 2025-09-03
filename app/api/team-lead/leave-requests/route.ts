@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
         aba.last_name as approved_by_last_name,
         aba.email as approved_by_email
       FROM leave_requests lr
-      LEFT JOIN employees_new e ON lr.employee_id = e.id
-      LEFT JOIN employees_new aba ON lr.approved_by = aba.id
+      LEFT JOIN employees e ON lr.employee_id = e.id
+      LEFT JOIN employees aba ON lr.approved_by = aba.id
       WHERE e.team_id = $1
     `
 

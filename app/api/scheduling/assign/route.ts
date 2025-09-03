@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const employeeResult = await query(
-      'SELECT id FROM employees_new WHERE id = $1 AND is_active = true AND tenant_id = $2',
+      'SELECT id FROM employees WHERE id = $1 AND is_active = true AND tenant_id = $2',
       [employee_id, tenantContext.tenant_id]
     )
     if (employeeResult.rows.length === 0) {
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const existingAssignment = await query(
-      'SELECT id FROM shift_assignments_new WHERE employee_id = $1 AND date = $2 AND tenant_id = $3',
+      'SELECT id FROM shift_assignments WHERE employee_id = $1 AND date = $2 AND tenant_id = $3',
       [employee_id, date, tenantContext.tenant_id]
     )
     if (existingAssignment.rows.length > 0) {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     const colCheck = await query(`
       SELECT 1 FROM information_schema.columns 
-      WHERE table_name = 'shift_assignments_new' AND column_name = 'override_name' LIMIT 1
+      WHERE table_name = 'shift_assignments' AND column_name = 'override_name' LIMIT 1
     `)
     const hasOverrideCols = colCheck.rows.length > 0
 
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     let insertParams: any[]
     if (hasOverrideCols) {
       insertSql = `
-        INSERT INTO shift_assignments_new (
+        INSERT INTO shift_assignments (
           employee_id, template_id, date, override_name, override_start_time, override_end_time, override_color,
           status, notes, assigned_by, tenant_id, organization_id, created_at, updated_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'assigned', $8, $9, $10, $11, NOW(), NOW())
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       insertParams = [employee_id, hasTemplate ? template_id : null, date, override_name, override_start_time, override_end_time, override_color, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id]
     } else {
       insertSql = `
-        INSERT INTO shift_assignments_new (
+        INSERT INTO shift_assignments (
           employee_id, template_id, date, status, notes, assigned_by, tenant_id, organization_id, created_at, updated_at
         ) VALUES ($1, $2, $3, 'assigned', $4, $5, $6, $7, NOW(), NOW())
         RETURNING id, employee_id, template_id, date, status, notes, created_at
@@ -99,8 +99,8 @@ export async function POST(request: NextRequest) {
         sa.status, sa.notes, sa.created_at,
         e.first_name, e.last_name, e.employee_code,
         st.name as shift_name, st.start_time, st.end_time, st.color
-      FROM shift_assignments_new sa
-      JOIN employees_new e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
+      FROM shift_assignments sa
+      JOIN employees e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
       LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
       WHERE sa.id = $1 AND sa.tenant_id = $2
     `, [assignment.id, tenantContext.tenant_id])
@@ -132,14 +132,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     const existingAssignment = await query(
-      'SELECT id FROM shift_assignments_new WHERE id = $1 AND tenant_id = $2',
+      'SELECT id FROM shift_assignments WHERE id = $1 AND tenant_id = $2',
       [assignmentId, tenantContext.tenant_id]
     )
     if (existingAssignment.rows.length === 0) {
       return NextResponse.json({ success: false, error: 'Assignment not found' }, { status: 404 })
     }
 
-    await query('DELETE FROM shift_assignments_new WHERE id = $1 AND tenant_id = $2', [assignmentId, tenantContext.tenant_id])
+    await query('DELETE FROM shift_assignments WHERE id = $1 AND tenant_id = $2', [assignmentId, tenantContext.tenant_id])
 
     return NextResponse.json({ success: true, message: 'Shift assignment removed successfully' })
   } catch (error) {
@@ -179,7 +179,7 @@ export async function PUT(request: NextRequest) {
     if (status) { fields.push(`status = $${idx++}`); params.push(status) }
     if (typeof notes !== 'undefined') { fields.push(`notes = $${idx++}`); params.push(notes) }
 
-    const colCheckPut = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'shift_assignments_new'`)
+    const colCheckPut = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'shift_assignments'`)
     const cols = new Set(colCheckPut.rows.map((r: any) => r.column_name))
     if (cols.has('override_name') && typeof override_name !== 'undefined') { fields.push(`override_name = $${idx++}`); params.push(override_name) }
     if (cols.has('override_start_time') && typeof override_start_time !== 'undefined') { fields.push(`override_start_time = $${idx++}`); params.push(override_start_time) }
@@ -191,7 +191,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const updateQuery = `
-      UPDATE shift_assignments_new
+      UPDATE shift_assignments
       SET ${fields.join(', ')}, updated_at = NOW()
       WHERE id = $${idx} AND tenant_id = $${idx + 1}
       RETURNING *

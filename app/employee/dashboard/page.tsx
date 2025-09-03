@@ -68,10 +68,10 @@ interface ShiftLog {
   id: string
   employee_id: string
   shift_assignment_id?: string
-  clock_in_time: string
-  clock_out_time?: string
-  total_shift_hours?: number
-  break_time_used: number
+  clock_in: string
+  clock_out?: string
+  total_hours?: number
+  break_hours: number
   max_break_allowed: number
   is_late: boolean
   is_no_show: boolean
@@ -227,8 +227,8 @@ const ShiftHistory = ({ employeeId }: { employeeId: string }) => {
   return (
     <div className="space-y-3">
       {shiftLogs.map((shiftLog) => {
-        const start = shiftLog.clock_in_time ? new Date(shiftLog.clock_in_time) : null
-        const end = shiftLog.clock_out_time ? new Date(shiftLog.clock_out_time) : null
+        const start = shiftLog.clock_in ? new Date(shiftLog.clock_in) : null
+        const end = shiftLog.clock_out ? new Date(shiftLog.clock_out) : null
         const startLabel = start ? start.toLocaleTimeString() : '--:--'
         const endLabel = end ? end.toLocaleTimeString() : 'Ongoing'
         const elapsedMs = start ? ((end ? end.getTime() : Date.now()) - start.getTime()) : 0
@@ -269,10 +269,10 @@ const ShiftHistory = ({ employeeId }: { employeeId: string }) => {
                   <span className="font-medium">{Number(shiftLog.total_shift_hours).toFixed(2)}h</span>
                 </div>
               )}
-              {Number(shiftLog.break_time_used || 0) > 0 && (
+              {Number(shiftLog.break_hours || 0) > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Break Time:</span>
-                  <span className="font-medium text-orange-600">{Number(shiftLog.break_time_used).toFixed(2)}h</span>
+                  <span className="font-medium text-orange-600">{Number(shiftLog.break_hours).toFixed(2)}h</span>
                 </div>
               )}
               {shiftLog.is_late && (
@@ -430,14 +430,14 @@ export default function EmployeeDashboard() {
       if (weeklyShiftLogsData.success && weeklyShiftLogsData.data) {
         const totalHours = weeklyShiftLogsData.data.reduce((sum: number, log: any) => {
           // Calculate hours from shift logs
-          if (log.clock_out_time) {
-            const startTime = new Date(log.clock_in_time)
-            const endTime = new Date(log.clock_out_time)
+          if (log.clock_out) {
+            const startTime = new Date(log.clock_in)
+            const endTime = new Date(log.clock_out)
             const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
             return sum + hours
           } else if (log.status === 'active') {
             // For active shifts, calculate up to current time
-            const startTime = new Date(log.clock_in_time)
+            const startTime = new Date(log.clock_in)
             const now = new Date()
             const hours = (now.getTime() - startTime.getTime()) / (1000 * 60 * 60)
             return sum + hours
@@ -752,10 +752,10 @@ export default function EmployeeDashboard() {
   const isClockedOut = currentShiftLog?.status === 'completed' || currentTimeEntry?.status === 'completed'
 
   // Calculate break time remaining with proper type checking
-  const breakTimeUsed = currentShiftLog?.break_time_used 
-    ? (typeof currentShiftLog.break_time_used === 'string' 
-        ? parseFloat(currentShiftLog.break_time_used) 
-        : currentShiftLog.break_time_used)
+  const breakTimeUsed = currentShiftLog?.break_hours 
+    ? (typeof currentShiftLog.break_hours === 'string' 
+        ? parseFloat(currentShiftLog.break_hours) 
+        : currentShiftLog.break_hours)
     : 0
 
   const maxBreakAllowed = currentShiftLog?.max_break_allowed 
@@ -862,15 +862,15 @@ export default function EmployeeDashboard() {
                       </h3>
                       <div className="space-y-4">
                         {/* Shift Timer */}
-                        {currentShiftLog?.clock_in_time && currentShiftLog?.status === 'active' && (
+                        {currentShiftLog?.clock_in && currentShiftLog?.status === 'active' && (
                           <div className="bg-white p-6 rounded-lg border border-blue-100 shadow-sm">
                             <TimerDisplay 
-                              startTime={currentShiftLog.clock_in_time} 
+                              startTime={currentShiftLog.clock_in} 
                               label="Shift Duration" 
                               className="text-2xl"
                             />
                             <p className="text-sm text-gray-600 mt-2">
-                              Started at {new Date(currentShiftLog.clock_in_time).toLocaleTimeString()}
+                              Started at {new Date(currentShiftLog.clock_in).toLocaleTimeString()}
                             </p>
                           </div>
                         )}
@@ -891,7 +891,7 @@ export default function EmployeeDashboard() {
                         )}
                         
                         {/* No active timers message */}
-                        {!currentShiftLog?.clock_in_time && !currentBreak?.break_start_time && (
+                        {!currentShiftLog?.clock_in && !currentBreak?.break_start_time && (
                           <div className="text-center py-8">
                             <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                             <p className="text-gray-500">No active timers</p>
@@ -908,8 +908,8 @@ export default function EmployeeDashboard() {
                           {!isOnBreak && 'Currently Working'}
                         </p>
                         <p className="text-sm text-blue-700">
-                          {currentShiftLog?.clock_in_time 
-                            ? `Started: ${new Date(currentShiftLog.clock_in_time).toLocaleTimeString()}`
+                          {currentShiftLog?.clock_in 
+                            ? `Started: ${new Date(currentShiftLog.clock_in).toLocaleTimeString()}`
                             : currentTimeEntry?.clock_in 
                             ? `Started: ${new Date(currentTimeEntry.clock_in).toLocaleTimeString()}`
                             : 'Time not recorded'
@@ -1332,9 +1332,9 @@ export default function EmployeeDashboard() {
         onClose={() => setShowShiftRemarksDialog(false)}
         onSubmit={handleShiftRemarksSubmit}
         isLoading={isSubmittingShiftRemarks}
-        shiftDuration={currentShiftLog?.clock_in_time ? 
-          formatShiftDuration(currentShiftLog.clock_in_time) : undefined}
-        clockInTime={currentShiftLog?.clock_in_time}
+        shiftDuration={currentShiftLog?.clock_in ? 
+          formatShiftDuration(currentShiftLog.clock_in) : undefined}
+        clockInTime={currentShiftLog?.clock_in}
       />
     </div>
   )

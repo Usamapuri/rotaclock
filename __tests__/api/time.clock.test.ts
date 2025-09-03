@@ -1,36 +1,34 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 import { NextRequest } from 'next/server'
 
+// Create mock functions
+const mockQuery = jest.fn()
+const mockGetShiftAssignments = jest.fn()
+const mockIsEmployeeClockedIn = jest.fn()
+const mockCreateApiAuthMiddleware = jest.fn()
+const mockGetTenantContext = jest.fn()
+
 jest.mock('@/lib/database', () => ({
-	query: jest.fn(),
-	getShiftAssignments: jest.fn(),
-	isEmployeeClockedIn: jest.fn(),
+	query: mockQuery,
+	getShiftAssignments: mockGetShiftAssignments,
+	isEmployeeClockedIn: mockIsEmployeeClockedIn,
 }))
 
 jest.mock('@/lib/api-auth', () => ({
-	createApiAuthMiddleware: jest.fn(),
+	createApiAuthMiddleware: mockCreateApiAuthMiddleware,
 }))
 
 jest.mock('@/lib/tenant', () => ({
-	getTenantContext: jest.fn(),
+	getTenantContext: mockGetTenantContext,
 }))
 
 import { POST as clockIn } from '@/app/api/time/clock-in/route'
 import { POST as clockOut } from '@/app/api/time/clock-out/route'
-import { query, getShiftAssignments, isEmployeeClockedIn } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
-import { getTenantContext } from '@/lib/tenant'
-
-const mockQuery = query as jest.MockedFunction<typeof query>
-const mockGetShiftAssignments = getShiftAssignments as jest.MockedFunction<typeof getShiftAssignments>
-const mockIsEmployeeClockedIn = isEmployeeClockedIn as jest.MockedFunction<typeof isEmployeeClockedIn>
-const mockCreateApiAuthMiddleware = createApiAuthMiddleware as jest.MockedFunction<typeof createApiAuthMiddleware>
-const mockGetTenantContext = getTenantContext as jest.MockedFunction<typeof getTenantContext>
 
 describe('time clock-in/out tenant isolation', () => {
 	beforeEach(() => {
 		jest.clearAllMocks()
-		mockCreateApiAuthMiddleware.mockReturnValue(async () => ({ user: { id: 'u1' } as any, isAuthenticated: true }))
+		mockCreateApiAuthMiddleware.mockImplementation(() => async () => ({ user: { id: 'u1' } as any, isAuthenticated: true }))
 		mockGetTenantContext.mockResolvedValue({ tenant_id: 't1' } as any)
 	})
 
@@ -49,8 +47,8 @@ describe('time clock-in/out tenant isolation', () => {
 
 	it('clock-out scopes shift lookup and update to tenant', async () => {
 		mockQuery
-			.mockResolvedValueOnce({ rows: [{ id: 'sl1', clock_in_time: new Date().toISOString(), break_time_used: 0 }] } as any) // select shift_logs with tenant
-			.mockResolvedValueOnce({ rows: [{ id: 'sl1' }] } as any) // update shift_logs with tenant
+			.mockResolvedValueOnce({ rows: [{ id: 'sl1', clock_in: new Date().toISOString(), break_hours: 0 }] } as any) // select time_entries with tenant
+			.mockResolvedValueOnce({ rows: [{ id: 'sl1' }] } as any) // update time_entries with tenant
 			.mockResolvedValueOnce({ rows: [] } as any) // update employee status
 			.mockResolvedValueOnce({ rows: [] } as any) // notify admins
 

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Organization with this email already exists' }, { status: 409 })
     }
 
-    const existingAdmin = await pool.query('SELECT id FROM employees_new WHERE email = $1', [body.adminEmail])
+    const existingAdmin = await pool.query('SELECT id FROM employees WHERE email = $1', [body.adminEmail])
     if (existingAdmin.rows.length > 0) {
       return NextResponse.json({ success: false, error: 'Admin user with this email already exists' }, { status: 409 })
     }
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       const hashedPassword = await bcrypt.hash(body.adminPassword, 12)
 
       const adminResult = await client.query(`
-        INSERT INTO employees_new (
+        INSERT INTO employees (
           id, employee_code, first_name, last_name, email, phone, password_hash, role, is_active, tenant_id, organization_id, department, job_position, hire_date, created_at, updated_at
         ) VALUES ($1,$2,$3,$4,$5,$6,$7,'admin', true, $8, $9, $10, $11, CURRENT_DATE, NOW(), NOW())
         RETURNING id, employee_code, first_name, last_name, email, role

@@ -110,7 +110,7 @@ export default function Timesheet() {
       const endDate = getMonthEnd(selectedMonth)
 
       // Load shift logs for the selected month
-      const shiftLogsResponse = await fetch(`/api/shift-logs?employee_id=${user.id}&start_date=${startDate}&end_date=${endDate}`)
+      const shiftLogsResponse = await fetch(`/api/time-entries?employee_id=${user.id}&start_date=${startDate}&end_date=${endDate}`)
       if (shiftLogsResponse.ok) {
         const shiftLogsData = await shiftLogsResponse.json()
         if (shiftLogsData.success) {
@@ -119,7 +119,7 @@ export default function Timesheet() {
       }
 
       // Load break logs for the selected month
-      const breakLogsResponse = await fetch(`/api/break-logs?employee_id=${user.id}&start_date=${startDate}&end_date=${endDate}`)
+      const breakLogsResponse = await fetch(`/api/time-entries?employee_id=${user.id}&start_date=${startDate}&end_date=${endDate}`)
       if (breakLogsResponse.ok) {
         const breakLogsData = await breakLogsResponse.json()
         if (breakLogsData.success) {
