@@ -40,8 +40,7 @@ export async function sendEmail({ to, subject, html, from }: SendEmailOptions) {
 
 export function buildOrgVerificationEmail({ orgName, verifyUrl }: { orgName: string, verifyUrl: string }) {
   return {
-    subject: `Verify your ${orgName} organization`:
-    'subject' in { } ? '' : undefined,
+    subject: `Verify your ${orgName} organization`,
     html: `
       <div>
         <h1>Welcome to RotaClock</h1>

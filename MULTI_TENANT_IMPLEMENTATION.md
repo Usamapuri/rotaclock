@@ -1,4 +1,5 @@
 
+
 # Multi-Tenant SaaS Implementation Progress
 
 ## 🎯 Project Overview
@@ -41,7 +42,7 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
   - [x] Design organization signup form
   - [x] Create organization creation API endpoint
   - [x] Implement organization admin user creation
-  - [ ] Add email verification for organization signup
+  - [x] Add email verification for organization signup (Resend wired)
   - [x] Test organization creation flow
 
 - [x] **2.2** Update authentication system
@@ -94,11 +95,11 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
   - [x] Implement tenant-based data filtering
   - [x] Test middleware functionality
 
-- [ ] **4.3** Update database queries
+- [x] **4.3** Update database queries
   - [x] Add tenant_id filter to core SELECT queries
   - [x] Add tenant_id to core INSERT/UPDATE queries
-  - [ ] Update remaining foreign key relationships
-  - [ ] Test data isolation across all legacy endpoints
+  - [x] Update remaining foreign key relationships
+  - [x] Test data isolation across all legacy endpoints
 
 ### Phase 5: Frontend Multi-Tenancy
 - [ ] **5.1** Update React components for tenant context
@@ -114,17 +115,17 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
   - [ ] Test UI customization
 
 ### Phase 6: Demo Account Preservation
-- [ ] **6.1** Preserve existing demo data
-  - [ ] Create "demo" tenant organization
-  - [ ] Migrate existing data to demo tenant
-  - [ ] Ensure demo data remains accessible
-  - [ ] Test demo account functionality
+- [x] **6.1** Preserve existing demo data
+  - [x] Create "demo" tenant organization
+  - [x] Migrate existing data to demo tenant
+  - [x] Ensure demo data remains accessible
+  - [x] Test demo account functionality
 
-- [ ] **6.2** Create demo account management
-  - [ ] Add demo account indicators
-  - [ ] Create demo account limitations
-  - [ ] Add upgrade prompts for demo users
-  - [ ] Test demo account restrictions
+- [x] **6.2** Create demo account management
+  - [x] Add demo account indicators
+  - [x] Create demo account limitations
+  - [x] Add upgrade prompts for demo users
+  - [x] Test demo account restrictions
 
 ### Phase 7: Testing & Quality Assurance
 - [ ] **7.1** Multi-tenant testing
@@ -160,13 +161,12 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
 
 ---
 
-## 🚀 Current Status: **Phase 4 - Multi-Tenant API Updates (nearing completion)**
+## 🚀 Current Status: **Phase 4 complete; beginning Phase 5**
 
 ### Next Immediate Steps:
-1. Close out remaining Phase 4.3 items (foreign keys pass tenant_id; legacy endpoints)
-2. Begin Phase 5.1: introduce a TenantContext provider and wire data fetchers
-3. Start Phase 3.2: implement Stripe subscription scaffolding and webhooks
-4. Add integration tests for end-to-end tenant isolation
+1. Begin Phase 5.1: introduce a TenantContext provider and wire data fetchers
+2. Start Phase 3.2: implement Stripe subscription scaffolding and webhooks
+3. Add integration tests for end-to-end tenant isolation
 
 ### Estimated Timeline:
 - **Phase 1**: 2-3 days (Database foundation)
@@ -197,6 +197,7 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
 - **Authentication**: JWT with tenant context
 - **Demo Data**: Preserved in dedicated "demo" tenant
 - **Pricing**: $2/month with 30-day free trial
+- **Emails**: Resend for org verification and admin welcome
 
 ---
 
@@ -219,3 +220,5 @@ Transform Rota Cloud from a single-tenant application to a multi-tenant SaaS pla
 - Tenantized swap requests APIs: create, list, approve/reject
 - Added unit tests for tenant isolation across reports/time/shifts routes
 - Ran Phase 1.2 migration on Railway PostgreSQL; verified tenant_id present and non-null across key tables
+- Wired Resend for org verification and admin welcome emails on signup
+- Added `/api/organizations/verify` endpoint to set `is_verified=true` by `tenant_id`
