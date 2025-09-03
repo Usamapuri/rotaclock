@@ -226,8 +226,8 @@ export async function GET(request: NextRequest) {
         e.last_name,
         lr.reason
       FROM leave_requests lr
-      JOIN employees e ON lr.employee_id = e.id AND e.tenant_id = lr.tenant_id
-      WHERE lr.tenant_id = $1
+      JOIN employees e ON lr.employee_id = e.id
+      WHERE e.tenant_id = $1
       ORDER BY lr.created_at DESC
       LIMIT 5
     `, [tenantContext.tenant_id])
