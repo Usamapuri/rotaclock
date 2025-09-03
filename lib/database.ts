@@ -1296,7 +1296,10 @@ export async function getShiftSwaps(filters?: {
   let paramIndex = 1
 
   if (filters?.tenant_id) {
-    conditions.push(`ss.tenant_id = $${paramIndex}`)
+    conditions.push(`r.tenant_id = $${paramIndex}`)
+    params.push(filters.tenant_id)
+    paramIndex++
+    conditions.push(`t.tenant_id = $${paramIndex}`)
     params.push(filters.tenant_id)
     paramIndex++
   }
