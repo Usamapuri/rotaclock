@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
 const authMiddleware = createApiAuthMiddleware()
 
@@ -20,6 +21,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: Only admins can access this endpoint' }, { status: 403 })
     }
 
+    const tenant = await getTenantContext(user.id)
+    if (!tenant) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
+
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const department = searchParams.get('department')
@@ -30,51 +36,51 @@ export async function GET(request: NextRequest) {
     // Build query
     let queryText = `
       SELECT 
-        id,
-        employee_code as employee_id,
-        first_name,
-        last_name,
-        email,
-        department,
-        job_position as position,
-        role,
-        is_active,
-        is_online,
-        last_online
-      FROM employees_new
-      WHERE 1=1
+        e.id,
+        e.employee_code as employee_id,
+        e.first_name,
+        e.last_name,
+        e.email,
+        e.department,
+        e.job_position as position,
+        e.role,
+        e.is_active,
+        e.is_online,
+        e.last_online
+      FROM employees_new e
+      WHERE e.tenant_id = $1
     `
-    const params: any[] = []
-    let paramIndex = 1
+    const params: any[] = [tenant.tenant_id]
+    let paramIndex = 2
 
     // Only show active employees by default
     if (is_active === null || is_active === 'true') {
-      queryText += ` AND is_active = true`
+      queryText += ` AND e.is_active = true`
     }
 
     if (department && department !== 'all') {
-      queryText += ` AND department = $${paramIndex++}`
+      queryText += ` AND e.department = $${paramIndex++}`
       params.push(department)
     }
 
     if (role && role !== 'all') {
-      queryText += ` AND role = $${paramIndex++}`
+      queryText += ` AND e.role = $${paramIndex++}`
       params.push(role)
     }
 
     if (search) {
       queryText += ` AND (
-        LOWER(first_name) LIKE LOWER($${paramIndex}) OR
-        LOWER(last_name) LIKE LOWER($${paramIndex}) OR
-        LOWER(employee_code) LIKE LOWER($${paramIndex}) OR
-        LOWER(email) LIKE LOWER($${paramIndex})
+        LOWER(e.first_name) LIKE LOWER($${paramIndex}) OR
+        LOWER(e.last_name) LIKE LOWER($${paramIndex}) OR
+        LOWER(e.employee_code) LIKE LOWER($${paramIndex}) OR
+        LOWER(e.email) LIKE LOWER($${paramIndex})
       )`
       params.push(`%${search}%`)
       paramIndex++
     }
 
     // Add ordering
-    queryText += ` ORDER BY first_name, last_name`
+    queryText += ` ORDER BY e.first_name, e.last_name`
 
     const result = await query(queryText, params)
     const employees = result.rows
