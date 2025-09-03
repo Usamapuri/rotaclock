@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // Check if requester exists and is active in tenant
     const requesterResult = await query(
-      'SELECT id FROM employees_new WHERE id = $1 AND is_active = true AND tenant_id = $2',
+      'SELECT id FROM employees WHERE id = $1 AND is_active = true AND tenant_id = $2',
       [validatedData.requester_id, tenantContext.tenant_id]
     )
 
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     // Check if target exists and is active in tenant
     const targetResult = await query(
-      'SELECT id FROM employees_new WHERE id = $1 AND is_active = true AND tenant_id = $2',
+      'SELECT id FROM employees WHERE id = $1 AND is_active = true AND tenant_id = $2',
       [validatedData.target_id, tenantContext.tenant_id]
     )
 
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     // Check if original shift assignment exists in tenant
     const originalShiftResult = await query(
-      'SELECT id FROM shift_assignments_new WHERE id = $1 AND employee_id = $2 AND tenant_id = $3',
+      'SELECT id FROM shift_assignments WHERE id = $1 AND employee_id = $2 AND tenant_id = $3',
       [validatedData.original_shift_id, validatedData.requester_id, tenantContext.tenant_id]
     )
 
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     // Check if requested shift assignment exists in tenant
     const requestedShiftResult = await query(
-      'SELECT id FROM shift_assignments_new WHERE id = $1 AND employee_id = $2 AND tenant_id = $3',
+      'SELECT id FROM shift_assignments WHERE id = $1 AND employee_id = $2 AND tenant_id = $3',
       [validatedData.requested_shift_id, validatedData.target_id, tenantContext.tenant_id]
     )
 

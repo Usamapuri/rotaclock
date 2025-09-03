@@ -203,9 +203,9 @@ export async function GET(request: NextRequest) {
         t.last_name as target_last_name,
         ss.reason
       FROM shift_swaps ss
-      JOIN employees r ON ss.requester_id = r.id AND r.tenant_id = ss.tenant_id
-      JOIN employees t ON ss.target_id = t.id AND t.tenant_id = ss.tenant_id
-      WHERE ss.tenant_id = $1
+      JOIN employees r ON ss.requester_id = r.id
+      JOIN employees t ON ss.target_id = t.id
+      WHERE r.tenant_id = $1 AND t.tenant_id = $1
       ORDER BY ss.created_at DESC
       LIMIT 5
     `, [tenantContext.tenant_id])

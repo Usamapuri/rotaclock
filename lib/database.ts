@@ -1488,7 +1488,7 @@ export async function createShiftLog(shiftLogData: Omit<ShiftLog, 'id' | 'create
   const { employee_id, shift_assignment_id, clock_in_time } = shiftLogData;
   const result = await query(
     `INSERT INTO time_entries (
-      employee_id, assignment_id, date, clock_in, status
+      employee_id, shift_assignment_id, date, clock_in, status
     ) VALUES ($1, $2, $3, $4, 'in-progress') RETURNING *`,
     [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time]
   );
@@ -1775,7 +1775,7 @@ export async function createShiftLogByEmail(shiftLogData: {
   
   const result = await query(
     `INSERT INTO time_entries (
-      employee_id, assignment_id, date, clock_in, status
+      employee_id, shift_assignment_id, date, clock_in, status
     ) VALUES ($1, $2, $3, $4, 'in-progress') RETURNING *`,
     [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time]
   );
