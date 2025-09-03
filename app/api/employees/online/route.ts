@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
 /**
  * GET /api/employees/online
@@ -18,28 +19,33 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get all online employees with their current shift information
+    const tenant = await getTenantContext(user.id)
+    if (!tenant) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
+
+    // Get all online employees with their current shift information scoped by tenant
     const result = await query(`
       SELECT 
         e.id,
-        e.employee_id,
+        e.employee_code as employee_id,
         e.first_name,
         e.last_name,
         e.email,
         e.department,
-        e.position,
+        e.job_position as position,
         e.is_online,
         e.last_online,
-        sl.id as shift_log_id,
-        sl.clock_in_time,
-        sl.status as shift_status,
-        sl.total_shift_hours,
-        sl.break_time_used
-      FROM employees_new e
-      LEFT JOIN shift_logs sl ON e.id = sl.employee_id AND sl.status = 'active'
-      WHERE e.is_online = true AND e.is_active = true
+        te.id as time_entry_id,
+        te.clock_in as clock_in_time,
+        te.status as shift_status,
+        te.total_hours as total_shift_hours,
+        te.break_hours as break_time_used
+      FROM employees e
+      LEFT JOIN time_entries te ON e.id = te.employee_id AND te.status IN ('in-progress','break')
+      WHERE e.is_online = true AND e.is_active = true AND e.tenant_id = $1
       ORDER BY e.last_online DESC
-    `)
+    `, [tenant.tenant_id])
 
     const onlineEmployees = result.rows.map(row => {
       const clockInTime = row.clock_in_time ? new Date(row.clock_in_time) : null
@@ -63,7 +69,7 @@ export async function GET(request: NextRequest) {
         position: row.position,
         is_online: row.is_online,
         last_online: row.last_online,
-        shift_log_id: row.shift_log_id,
+        shift_log_id: row.time_entry_id,
         clock_in_time: row.clock_in_time,
         shift_status: row.shift_status,
         shift_duration: shiftDuration,
