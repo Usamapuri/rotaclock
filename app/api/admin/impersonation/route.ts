@@ -42,10 +42,10 @@ export async function POST(request: NextRequest) {
 
     const targetUser = targetUserResult.rows[0]
 
-    // Log impersonation action in audit table
+    // Log impersonation action in audit table (no tenant_id column)
     const auditQuery = `
-      INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, tenant_id, created_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW())
+      INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, created_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
     `
     await query(auditQuery, [
       user.id,
@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
         target_user_email: targetUser.email,
         target_user_role: targetUser.role,
         admin_email: user.email,
+        tenant_id: tenant.tenant_id
       }),
-      tenant.tenant_id,
     ])
 
     return NextResponse.json({
@@ -93,10 +93,10 @@ export async function DELETE(request: NextRequest) {
 
     const tenant = await getTenantContext(user.id)
 
-    // Log impersonation end action
+    // Log impersonation end action (no tenant_id column)
     const auditQuery = `
-      INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, tenant_id, created_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW())
+      INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, created_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
     `
     await query(auditQuery, [
       user.id,
@@ -104,9 +104,9 @@ export async function DELETE(request: NextRequest) {
       null,
       JSON.stringify({
         admin_email: user.email,
-        action: 'impersonation_stopped'
+        action: 'impersonation_stopped',
+        tenant_id: tenant?.tenant_id || null,
       }),
-      tenant?.tenant_id || null,
     ])
 
     return NextResponse.json({ success: true })
