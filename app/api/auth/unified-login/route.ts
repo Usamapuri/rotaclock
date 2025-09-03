@@ -14,21 +14,12 @@ export async function POST(request: NextRequest) {
 
     let employee: any | null = null
     try {
-      // Authenticate against employees_new (primary)
-      let res = await query(`
+      // Authenticate against canonical employees table
+      const res = await query(`
         SELECT id, email, employee_code, first_name, last_name, department, job_position, role, team_id
-        FROM employees_new
+        FROM employees
         WHERE email = $1 AND is_active = true
       `, [email])
-
-      // Fallback to legacy employees table if not found
-      if (res.rows.length === 0) {
-        res = await query(`
-          SELECT id, email, employee_code, first_name, last_name, department, job_position, role, team_id
-          FROM employees_new
-          WHERE email = $1 AND is_active = true
-        `, [email])
-      }
 
       if (res.rows.length > 0) {
         employee = res.rows[0]

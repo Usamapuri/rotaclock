@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
           // Update employee online status
           await query(`
-            UPDATE employees_new 
+            UPDATE employees 
             SET is_online = true, last_online = NOW()
             WHERE email = $1
           `, [email])

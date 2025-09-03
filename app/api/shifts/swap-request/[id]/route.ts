@@ -42,8 +42,8 @@ export async function PUT(
               r.first_name as requester_first_name, r.last_name as requester_last_name,
               t.first_name as target_first_name, t.last_name as target_last_name
        FROM shift_swaps ss
-       JOIN employees_new r ON ss.requester_id = r.id AND r.tenant_id = ss.tenant_id
-       JOIN employees_new t ON ss.target_id = t.id AND t.tenant_id = ss.tenant_id
+       JOIN employees r ON ss.requester_id = r.id AND r.tenant_id = ss.tenant_id
+       JOIN employees t ON ss.target_id = t.id AND t.tenant_id = ss.tenant_id
        WHERE ss.id = $1 AND ss.tenant_id = $2`,
       [id, tenantContext.tenant_id]
     )
@@ -78,7 +78,7 @@ export async function PUT(
     if (action === 'approve') {
       const requesterAssignmentResult = await query(
         `SELECT sa.id, sa.template_id
-         FROM shift_assignments_new sa
+         FROM shift_assignments sa
          WHERE sa.employee_id = $1 AND sa.template_id = $2 AND sa.tenant_id = $3
          LIMIT 1`,
         [swapRequest.requester_id, swapRequest.original_shift_id, tenantContext.tenant_id]
@@ -86,7 +86,7 @@ export async function PUT(
 
       const targetAssignmentResult = await query(
         `SELECT sa.id, sa.template_id
-         FROM shift_assignments_new sa
+         FROM shift_assignments sa
          WHERE sa.employee_id = $1 AND sa.template_id = $2 AND sa.tenant_id = $3
          LIMIT 1`,
         [swapRequest.target_id, swapRequest.requested_shift_id, tenantContext.tenant_id]
@@ -94,14 +94,14 @@ export async function PUT(
 
       if (requesterAssignmentResult.rows.length > 0 && targetAssignmentResult.rows.length > 0) {
         await query(
-          `UPDATE shift_assignments_new 
+          `UPDATE shift_assignments 
            SET template_id = $1, updated_at = NOW()
            WHERE id = $2 AND tenant_id = $3`,
           [swapRequest.requested_shift_id, requesterAssignmentResult.rows[0].id, tenantContext.tenant_id]
         )
 
         await query(
-          `UPDATE shift_assignments_new 
+          `UPDATE shift_assignments 
            SET template_id = $1, updated_at = NOW()
            WHERE id = $2 AND tenant_id = $3`,
           [swapRequest.original_shift_id, targetAssignmentResult.rows[0].id, tenantContext.tenant_id]

@@ -61,7 +61,7 @@ export async function PATCH(
 
     // Get employee's default hourly rate
     const employeeResult = await query(
-      'SELECT hourly_rate FROM employees_new WHERE id = $1',
+      'SELECT hourly_rate FROM employees WHERE id = $1',
       [shift.employee_id]
     )
     const defaultRate = employeeResult.rows[0]?.hourly_rate || 0

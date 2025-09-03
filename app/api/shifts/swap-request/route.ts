@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Get the requester's shift for the swap date within tenant
     const requesterShiftResult = await query(`
       SELECT sa.id as assignment_id, sa.template_id, st.name as shift_name
-      FROM shift_assignments_new sa
+      FROM shift_assignments sa
       JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
       WHERE sa.employee_id = $1 AND sa.date = $2 AND sa.tenant_id = $3
     `, [requester_id, swap_date, tenantContext.tenant_id])
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Get the target employee's shift for the swap date within tenant
     const targetShiftResult = await query(`
       SELECT sa.id as assignment_id, sa.template_id, st.name as shift_name
-      FROM shift_assignments_new sa
+      FROM shift_assignments sa
       JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
       WHERE sa.employee_id = $1 AND sa.date = $2 AND sa.tenant_id = $3
     `, [target_employee_id, swap_date, tenantContext.tenant_id])
@@ -96,11 +96,11 @@ export async function POST(request: NextRequest) {
 
     // Get employee names for notifications
     const requesterResult = await query(`
-      SELECT first_name, last_name FROM employees_new WHERE id = $1 AND tenant_id = $2
+      SELECT first_name, last_name FROM employees WHERE id = $1 AND tenant_id = $2
     `, [requester_id, tenantContext.tenant_id])
 
     const targetResult = await query(`
-      SELECT first_name, last_name FROM employees_new WHERE id = $1 AND tenant_id = $2
+      SELECT first_name, last_name FROM employees WHERE id = $1 AND tenant_id = $2
     `, [target_employee_id, tenantContext.tenant_id])
 
     const requester = requesterResult.rows[0]
