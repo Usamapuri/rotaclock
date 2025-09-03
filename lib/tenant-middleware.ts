@@ -12,7 +12,7 @@ export interface TenantContext {
 export async function getTenantContext(userId: string): Promise<TenantContext | null> {
   try {
     const result = await query(`
-      SELECT e.tenant_id, e.organization_id, o.name as organization_name, 
+      SELECT e.tenant_id, e.organization_id, e.email, o.name as organization_name, 
              o.subscription_status, o.subscription_plan
       FROM employees e
       LEFT JOIN organizations o ON e.organization_id = o.id
@@ -24,8 +24,18 @@ export async function getTenantContext(userId: string): Promise<TenantContext | 
     }
 
     const row = result.rows[0]
+    // Derive tenant_id by email domain when missing or demo
+    let derivedTenantId: string = row.tenant_id
+    if (!derivedTenantId || String(derivedTenantId).toLowerCase() === 'demo') {
+      const email: string = String(row.email || '')
+      const domain = email.includes('@') ? email.split('@')[1].toLowerCase() : ''
+      if (domain === 'logicodeservices.com') {
+        derivedTenantId = 'logicodeservices'
+      }
+    }
+
     return {
-      tenant_id: row.tenant_id,
+      tenant_id: derivedTenantId,
       organization_id: row.organization_id,
       organization_name: row.organization_name,
       subscription_status: row.subscription_status,
