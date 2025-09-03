@@ -77,7 +77,8 @@ export function useDashboardPolling(adminId: string, pollInterval: number = 1500
         const response = await fetch('/api/dashboard/data', {
           headers: {
             'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            'Pragma': 'no-cache',
+            'authorization': `Bearer ${adminId}`,
           }
         })
         
