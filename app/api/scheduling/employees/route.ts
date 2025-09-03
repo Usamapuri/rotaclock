@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
 export async function GET(request: NextRequest) {
   try {
+    // Scope to current tenant
+    const auth = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await auth(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+    const tenant = await getTenantContext(user.id)
+    if (!tenant) {
+      return NextResponse.json({ success: false, error: 'No tenant context found' }, { status: 403 })
+    }
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const department = searchParams.get('department') || ''
@@ -11,21 +23,21 @@ export async function GET(request: NextRequest) {
 
     let queryText = `
       SELECT 
-        id,
-        employee_code,
-        first_name,
-        last_name,
-        email,
-        department,
-        job_position,
-        is_active,
-        hourly_rate,
-        max_hours_per_week
-      FROM employees_new
-      WHERE is_active = true AND role != 'admin'
+        e.id,
+        e.employee_code,
+        e.first_name,
+        e.last_name,
+        e.email,
+        e.department,
+        e.job_position,
+        e.is_active,
+        e.hourly_rate,
+        e.max_hours_per_week
+      FROM employees e
+      WHERE e.is_active = true AND e.role != 'admin' AND e.tenant_id = $1
     `
-    const params: any[] = []
-    let paramIndex = 1
+    const params: any[] = [tenant.tenant_id]
+    let paramIndex = 2
 
     // Add search filter
     if (search) {
@@ -55,11 +67,11 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     let countQuery = `
       SELECT COUNT(*) as total
-      FROM employees_new
-      WHERE is_active = true AND role != 'admin'
+      FROM employees e
+      WHERE e.is_active = true AND e.role != 'admin' AND e.tenant_id = $1
     `
-    const countParams: any[] = []
-    let countParamIndex = 1
+    const countParams: any[] = [tenant.tenant_id]
+    let countParamIndex = 2
 
     if (search) {
       countQuery += ` AND (
