@@ -201,19 +201,10 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
-    if (!user) {
+    if (!user || user.role !== 'admin') {
       router.push('/login')
-      return
-    }
-    setCurrentUser(user)
-    
-    // Check impersonation status
-    const impersonating = AuthService.isImpersonating()
-    setIsImpersonating(impersonating)
-    
-    if (impersonating) {
-      const original = AuthService.getOriginalUser()
-      setOriginalUser(original)
+    } else {
+      setCurrentUser(user)
     }
   }, [router])
 
@@ -905,6 +896,9 @@ export default function AdminDashboard() {
                 )}
                 {pollingLastUpdate && (
                   <span>Updated {new Date(pollingLastUpdate).toLocaleTimeString()}</span>
+                )}
+                {currentUser?.organization_name && (
+                  <span className="font-semibold text-gray-800">Org: {currentUser.organization_name}</span>
                 )}
               </div>
               <Button onClick={refreshData} variant="outline" size="sm" disabled={isPollingLoading}>

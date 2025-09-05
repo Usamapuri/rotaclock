@@ -79,14 +79,20 @@ export default function SchedulingPage() {
   }
 
   const loadTemplates = async () => {
-    const res = await fetch('/api/scheduling/templates')
+    const user = AuthService.getCurrentUser()
+    const res = await fetch('/api/scheduling/templates', {
+      headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
+    })
     const data = await res.json()
     if (data.success) setTemplates(data.data)
   }
 
   const loadWeek = async (dateOverride?: string) => {
     const dateToLoad = dateOverride || selectedDate
-    const res = await fetch(`/api/scheduling/week/${dateToLoad}`)
+    const user = AuthService.getCurrentUser()
+    const res = await fetch(`/api/scheduling/week/${dateToLoad}`, {
+      headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
+    })
     const data = await res.json()
     if (!data.success) return
     setEmployees(data.data.employees.map((e: any) => ({ ...e, assignments: e.assignments || {} })))
@@ -121,9 +127,13 @@ export default function SchedulingPage() {
 
   const handleDragDrop = async (employeeId: string, date: string, templateId: string) => {
     try {
+      const user = AuthService.getCurrentUser()
       const res = await fetch('/api/scheduling/assignments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
+        },
         body: JSON.stringify({
           employee_id: employeeId,
           date: date,

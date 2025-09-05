@@ -91,7 +91,7 @@ export default function AdminEmployees() {
       router.push("/login")
     } else {
       setAdminUser(user.email || 'Administrator')
-      loadEmployees()
+      setCurrentUser?.(user)
     }
   }, [router])
 

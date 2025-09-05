@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     let queryText = `
       SELECT id, name, description, start_time, end_time, department, required_staff, hourly_rate, color, is_active, created_at, updated_at
       FROM shift_templates
-      WHERE tenant_id = $1::varchar
+      WHERE tenant_id = $1
     `
     const params: any[] = [tenantContext.tenant_id]
     let paramIndex = 2
