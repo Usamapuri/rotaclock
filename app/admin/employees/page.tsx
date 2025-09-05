@@ -167,7 +167,7 @@ export default function AdminEmployees() {
     if (!editingEmployee) return
 
     try {
-      const response = await fetch(`/api/employees/${editingEmployee.id}`, {
+      const response = await fetch(`/api/admin/employees/${editingEmployee.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
