@@ -355,7 +355,7 @@ export default function EmployeeOnboarding() {
               <Link href="/employee/dashboard">
                 <div className="flex items-center">
                   <Clock className="h-6 w-6 text-blue-600 mr-2" />
-                  <span className="text-xl font-bold text-gray-900">ShiftTracker</span>
+                  <span className="text-xl font-bold text-gray-900">RotaClock</span>
                 </div>
               </Link>
               <Badge variant="outline">My Onboarding</Badge>

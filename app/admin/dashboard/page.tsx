@@ -931,10 +931,6 @@ export default function AdminDashboard() {
                 <FileText className="h-4 w-4 mr-2" />
                 Timesheet
               </Button>
-              <Button onClick={handleLogout} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
             </div>
           </div>
         </div>
