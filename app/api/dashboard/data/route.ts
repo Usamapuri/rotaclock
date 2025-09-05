@@ -74,12 +74,15 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Employees
+    // Refresh materialized views if needed (based on cache)
+    if (!cached) {
+      await query('SELECT refresh_dashboard_stats()', [])
+    }
+
+    // Get stats from materialized views
     const employeesResult = await query(`
-      SELECT 
-        COUNT(*) as total_employees,
-        COUNT(*) FILTER (WHERE is_active = true) as active_employees
-      FROM employees
+      SELECT total_employees, active_employees, total_departments
+      FROM employee_stats
       WHERE tenant_id = $1
     `, [tenantContext.tenant_id])
 
@@ -90,53 +93,35 @@ export async function GET(request: NextRequest) {
     weekEnd.setDate(weekEnd.getDate() + 6) // Sunday
 
     const shiftsResult = await query(`
-      SELECT 
-        COUNT(*) as total_shifts,
-        COUNT(*) FILTER (WHERE status = 'completed') as completed_shifts
-      FROM shift_assignments 
-      WHERE date >= $1 AND date <= $2 AND tenant_id = $3
-    `, [weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0], tenantContext.tenant_id])
+      SELECT SUM(total_shifts) as total_shifts, SUM(completed_shifts) as completed_shifts
+      FROM shift_stats
+      WHERE tenant_id = $1 AND shift_date BETWEEN $2 AND $3
+    `, [tenantContext.tenant_id, weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0]])
 
-    // Pending requests
-    const swapRequestsResult = await query(`
-      SELECT COUNT(*) as pending_swap_requests
-      FROM shift_swaps ss
-      JOIN employees r ON ss.requester_id = r.id
-      JOIN employees t ON ss.target_id = t.id
-      WHERE ss.status = 'pending' AND r.tenant_id = $1 AND t.tenant_id = $1
+    // Get request stats from materialized view
+    const requestStats = await query(`
+      SELECT pending_swap_requests, pending_leave_requests
+      FROM request_stats
+      WHERE tenant_id = $1
     `, [tenantContext.tenant_id])
 
-    const leaveRequestsResult = await query(`
-      SELECT COUNT(*) as pending_leave_requests
-      FROM leave_requests lr
-      JOIN employees e ON lr.employee_id = e.id
-      WHERE lr.status = 'pending' AND e.tenant_id = $1
-    `, [tenantContext.tenant_id])
-
-    // Current attendance (shift_logs has tenant_id; time_entries_new does not)
-    const attendanceResult = await query(`
-      SELECT COUNT(*) as current_attendance
-      FROM time_entries te
-      JOIN employees e ON te.employee_id = e.id
-      WHERE te.status = 'in-progress' AND e.tenant_id = $1
-    `, [tenantContext.tenant_id])
-
-    const timeEntriesResult = await query(`
-      SELECT COUNT(*) as active_time_entries
-      FROM time_entries te
-      JOIN employees e ON te.employee_id = e.id
-      WHERE te.status IN ('in-progress', 'break') AND e.tenant_id = $1
+    // Get attendance stats from materialized view
+    const attendanceStats = await query(`
+      SELECT current_attendance, active_time_entries
+      FROM attendance_stats
+      WHERE tenant_id = $1
     `, [tenantContext.tenant_id])
 
     const stats = {
       totalEmployees: parseInt(employeesResult.rows[0]?.total_employees || '0'),
       activeEmployees: parseInt(employeesResult.rows[0]?.active_employees || '0'),
+      totalDepartments: parseInt(employeesResult.rows[0]?.total_departments || '0'),
       totalShifts: parseInt(shiftsResult.rows[0]?.total_shifts || '0'),
       completedShifts: parseInt(shiftsResult.rows[0]?.completed_shifts || '0'),
-      pendingSwapRequests: parseInt(swapRequestsResult.rows[0]?.pending_swap_requests || '0'),
-      pendingLeaveRequests: parseInt(leaveRequestsResult.rows[0]?.pending_leave_requests || '0'),
-      currentAttendance: parseInt(attendanceResult.rows[0]?.current_attendance || '0') + 
-                        parseInt(timeEntriesResult.rows[0]?.active_time_entries || '0'),
+      pendingSwapRequests: parseInt(requestStats.rows[0]?.pending_swap_requests || '0'),
+      pendingLeaveRequests: parseInt(requestStats.rows[0]?.pending_leave_requests || '0'),
+      currentAttendance: parseInt(attendanceStats.rows[0]?.current_attendance || '0'),
+      activeTimeEntries: parseInt(attendanceStats.rows[0]?.active_time_entries || '0'),
       weeklyHours: 168,
       avgHoursPerEmployee: 0,
       attendanceRate: 0
@@ -147,9 +132,8 @@ export async function GET(request: NextRequest) {
       stats.avgHoursPerEmployee = Math.round(168 / stats.totalEmployees)
     }
 
-    const totalTimeEntries = parseInt(timeEntriesResult.rows[0]?.active_time_entries || '0')
-    if (totalTimeEntries > 0) {
-      stats.attendanceRate = Math.round((stats.currentAttendance / totalTimeEntries) * 100)
+    if (stats.activeTimeEntries > 0) {
+      stats.attendanceRate = Math.round((stats.currentAttendance / stats.activeTimeEntries) * 100)
     }
 
     // Recent employees
