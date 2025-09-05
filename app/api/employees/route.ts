@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN employees m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
       LEFT JOIN time_entries te ON e.id = te.employee_id AND te.tenant_id = e.tenant_id
-      WHERE e.tenant_id = $1::uuid
+      WHERE e.tenant_id = $1
     `
     const params: any[] = [tenantContext.tenant_id]
     let paramIndex = 2
