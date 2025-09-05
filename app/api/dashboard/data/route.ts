@@ -74,16 +74,14 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Refresh materialized views if needed (based on cache)
-    if (!cached) {
-      await query('SELECT refresh_dashboard_stats()', [])
-    }
-
-    // Get stats from materialized views
+    // Get employee stats
     const employeesResult = await query(`
-      SELECT total_employees, active_employees, total_departments
-      FROM employee_stats
-      WHERE tenant_id = $1
+      SELECT 
+        COUNT(*) as total_employees,
+        COUNT(*) FILTER (WHERE is_active = true) as active_employees,
+        COUNT(DISTINCT department) as total_departments
+      FROM employees
+      WHERE tenant_id = $1::uuid
     `, [tenantContext.tenant_id])
 
     // Current week shift assignments
@@ -93,23 +91,38 @@ export async function GET(request: NextRequest) {
     weekEnd.setDate(weekEnd.getDate() + 6) // Sunday
 
     const shiftsResult = await query(`
-      SELECT SUM(total_shifts) as total_shifts, SUM(completed_shifts) as completed_shifts
-      FROM shift_stats
-      WHERE tenant_id = $1 AND shift_date BETWEEN $2 AND $3
+      SELECT 
+        COUNT(*) as total_shifts,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed_shifts
+      FROM shift_assignments 
+      WHERE tenant_id = $1::uuid AND date BETWEEN $2 AND $3
     `, [tenantContext.tenant_id, weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0]])
 
-    // Get request stats from materialized view
+    // Get request stats
     const requestStats = await query(`
-      SELECT pending_swap_requests, pending_leave_requests
-      FROM request_stats
-      WHERE tenant_id = $1
+      SELECT 
+        COUNT(*) FILTER (WHERE status = 'pending') as pending_swap_requests
+      FROM shift_swaps ss
+      JOIN employees r ON ss.requester_id = r.id
+      JOIN employees t ON ss.target_id = t.id
+      WHERE r.tenant_id = $1::uuid AND t.tenant_id = $1::uuid
     `, [tenantContext.tenant_id])
 
-    // Get attendance stats from materialized view
+    const leaveStats = await query(`
+      SELECT COUNT(*) FILTER (WHERE status = 'pending') as pending_leave_requests
+      FROM leave_requests lr
+      JOIN employees e ON lr.employee_id = e.id
+      WHERE e.tenant_id = $1::uuid
+    `, [tenantContext.tenant_id])
+
+    // Get attendance stats
     const attendanceStats = await query(`
-      SELECT current_attendance, active_time_entries
-      FROM attendance_stats
-      WHERE tenant_id = $1
+      SELECT 
+        COUNT(*) FILTER (WHERE status = 'in-progress') as current_attendance,
+        COUNT(*) FILTER (WHERE status IN ('in-progress', 'break')) as active_time_entries
+      FROM time_entries te
+      JOIN employees e ON te.employee_id = e.id
+      WHERE e.tenant_id = $1::uuid AND te.date = CURRENT_DATE
     `, [tenantContext.tenant_id])
 
     const stats = {
@@ -119,7 +132,7 @@ export async function GET(request: NextRequest) {
       totalShifts: parseInt(shiftsResult.rows[0]?.total_shifts || '0'),
       completedShifts: parseInt(shiftsResult.rows[0]?.completed_shifts || '0'),
       pendingSwapRequests: parseInt(requestStats.rows[0]?.pending_swap_requests || '0'),
-      pendingLeaveRequests: parseInt(requestStats.rows[0]?.pending_leave_requests || '0'),
+      pendingLeaveRequests: parseInt(leaveStats.rows[0]?.pending_leave_requests || '0'),
       currentAttendance: parseInt(attendanceStats.rows[0]?.current_attendance || '0'),
       activeTimeEntries: parseInt(attendanceStats.rows[0]?.active_time_entries || '0'),
       weeklyHours: 168,
@@ -148,13 +161,22 @@ export async function GET(request: NextRequest) {
         e.job_position as position,
         e.is_active,
         CASE 
-          WHEN e.is_online = true THEN 'online'
-          WHEN te.status = 'break' THEN 'break'
+          WHEN EXISTS (
+            SELECT 1 FROM time_entries te 
+            WHERE te.employee_id = e.id 
+            AND te.status = 'in-progress'
+            AND te.date = CURRENT_DATE
+          ) THEN 'online'
+          WHEN EXISTS (
+            SELECT 1 FROM time_entries te 
+            WHERE te.employee_id = e.id 
+            AND te.status = 'break'
+            AND te.date = CURRENT_DATE
+          ) THEN 'break'
           ELSE 'offline'
         END as status
       FROM employees e
-      LEFT JOIN time_entries te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break')
-      WHERE e.is_active = true AND e.tenant_id = $1
+      WHERE e.is_active = true AND e.tenant_id = $1::uuid
       ORDER BY e.first_name, e.last_name
       LIMIT 10
     `, [tenantContext.tenant_id])
@@ -173,7 +195,7 @@ export async function GET(request: NextRequest) {
       FROM shift_assignments sa
       JOIN employees e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
       JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
-      WHERE sa.date >= CURRENT_DATE AND sa.tenant_id = $1
+      WHERE sa.date >= CURRENT_DATE AND sa.tenant_id = $1::uuid
       ORDER BY sa.date, st.start_time
       LIMIT 10
     `, [tenantContext.tenant_id])
@@ -192,7 +214,7 @@ export async function GET(request: NextRequest) {
       FROM shift_swaps ss
       JOIN employees r ON ss.requester_id = r.id
       JOIN employees t ON ss.target_id = t.id
-      WHERE r.tenant_id = $1 AND t.tenant_id = $1
+      WHERE r.tenant_id = $1::uuid AND t.tenant_id = $1::uuid
       ORDER BY ss.created_at DESC
       LIMIT 5
     `, [tenantContext.tenant_id])
@@ -211,7 +233,7 @@ export async function GET(request: NextRequest) {
         lr.reason
       FROM leave_requests lr
       JOIN employees e ON lr.employee_id = e.id
-      WHERE e.tenant_id = $1
+      WHERE e.tenant_id = $1::uuid
       ORDER BY lr.created_at DESC
       LIMIT 5
     `, [tenantContext.tenant_id])
