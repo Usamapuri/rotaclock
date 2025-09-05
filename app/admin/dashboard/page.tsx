@@ -831,21 +831,30 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen bg-gradient-to-br from-[#FDFBF8] to-white">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white/95 backdrop-blur-sm shadow-sm border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <div className="bg-purple-100 p-2 rounded-full">
-                <Users className="h-6 w-6 text-purple-600" />
+              <div className="relative w-10 h-10">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center relative shadow-lg">
+                  <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center">
+                    <div className="w-1 h-4 bg-blue-600 rounded-full transform rotate-45 origin-bottom"></div>
+                  </div>
+                  <div className="absolute w-0.5 h-2.5 bg-blue-600 transform rotate-12 origin-bottom"></div>
+                  <div className="absolute w-0.5 h-2 bg-blue-600 transform -rotate-45 origin-bottom"></div>
+                </div>
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  Admin Dashboard
+                <h1 className="text-xl font-semibold text-transparent bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text">
+                  {currentUser?.organization_name || 'Admin'} Dashboard
                 </h1>
                 <p className="text-sm text-gray-500">
                   Welcome back, {currentUser?.email || 'Administrator'}!
+                </p>
+                <p className="text-xs text-blue-600">
+                  Organization ID: {currentUser?.organization_id}
                 </p>
               </div>
             </div>
@@ -875,7 +884,7 @@ export default function AdminDashboard() {
                   onClick={() => setShowImpersonationModal(true)} 
                   variant="outline" 
                   size="sm"
-                  className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
                 >
                   <UserCheck className="h-4 w-4 mr-2" />
                   Impersonate
@@ -902,27 +911,27 @@ export default function AdminDashboard() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${isPollingLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              <Button onClick={() => setShowBroadcastModal(true)} variant="outline" size="sm">
+              <Button onClick={() => setShowBroadcastModal(true)} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
                 <Bell className="h-4 w-4 mr-2" />
                 Broadcast Message
               </Button>
-              <Button onClick={() => router.push('/admin/reports')} variant="outline" size="sm">
+              <Button onClick={() => router.push('/admin/reports')} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Reports
               </Button>
-              <Button onClick={() => router.push('/admin/scheduling-new')} variant="outline" size="sm">
+              <Button onClick={() => router.push('/admin/scheduling-new')} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
                 <Calendar className="h-4 w-4 mr-2" />
                 Create Shift
               </Button>
-              <Button onClick={() => router.push('/admin/employees')} variant="outline" size="sm">
+              <Button onClick={() => router.push('/admin/employees')} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Manage Agents
               </Button>
-              <Button onClick={() => router.push('/admin/timesheet')} variant="outline" size="sm">
+              <Button onClick={() => router.push('/admin/timesheet')} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
                 <FileText className="h-4 w-4 mr-2" />
                 Timesheet
               </Button>
-              <Button onClick={handleLogout} variant="outline" size="sm">
+              <Button onClick={handleLogout} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
@@ -934,54 +943,62 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Agents</p>
-                  <p className="text-2xl font-bold">{stats.totalEmployees}</p>
-                  <p className="text-xs text-gray-500">{stats.activeEmployees} active</p>
+                  <p className="text-sm font-medium text-blue-800">Total Agents</p>
+                  <p className="text-2xl font-bold text-blue-900">{stats.totalEmployees}</p>
+                  <p className="text-xs text-blue-700">{stats.activeEmployees} active</p>
                 </div>
-                <Users className="h-8 w-8 text-blue-500" />
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center shadow-lg">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Current Attendance</p>
-                  <p className="text-2xl font-bold">{stats.currentAttendance}</p>
-                  <p className="text-xs text-gray-500">{stats.attendanceRate}% rate</p>
+                  <p className="text-sm font-medium text-green-800">Current Attendance</p>
+                  <p className="text-2xl font-bold text-green-900">{stats.currentAttendance}</p>
+                  <p className="text-xs text-green-700">{stats.attendanceRate}% rate</p>
                 </div>
-                <Eye className="h-8 w-8 text-green-500" />
+                <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center shadow-lg">
+                  <Eye className="h-6 w-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Shifts</p>
-                  <p className="text-2xl font-bold">{stats.totalShifts}</p>
-                  <p className="text-xs text-gray-500">{stats.completedShifts} completed</p>
+                  <p className="text-sm font-medium text-purple-800">Total Shifts</p>
+                  <p className="text-2xl font-bold text-purple-900">{stats.totalShifts}</p>
+                  <p className="text-xs text-purple-700">{stats.completedShifts} completed</p>
                 </div>
-                <Clock className="h-8 w-8 text-green-500" />
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-700 rounded-full flex items-center justify-center shadow-lg">
+                  <Clock className="h-6 w-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Pending Requests</p>
-                  <p className="text-2xl font-bold">{stats.pendingSwapRequests + stats.pendingLeaveRequests}</p>
-                  <p className="text-xs text-gray-500">Swap: {stats.pendingSwapRequests} | Leave: {stats.pendingLeaveRequests}</p>
+                  <p className="text-sm font-medium text-orange-800">Pending Requests</p>
+                  <p className="text-2xl font-bold text-orange-900">{stats.pendingSwapRequests + stats.pendingLeaveRequests}</p>
+                  <p className="text-xs text-orange-700">Swap: {stats.pendingSwapRequests} | Leave: {stats.pendingLeaveRequests}</p>
                 </div>
-                <AlertCircle className="h-8 w-8 text-orange-500" />
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-600 to-orange-700 rounded-full flex items-center justify-center shadow-lg">
+                  <AlertCircle className="h-6 w-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>

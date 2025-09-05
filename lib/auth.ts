@@ -4,6 +4,9 @@ export interface AuthUser {
   email: string
   role: 'admin' | 'team_lead' | 'project_manager' | 'employee'
   employeeId?: string // legacy: human-readable employee code
+  organization_id?: string
+  organization_name?: string
+  tenant_id?: string
   isImpersonating?: boolean
   originalUser?: { id: string, email: string, role: string }
 }
@@ -62,7 +65,10 @@ export class AuthService {
           id: data.employee.id,
           email: data.employee.email,
           role: normalizedRole,
-          employeeId: data.employee.employee_id
+          employeeId: data.employee.employee_id,
+          organization_id: data.employee.organization_id,
+          organization_name: data.employee.organization_name,
+          tenant_id: data.employee.tenant_id
         }
         
         if (typeof window !== 'undefined') {
@@ -103,7 +109,10 @@ export class AuthService {
           id: data.employee.id,
           email: data.employee.email,
           role: normalizedRole,
-          employeeId: data.employee.employee_id
+          employeeId: data.employee.employee_id,
+          organization_id: data.employee.organization_id,
+          organization_name: data.employee.organization_name,
+          tenant_id: data.employee.tenant_id
         }
         
         if (typeof window !== 'undefined') {

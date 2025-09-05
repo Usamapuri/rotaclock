@@ -87,10 +87,10 @@ export async function GET(request: NextRequest) {
         COUNT(te.id) as total_time_entries,
         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
       FROM employees e
-      LEFT JOIN teams t ON e.team_id = t.id
+      LEFT JOIN teams t ON e.team_id = t.id AND t.tenant_id = e.tenant_id
       LEFT JOIN employees m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
-      LEFT JOIN time_entries te ON e.id = te.employee_id
+      LEFT JOIN time_entries te ON e.id = te.employee_id AND te.tenant_id = e.tenant_id
       WHERE e.tenant_id = $1
     `
     const params: any[] = [tenantContext.tenant_id]
