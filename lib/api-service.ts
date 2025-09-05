@@ -316,29 +316,29 @@ class ApiService {
     if (filters?.page) params.append('page', filters.page.toString())
     if (filters?.limit) params.append('limit', filters.limit.toString())
 
-    return this.request<Employee[]>(`/employees?${params.toString()}`)
+    return this.request<Employee[]>(`/admin/employees?${params.toString()}`)
   }
 
   async getEmployee(id: string): Promise<ApiResponse<Employee>> {
-    return this.request<Employee>(`/employees/${id}`)
+    return this.request<Employee>(`/admin/employees/${id}`)
   }
 
   async createEmployee(data: CreateEmployeeRequest): Promise<ApiResponse<Employee>> {
-    return this.request<Employee>('/employees', {
+    return this.request<Employee>('/admin/employees', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
   async updateEmployee(data: UpdateEmployeeRequest): Promise<ApiResponse<Employee>> {
-    return this.request<Employee>('/employees', {
+    return this.request<Employee>('/admin/employees', {
       method: 'PUT',
       body: JSON.stringify(data),
     })
   }
 
   async deleteEmployee(id: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/employees?id=${id}`, {
+    return this.request<void>(`/admin/employees?id=${id}`, {
       method: 'DELETE',
     })
   }
