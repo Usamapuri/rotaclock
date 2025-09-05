@@ -138,7 +138,7 @@ export function ImpersonationModal({ isOpen, onClose, onImpersonate }: Impersona
             Impersonate User
           </DialogTitle>
           <DialogDescription>
-            Select an employee to impersonate. You will be able to view the system as that user.
+            Select an employee from your organization to impersonate. You will be able to view the system as that user.
           </DialogDescription>
         </DialogHeader>
 
