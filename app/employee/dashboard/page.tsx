@@ -357,14 +357,14 @@ export default function EmployeeDashboard() {
     if (!user) return
 
     // Load current shift log
-    const shiftLogsResponse = await fetch(`/api/shift-logs?employee_id=${user.id}&status=active`)
+    const shiftLogsResponse = await fetch(`/api/shift-logs?employee_id=${user.id}&status=active`, { headers: { authorization: `Bearer ${user.id}` } })
     if (shiftLogsResponse.ok) {
       const shiftLogsData = await shiftLogsResponse.json()
       if (shiftLogsData.success && shiftLogsData.data.length > 0) {
         setCurrentShiftLog(shiftLogsData.data[0])
         
         // Check for active break
-        const breakResponse = await fetch(`/api/time/break-status?employee_id=${user.id}`)
+        const breakResponse = await fetch(`/api/time/break-status?employee_id=${user.id}`, { headers: { authorization: `Bearer ${user.id}` } })
         if (breakResponse.ok) {
           const breakData = await breakResponse.json()
           if (breakData.success && breakData.data) {
@@ -392,7 +392,8 @@ export default function EmployeeDashboard() {
     // Load today's shifts using the new scheduling API
     const today = new Date().toISOString().split('T')[0]
     try {
-      const res = await fetch(`/api/scheduling/week/${today}?employee_id=${userId}`)
+      const user = AuthService.getCurrentUser()
+      const res = await fetch(`/api/scheduling/week/${today}?employee_id=${userId}`, { headers: user?.id ? { authorization: `Bearer ${user.id}` } : {} })
       if (!res.ok) {
         setTodayShifts([])
         return
@@ -424,7 +425,8 @@ export default function EmployeeDashboard() {
     // Load weekly hours from shift logs (more accurate)
     const weekStart = getWeekStart()
     const weekEnd = getWeekEnd()
-    const weeklyShiftLogsResponse = await fetch(`/api/shift-logs?employee_id=${userId}&start_date=${weekStart}&end_date=${weekEnd}`)
+    const user = AuthService.getCurrentUser()
+    const weeklyShiftLogsResponse = await fetch(`/api/shift-logs?employee_id=${userId}&start_date=${weekStart}&end_date=${weekEnd}`, { headers: user?.id ? { authorization: `Bearer ${user.id}` } : {} })
     if (weeklyShiftLogsResponse.ok) {
       const weeklyShiftLogsData = await weeklyShiftLogsResponse.json()
       if (weeklyShiftLogsData.success && weeklyShiftLogsData.data) {
@@ -498,6 +500,7 @@ export default function EmployeeDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          authorization: `Bearer ${user.id}`,
         },
         body: JSON.stringify({ employee_id: user.id }),
       })
@@ -534,6 +537,7 @@ export default function EmployeeDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          authorization: `Bearer ${user.id}`,
         },
         body: JSON.stringify({ 
           employee_id: user.id,
@@ -576,6 +580,7 @@ export default function EmployeeDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          authorization: `Bearer ${user.id}`,
         },
         body: JSON.stringify({ employee_id: user.id }),
       })
@@ -607,6 +612,7 @@ export default function EmployeeDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          authorization: `Bearer ${user.id}`,
         },
         body: JSON.stringify({ employee_id: user.id }),
       })

@@ -37,10 +37,12 @@ export function ImpersonationBanner() {
 
   const handleStopImpersonation = async () => {
     try {
+      const user = AuthService.getCurrentUser()
       const response = await fetch('/api/admin/impersonation', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
         },
       })
 
