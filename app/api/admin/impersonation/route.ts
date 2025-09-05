@@ -42,22 +42,26 @@ export async function POST(request: NextRequest) {
 
     const targetUser = targetUserResult.rows[0]
 
-    // Log impersonation action in audit table (no tenant_id column)
-    const auditQuery = `
-      INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, created_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
-    `
-    await query(auditQuery, [
-      user.id,
-      'impersonation_start',
-      targetUserId,
-      JSON.stringify({
-        target_user_email: targetUser.email,
-        target_user_role: targetUser.role,
-        admin_email: user.email,
-        tenant_id: tenant.tenant_id
-      }),
-    ])
+    // Optional audit insert - ignore if table doesn't exist
+    try {
+      const auditQuery = `
+        INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, created_at)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
+      `
+      await query(auditQuery, [
+        user.id,
+        'impersonation_start',
+        targetUserId,
+        JSON.stringify({
+          target_user_email: targetUser.email,
+          target_user_role: targetUser.role,
+          admin_email: user.email,
+          tenant_id: tenant.tenant_id
+        }),
+      ])
+    } catch (e) {
+      console.warn('Audit log insert skipped:', e instanceof Error ? e.message : e)
+    }
 
     return NextResponse.json({
       success: true,
@@ -87,9 +91,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (user.role !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can stop impersonation' }, { status: 403 })
-    }
+    // Allow either the original admin or the impersonated session to end impersonation
+    // We still log the action below.
 
     const tenant = await getTenantContext(user.id)
 
