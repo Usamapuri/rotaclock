@@ -6,7 +6,7 @@ import { sendEmail, buildOrgVerificationEmail, buildWelcomeEmail } from '@/lib/e
 
 // Database configuration
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:tIxWwsJpAlklxQGfDbxtDEheAxQmBlbz@maglev.proxy.rlwy.net:36050/railway',
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:QlUXSBsWFuwjhodaivUXTUXDuQhWigHL@metro.proxy.rlwy.net:36516/railway',
   ssl: { rejectUnauthorized: false }
 })
 
