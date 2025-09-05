@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN employees m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
       LEFT JOIN time_entries te ON e.id = te.employee_id AND te.tenant_id = e.tenant_id
-      WHERE e.tenant_id = $1
+      WHERE e.tenant_id = $1::varchar
     `
     const params: any[] = [tenantContext.tenant_id]
     let paramIndex = 2
@@ -307,7 +307,7 @@ export async function PUT(request: NextRequest) {
     const updateQuery = `
       UPDATE employees
       SET ${setClauses}, updated_at = NOW()
-      WHERE id = $1
+      WHERE id = $1::uuid
       RETURNING *
     `
     const updateResult = await query(updateQuery, [id, ...values])
@@ -361,7 +361,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete employee
-    await query('DELETE FROM employees WHERE id = $1', [id])
+    await query('DELETE FROM employees WHERE id = $1::uuid', [id])
 
     return NextResponse.json({ 
       message: 'Employee deleted successfully' 

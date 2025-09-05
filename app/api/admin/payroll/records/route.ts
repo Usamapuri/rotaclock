@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         pr.created_at,
         pr.updated_at
       FROM payroll_records pr
-      LEFT JOIN employees_new en ON pr.employee_id = en.employee_code
+      LEFT JOIN employees en ON pr.employee_id = en.employee_code
       WHERE pr.payroll_period_id = $1
       ORDER BY en.first_name, en.last_name
     `, [periodId])
