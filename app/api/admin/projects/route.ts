@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get projects with manager and team counts
+    // Get projects with manager and team counts for current tenant
     const result = await query(`
       SELECT 
         p.*,
@@ -32,17 +32,18 @@ export async function GET(request: NextRequest) {
       LEFT JOIN (
         SELECT project_id, COUNT(*) as manager_count
         FROM manager_projects
+        WHERE tenant_id = $1
         GROUP BY project_id
       ) manager_counts ON p.id = manager_counts.project_id
       LEFT JOIN (
         SELECT project_id, COUNT(*) as team_count
         FROM teams
-        WHERE project_id IS NOT NULL
+        WHERE tenant_id = $1 AND project_id IS NOT NULL
         GROUP BY project_id
       ) team_counts ON p.id = team_counts.project_id
-      WHERE p.is_active = true
+      WHERE p.tenant_id = $1 AND p.is_active = true
       ORDER BY p.created_at DESC
-    `)
+    `, [user.tenant_id])
 
     return NextResponse.json({ 
       success: true, 
@@ -65,10 +66,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { name, description } = createProjectSchema.parse(body)
 
-    // Check if project with same name already exists
+    // Check if project with same name already exists for this tenant
     const existingProject = await query(
-      'SELECT id FROM projects WHERE name = $1 AND is_active = true',
-      [name]
+      'SELECT id FROM projects WHERE tenant_id = $1 AND name = $2 AND is_active = true',
+      [user.tenant_id, name]
     )
 
     if (existingProject.rows.length > 0) {
@@ -79,8 +80,8 @@ export async function POST(request: NextRequest) {
 
     // Create new project
     const result = await query(
-      'INSERT INTO projects (name, description) VALUES ($1, $2) RETURNING *',
-      [name, description]
+      'INSERT INTO projects (tenant_id, name, description) VALUES ($1, $2, $3) RETURNING *',
+      [user.tenant_id, name, description]
     )
 
     return NextResponse.json({ 

@@ -20,14 +20,14 @@ export async function GET(request: NextRequest) {
 				COUNT(ta.employee_id) as member_count,
 				AVG(pm.quality_score) as quality_score,
 				AVG(pm.productivity_score) as performance_score
-			FROM employees_new e
-			LEFT JOIN teams t ON e.team_id = t.id
-			LEFT JOIN team_assignments ta ON t.id = ta.team_id AND ta.is_active = true
-			LEFT JOIN performance_metrics pm ON e.id = pm.employee_id
-			WHERE e.role = 'team_lead'
+			FROM employees e
+			LEFT JOIN teams t ON e.team_id = t.id AND t.tenant_id = $1
+			LEFT JOIN team_assignments ta ON t.id = ta.team_id AND ta.is_active = true AND ta.tenant_id = $1
+			LEFT JOIN performance_metrics pm ON e.id = pm.employee_id AND pm.tenant_id = $1
+			WHERE e.tenant_id = $1 AND e.role = 'team_lead'
 		`
-		const params: any[] = []
-		let idx = 1
+		const params: any[] = [user.tenant_id]
+		let idx = 2
 		if (department) {
 			sql += ` AND e.department = $${idx}`
 			params.push(department)
