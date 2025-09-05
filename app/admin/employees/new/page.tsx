@@ -165,15 +165,24 @@ export default function NewEmployee() {
 
     setIsLoading(true)
     try {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (user?.id) {
+        headers['authorization'] = `Bearer ${user.id}`
+      }
+      if (user?.tenant_id) {
+        headers['x-tenant-id'] = user.tenant_id
+      }
+
       const response = await fetch('/api/employees', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           ...formData,
           is_active: true,
-          password: 'password123' // Default password as per user preference
+          password: 'password123'
         }),
       })
 
@@ -189,11 +198,11 @@ export default function NewEmployee() {
       }
 
       const result = await response.json()
-             toast.success(`Agent ${formData.first_name} ${formData.last_name} created successfully!`)
+      toast.success(`Agent ${formData.first_name} ${formData.last_name} created successfully!`)
       router.push('/admin/employees')
     } catch (error) {
       console.error('Error creating employee:', error)
-             toast.error(error instanceof Error ? error.message : 'Failed to create agent')
+      toast.error(error instanceof Error ? error.message : 'Failed to create agent')
     } finally {
       setIsLoading(false)
     }

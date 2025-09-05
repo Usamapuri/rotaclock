@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE is_active = true) as active_employees,
         COUNT(DISTINCT department) as total_departments
       FROM employees
-      WHERE tenant_id = $1::uuid
+      WHERE tenant_id = $1
     `, [tenantContext.tenant_id])
 
     // Current week shift assignments
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) as total_shifts,
         COUNT(*) FILTER (WHERE status = 'completed') as completed_shifts
       FROM shift_assignments 
-      WHERE tenant_id = $1::uuid AND date BETWEEN $2 AND $3
+      WHERE tenant_id = $1 AND date BETWEEN $2 AND $3
     `, [tenantContext.tenant_id, weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0]])
 
     // Get request stats
@@ -105,14 +105,14 @@ export async function GET(request: NextRequest) {
       FROM shift_swaps ss
       JOIN employees r ON ss.requester_id = r.id
       JOIN employees t ON ss.target_id = t.id
-      WHERE r.tenant_id = $1::uuid AND t.tenant_id = $1::uuid
+      WHERE r.tenant_id = $1 AND t.tenant_id = $1
     `, [tenantContext.tenant_id])
 
     const leaveStats = await query(`
       SELECT COUNT(*) FILTER (WHERE status = 'pending') as pending_leave_requests
       FROM leave_requests lr
       JOIN employees e ON lr.employee_id = e.id
-      WHERE e.tenant_id = $1::uuid
+      WHERE e.tenant_id = $1
     `, [tenantContext.tenant_id])
 
     // Get attendance stats
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE status IN ('in-progress', 'break')) as active_time_entries
       FROM time_entries te
       JOIN employees e ON te.employee_id = e.id
-      WHERE e.tenant_id = $1::uuid AND te.date = CURRENT_DATE
+      WHERE e.tenant_id = $1 AND te.date = CURRENT_DATE
     `, [tenantContext.tenant_id])
 
     const stats = {
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
           ELSE 'offline'
         END as status
       FROM employees e
-      WHERE e.is_active = true AND e.tenant_id = $1::uuid
+      WHERE e.is_active = true AND e.tenant_id = $1
       ORDER BY e.first_name, e.last_name
       LIMIT 10
     `, [tenantContext.tenant_id])
@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
       FROM shift_assignments sa
       JOIN employees e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
       JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
-      WHERE sa.date >= CURRENT_DATE AND sa.tenant_id = $1::uuid
+      WHERE sa.date >= CURRENT_DATE AND sa.tenant_id = $1
       ORDER BY sa.date, st.start_time
       LIMIT 10
     `, [tenantContext.tenant_id])
@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
       FROM shift_swaps ss
       JOIN employees r ON ss.requester_id = r.id
       JOIN employees t ON ss.target_id = t.id
-      WHERE r.tenant_id = $1::uuid AND t.tenant_id = $1::uuid
+      WHERE r.tenant_id = $1 AND t.tenant_id = $1
       ORDER BY ss.created_at DESC
       LIMIT 5
     `, [tenantContext.tenant_id])
@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
         lr.reason
       FROM leave_requests lr
       JOIN employees e ON lr.employee_id = e.id
-      WHERE e.tenant_id = $1::uuid
+      WHERE e.tenant_id = $1
       ORDER BY lr.created_at DESC
       LIMIT 5
     `, [tenantContext.tenant_id])

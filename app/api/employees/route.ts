@@ -192,10 +192,10 @@ export async function POST(request: NextRequest) {
       organization_id: tenantContext.organization_id
     }
 
-    // Check if employee_code already exists
+    // Check if employee_code already exists within this tenant
     const existingEmployeeResult = await query(
-      'SELECT id FROM employees WHERE employee_code = $1',
-      [validatedData.employee_code]
+      'SELECT id FROM employees WHERE employee_code = $1 AND tenant_id = $2',
+      [validatedData.employee_code, tenantContext.tenant_id]
     )
 
     if (existingEmployeeResult.rows.length > 0) {
@@ -205,10 +205,10 @@ export async function POST(request: NextRequest) {
       }, { status: 409 })
     }
 
-    // Check if email already exists
+    // Check if email already exists within this tenant
     const existingEmailResult = await query(
-      'SELECT id FROM employees WHERE email = $1',
-      [validatedData.email]
+      'SELECT id FROM employees WHERE email = $1 AND tenant_id = $2',
+      [validatedData.email, tenantContext.tenant_id]
     )
 
     if (existingEmailResult.rows.length > 0) {
