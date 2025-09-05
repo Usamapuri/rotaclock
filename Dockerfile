@@ -14,8 +14,8 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Expose port
-EXPOSE 3000
+# Expose platform port (Railway uses 8080)
+EXPOSE 8080
 
-# Start the application
-CMD ["npm", "start"]
+# Start the application binding to platform PORT and 0.0.0.0
+CMD ["sh","-c","npx next start -p ${PORT:-8080} -H 0.0.0.0"]
