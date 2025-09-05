@@ -23,8 +23,8 @@ export class AuthService {
       // In production, this should validate against the database
       if (username && password) {
         const user: AuthUser = {
-          id: '90b8785f-242d-4513-928b-40296efee618', // Usama Puri (CTO) - valid UUID
-          email: 'usamapuri@gmail.com',
+          id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', // Alex Brown (LogiCode Admin)
+          email: 'alex.brown@logicode.com',
           role: 'admin'
         }
         

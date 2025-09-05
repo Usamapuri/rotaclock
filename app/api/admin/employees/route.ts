@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
         e.is_online,
         e.last_online
       FROM employees e
-      WHERE e.tenant_id = $1::varchar
+      WHERE e.tenant_id = $1::uuid
     `
     const params: any[] = [tenant.tenant_id]
     let paramIndex = 2
