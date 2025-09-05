@@ -6,7 +6,7 @@ import { query } from '@/lib/database'
 export async function POST(_req: NextRequest) {
   try {
     // Ensure column exists
-    await query(`ALTER TABLE employees_new ADD COLUMN IF NOT EXISTS employee_code TEXT`, [])
+    await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS employee_code TEXT`, [])
 
     // Create a sequence for generating unique EMP codes
     await query(`
@@ -19,16 +19,16 @@ export async function POST(_req: NextRequest) {
     `, [])
 
     // Count rows needing update
-    const before = await query(`SELECT COUNT(*)::int AS cnt FROM employees_new WHERE employee_code IS NULL OR employee_code !~ '^EMP'`, [])
+    const before = await query(`SELECT COUNT(*)::int AS cnt FROM employees WHERE employee_code IS NULL OR employee_code !~ '^EMP'`, [])
 
     // Assign fresh unique EMP codes to all rows that are NULL or not starting with EMP
     await query(`
-      UPDATE employees_new
+      UPDATE employees
       SET employee_code = 'EMP' || LPAD(nextval('employee_code_seq')::text, 3, '0')
       WHERE employee_code IS NULL OR employee_code !~ '^EMP'
     `, [])
 
-    const after = await query(`SELECT COUNT(*)::int AS total FROM employees_new`, [])
+    const after = await query(`SELECT COUNT(*)::int AS total FROM employees`, [])
     return NextResponse.json({ success: true, updated: before.rows[0]?.cnt ?? 0, total: after.rows[0]?.total ?? 0 })
   } catch (error) {
     console.error('EMP backfill error:', error)

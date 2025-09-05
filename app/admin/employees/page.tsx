@@ -103,14 +103,14 @@ export default function AdminEmployees() {
     setIsLoading(true)
     try {
       const user = AuthService.getCurrentUser()
-      const response = await fetch('/api/employees', {
+      const response = await fetch('/api/admin/employees', {
         headers: {
           'authorization': user?.id ? `Bearer ${user.id}` : ''
         }
       })
       if (response.ok) {
         const data = await response.json()
-        setEmployees(data.data)
+        setEmployees(data.employees || [])
       } else {
         toast.error('Failed to load employees')
       }
