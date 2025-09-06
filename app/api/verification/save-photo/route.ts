@@ -55,9 +55,10 @@ export async function POST(request: NextRequest) {
     try {
       await query(`
         INSERT INTO verification_logs (
-          employee_id, verification_type, timestamp, status, image_data_length
-        ) VALUES ($1, $2, $3, $4, $5)
+          tenant_id, employee_id, verification_type, timestamp, status, image_data_length
+        ) VALUES ($1, $2, $3, $4, $5, $6)
       `, [
+        employee.tenant_id || null,
         employee.id,
         verificationType,
         timestamp,
