@@ -148,16 +148,18 @@ export default function UnifiedLogin() {
           </div>
         </div>
 
-        {/* Demo Info */}
-        <div className="text-center p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-800 font-medium mb-2">Demo Credentials</p>
-          <div className="text-xs text-blue-700 space-y-1">
-            <p><strong>All Users:</strong> <code className="bg-blue-100 px-1 rounded">password123</code></p>
-            <p><strong>Admin:</strong> <code className="bg-blue-100 px-1 rounded">admin@rotaclock.com</code></p>
-<p><strong>Employee:</strong> <code className="bg-blue-100 px-1 rounded">john.smith@rotaclock.com</code></p>
-<p><strong>Team Lead:</strong> <code className="bg-blue-100 px-1 rounded">david.wilson@rotaclock.com</code></p>
+        {/* Demo Info hidden in production */}
+        {process.env.NEXT_PUBLIC_SHOW_DEMO_INFO === 'true' && (
+          <div className="text-center p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-800 font-medium mb-2">Demo Credentials</p>
+            <div className="text-xs text-blue-700 space-y-1">
+              <p><strong>All Users:</strong> <code className="bg-blue-100 px-1 rounded">password123</code></p>
+              <p><strong>Admin:</strong> <code className="bg-blue-100 px-1 rounded">admin@rotaclock.com</code></p>
+              <p><strong>Employee:</strong> <code className="bg-blue-100 px-1 rounded">john.smith@rotaclock.com</code></p>
+              <p><strong>Team Lead:</strong> <code className="bg-blue-100 px-1 rounded">david.wilson@rotaclock.com</code></p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

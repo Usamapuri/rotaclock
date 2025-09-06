@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
+import bcrypt from 'bcryptjs'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     try {
       // Authenticate against canonical employees table
       const res = await query(`
-        SELECT id, email, employee_code, first_name, last_name, department, job_position, role, team_id
+        SELECT id, email, employee_code, first_name, last_name, department, job_position, role, team_id, password_hash, tenant_id, organization_id
         FROM employees
         WHERE email = $1 AND is_active = true
       `, [email])
@@ -29,8 +30,9 @@ export async function POST(request: NextRequest) {
       // continue to demo fallback below
     }
 
-    // Demo fallback: allow known emails without DB dependency
-    if (!employee) {
+    // Demo fallback only if explicitly enabled
+    const demoEnabled = (process.env.DEMO_AUTH ?? '').toLowerCase() === 'true'
+    if (!employee && demoEnabled) {
       const lower = String(email || '').toLowerCase()
       const role = lower.includes('admin') ? 'admin' : (lower.includes('team') || lower.includes('lead')) ? 'team_lead' : 'employee'
       employee = {
@@ -46,18 +48,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Enforce demo password
-    if (password !== 'password123') {
+    // If not demo user, require valid password
+    if (!employee) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
-    // Dev/demo: accept password123 or any non-empty string
-    // If you want to enforce a specific password, check here.
 
-    if (!employee) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      )
+    let passwordOk = false
+    if (employee.password_hash) {
+      try {
+        passwordOk = await bcrypt.compare(password, employee.password_hash)
+      } catch (_) {
+        passwordOk = false
+      }
+    } else {
+      // Optional fallback only for accounts without a hash
+      const allowDefault = (process.env.ALLOW_DEFAULT_PASSWORD ?? 'true').toLowerCase() === 'true'
+      if (allowDefault) passwordOk = password === 'password123'
+    }
+
+    // If no hash and default not allowed or compare failed, reject
+    if (!passwordOk) {
+      // If demo is enabled AND this is not a real employee (handled above), demo password already checked
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
     // Return employee data with role-based routing
@@ -73,6 +85,8 @@ export async function POST(request: NextRequest) {
         position: employee.job_position,
         role: employee.role || 'employee',
         team_id: employee.team_id || null,
+        tenant_id: employee.tenant_id || null,
+        organization_id: employee.organization_id || null,
       }
     })
 
