@@ -51,6 +51,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // If using custom overrides and DB requires a template_id, ensure we have a reusable placeholder template
+    let effectiveTemplateId = template_id
+    if (!hasTemplate && hasOverrides) {
+      const placeholderName = 'Custom (Ad-hoc)'
+      const existingPlaceholder = await query(
+        'SELECT id FROM shift_templates WHERE name = $1 AND tenant_id = $2 AND is_active = true LIMIT 1',
+        [placeholderName, tenantContext.tenant_id]
+      )
+      if (existingPlaceholder.rows.length > 0) {
+        effectiveTemplateId = existingPlaceholder.rows[0].id
+      } else {
+        const created = await query(
+          `INSERT INTO shift_templates (
+             name, description, start_time, end_time, department, required_staff, hourly_rate, color, is_active, created_by, tenant_id, organization_id, created_at, updated_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, $10, $11, NOW(), NOW())
+           RETURNING id`,
+          [
+            placeholderName,
+            'Placeholder for ad-hoc custom shifts',
+            '00:00',
+            '00:00',
+            'General',
+            1,
+            null,
+            '#64748B',
+            user.id,
+            tenantContext.tenant_id,
+            tenantContext.organization_id,
+          ]
+        )
+        effectiveTemplateId = created.rows[0].id
+      }
+    }
+
     const existingAssignment = await query(
       'SELECT id FROM shift_assignments WHERE employee_id = $1 AND date = $2 AND tenant_id = $3',
       [employee_id, date, tenantContext.tenant_id]
@@ -79,7 +113,7 @@ export async function POST(request: NextRequest) {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'assigned', $8, $9, $10, $11, NOW(), NOW())
         RETURNING id, employee_id, template_id, date, override_name, override_start_time, override_end_time, override_color, status, notes, created_at
       `
-      insertParams = [employee_id, hasTemplate ? template_id : null, date, override_name, override_start_time, override_end_time, override_color, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id]
+      insertParams = [employee_id, effectiveTemplateId || null, date, override_name, override_start_time, override_end_time, override_color, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id]
     } else {
       insertSql = `
         INSERT INTO shift_assignments (
@@ -87,7 +121,7 @@ export async function POST(request: NextRequest) {
         ) VALUES ($1, $2, $3, 'assigned', $4, $5, $6, $7, NOW(), NOW())
         RETURNING id, employee_id, template_id, date, status, notes, created_at
       `
-      insertParams = [employee_id, hasTemplate ? template_id : null, date, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id]
+      insertParams = [employee_id, effectiveTemplateId || null, date, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id]
     }
 
     const result = await query(insertSql, insertParams)
@@ -106,9 +140,10 @@ export async function POST(request: NextRequest) {
     `, [assignment.id, tenantContext.tenant_id])
 
     return NextResponse.json({ success: true, data: fullAssignmentResult.rows[0], message: 'Shift assigned successfully' })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error assigning shift:', error)
-    return NextResponse.json({ success: false, error: 'Failed to assign shift' }, { status: 500 })
+    const message = error?.message || 'Failed to assign shift'
+    return NextResponse.json({ success: false, error: message }, { status: 500 })
   }
 }
 

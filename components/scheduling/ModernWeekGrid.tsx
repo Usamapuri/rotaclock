@@ -60,6 +60,9 @@ export default function ModernWeekGrid({
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
   const [draggedTemplate, setDraggedTemplate] = useState<ShiftTemplate | null>(null)
   const [dragOverCell, setDragOverCell] = useState<{ employeeId: string; date: string } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isAssigning, setIsAssigning] = useState(false)
+  const dragTimeoutRef = useRef<NodeJS.Timeout>()
 
   // Initialize week when selectedDate changes
   useEffect(() => {
@@ -145,23 +148,45 @@ export default function ModernWeekGrid({
 
   const handleDragStart = (template: ShiftTemplate) => {
     setDraggedTemplate(template)
+    setIsDragging(true)
   }
 
   const handleDragOver = (e: React.DragEvent, employeeId: string, date: string) => {
     e.preventDefault()
+    // Clear any existing timeout to prevent flickering
+    if (dragTimeoutRef.current) {
+      clearTimeout(dragTimeoutRef.current)
+    }
     setDragOverCell({ employeeId, date })
   }
 
-  const handleDragLeave = () => {
-    setDragOverCell(null)
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    // Add a small delay before clearing the drag over state to prevent flickering
+    dragTimeoutRef.current = setTimeout(() => {
+      setDragOverCell(null)
+    }, 50)
   }
 
   const handleDrop = async (e: React.DragEvent, employeeId: string, date: string) => {
     e.preventDefault()
-    if (draggedTemplate) {
+    setDragOverCell(null)
+    
+    if (!draggedTemplate || isAssigning) return
+
+    try {
+      setIsAssigning(true)
       await onDragDrop(employeeId, date, draggedTemplate.id)
+    } finally {
+      setIsAssigning(false)
+      setDraggedTemplate(null)
+      setIsDragging(false)
     }
+  }
+
+  const handleDragEnd = () => {
     setDraggedTemplate(null)
+    setIsDragging(false)
     setDragOverCell(null)
   }
 

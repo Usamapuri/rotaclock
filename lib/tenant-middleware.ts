@@ -16,7 +16,7 @@ export async function getTenantContext(userId: string): Promise<TenantContext | 
              o.subscription_status, o.subscription_plan
       FROM employees e
       LEFT JOIN organizations o ON e.organization_id = o.id
-      WHERE e.id = $1::uuid
+      WHERE e.id = $1
     `, [userId])
 
     if (result.rows.length === 0) {

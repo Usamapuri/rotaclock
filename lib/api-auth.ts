@@ -40,8 +40,8 @@ export function createApiAuthMiddleware() {
       }
     }
 
-    // Demo fallback (allowed unless DEMO_AUTH is explicitly set to 'false')
-    const allowDemo = (process.env.DEMO_AUTH ?? 'true').toLowerCase() !== 'false'
+    // Demo fallback ONLY if explicitly enabled
+    const allowDemo = (process.env.DEMO_AUTH ?? '').toLowerCase() === 'true'
     if (!user && allowDemo) {
       user = { id: 'c67f737f-662a-4530-8d07-ba13d56bc54b', email: 'admin@rotaclock.com', role: 'admin', employeeId: 'EMP001' }
     }

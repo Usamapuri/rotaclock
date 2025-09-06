@@ -27,10 +27,26 @@ interface ShiftTemplate {
   is_active?: boolean
 }
 
+interface Assignment {
+  id: string
+  employee_id: string
+  template_id: string
+  date: string
+  status: string
+  notes?: string
+  template: {
+    name: string
+    start_time: string
+    end_time: string
+    color: string
+    department: string
+  }
+}
+
 interface ModernShiftCellProps {
   employee: Employee
   date: string
-  assignments: any[]
+  assignments: Assignment[]
   templates: ShiftTemplate[]
   onAssignShift: () => void
   onRemoveShift: (assignmentId: string) => void
@@ -70,7 +86,13 @@ export default function ModernShiftCell({
 
   const handleDragStart = (e: React.DragEvent, template: ShiftTemplate) => {
     e.dataTransfer.setData('application/json', JSON.stringify(template))
+    e.dataTransfer.effectAllowed = 'move'
     onDragStart(template)
+  }
+
+  const handleDragEnd = () => {
+    // Reset any drag state
+    setIsHovered(false)
   }
 
   return (
@@ -87,7 +109,10 @@ export default function ModernShiftCell({
       {assignments.map((assignment) => (
         <div
           key={assignment.id}
-          className="mb-1 p-2 rounded text-xs font-medium text-white relative group"
+          draggable
+          onDragStart={(e) => handleDragStart(e, assignment.template)}
+          onDragEnd={handleDragEnd}
+          className="mb-1 p-2 rounded text-xs font-medium text-white relative group cursor-move"
           style={{ backgroundColor: assignment.template?.color || '#3B82F6' }}
         >
           <div className="flex items-center justify-between">
