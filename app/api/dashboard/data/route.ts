@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get employee stats
-    const employeesResult = await query(`
+    // Run core queries in parallel to reduce latency
+    const employeesPromise = query(`
       SELECT 
         COUNT(*) as total_employees,
         COUNT(*) FILTER (WHERE is_active = true) as active_employees,
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     const weekEnd = new Date(weekStart)
     weekEnd.setDate(weekEnd.getDate() + 6) // Sunday
 
-    const shiftsResult = await query(`
+    const shiftsPromise = query(`
       SELECT 
         COUNT(*) as total_shifts,
         COUNT(*) FILTER (WHERE status = 'completed') as completed_shifts
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     `, [tenantContext.tenant_id, weekStart.toISOString().split('T')[0], weekEnd.toISOString().split('T')[0]])
 
     // Get request stats
-    const requestStats = await query(`
+    const requestStatsPromise = query(`
       SELECT 
         COUNT(*) FILTER (WHERE status = 'pending') as pending_swap_requests
       FROM shift_swaps ss
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       WHERE r.tenant_id = $1 AND t.tenant_id = $1
     `, [tenantContext.tenant_id])
 
-    const leaveStats = await query(`
+    const leaveStatsPromise = query(`
       SELECT COUNT(*) FILTER (WHERE status = 'pending') as pending_leave_requests
       FROM leave_requests lr
       JOIN employees e ON lr.employee_id = e.id
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
     `, [tenantContext.tenant_id])
 
     // Get attendance stats
-    const attendanceStats = await query(`
+    const attendanceStatsPromise = query(`
       SELECT 
         COUNT(*) FILTER (WHERE status = 'in-progress') as current_attendance,
         COUNT(*) FILTER (WHERE status IN ('in-progress', 'break')) as active_time_entries
@@ -124,6 +124,14 @@ export async function GET(request: NextRequest) {
       JOIN employees e ON te.employee_id = e.id
       WHERE e.tenant_id = $1 AND te.date = CURRENT_DATE
     `, [tenantContext.tenant_id])
+
+    const [employeesResult, shiftsResult, requestStats, leaveStats, attendanceStats] = await Promise.all([
+      employeesPromise,
+      shiftsPromise,
+      requestStatsPromise,
+      leaveStatsPromise,
+      attendanceStatsPromise,
+    ])
 
     const stats = {
       totalEmployees: parseInt(employeesResult.rows[0]?.total_employees || '0'),
@@ -150,7 +158,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Recent employees
-    const employeesDataResult = await query(`
+    const employeesDataPromise = query(`
       SELECT 
         e.id,
         e.employee_code as employee_id,
@@ -182,7 +190,7 @@ export async function GET(request: NextRequest) {
     `, [tenantContext.tenant_id])
 
     // Recent shift assignments
-    const shiftsDataResult = await query(`
+    const shiftsDataPromise = query(`
       SELECT 
         sa.id,
         sa.date,
@@ -201,7 +209,7 @@ export async function GET(request: NextRequest) {
     `, [tenantContext.tenant_id])
 
     // Recent swap requests
-    const swapRequestsDataResult = await query(`
+    const swapRequestsDataPromise = query(`
       SELECT 
         ss.id,
         ss.status,
@@ -220,7 +228,7 @@ export async function GET(request: NextRequest) {
     `, [tenantContext.tenant_id])
 
     // Recent leave requests
-    const leaveRequestsDataResult = await query(`
+    const leaveRequestsDataPromise = query(`
       SELECT 
         lr.id,
         lr.type,
@@ -237,6 +245,13 @@ export async function GET(request: NextRequest) {
       ORDER BY lr.created_at DESC
       LIMIT 5
     `, [tenantContext.tenant_id])
+
+    const [employeesDataResult, shiftsDataResult, swapRequestsDataResult, leaveRequestsDataResult] = await Promise.all([
+      employeesDataPromise,
+      shiftsDataPromise,
+      swapRequestsDataPromise,
+      leaveRequestsDataPromise,
+    ])
 
     const responseData = {
       stats,

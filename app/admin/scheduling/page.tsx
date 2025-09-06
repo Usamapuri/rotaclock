@@ -68,8 +68,8 @@ export default function SchedulingPage() {
   const loadAll = async () => {
     try {
       setIsLoading(true)
-      await loadWeek()
-      await loadTemplates()
+      // load in parallel
+      await Promise.all([loadWeek(), loadTemplates()])
     } catch (e) {
       console.error(e)
       toast.error('Failed to load scheduling data')

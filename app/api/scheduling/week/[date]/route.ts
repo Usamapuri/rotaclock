@@ -52,8 +52,7 @@ export async function GET(
     }
 
     employeesQuery += ` ORDER BY first_name, last_name`
-    const employeesResult = await query(employeesQuery, employeesParams)
-    const employees = employeesResult.rows
+    const employeesPromise = query(employeesQuery, employeesParams)
 
     // Determine if override columns exist
     const colCheck = await query(`
@@ -115,16 +114,22 @@ export async function GET(
     }
 
     assignmentsQuery += ` ORDER BY sa.date, sa.employee_id`
-    const assignmentsResult = await query(assignmentsQuery, assignmentsParams)
-    const assignments = assignmentsResult.rows
+    const assignmentsPromise = query(assignmentsQuery, assignmentsParams)
 
     // Tenant templates
-    const templatesResult = await query(`
+    const templatesPromise = query(`
       SELECT id, name, start_time, end_time, department, color, required_staff
       FROM shift_templates
       WHERE is_active = true AND tenant_id = $1
       ORDER BY name
     `, [tenantContext.tenant_id])
+    const [employeesResult, assignmentsResult, templatesResult] = await Promise.all([
+      employeesPromise,
+      assignmentsPromise,
+      templatesPromise,
+    ])
+    const employees = employeesResult.rows
+    const assignments = assignmentsResult.rows
     const templates = templatesResult.rows
 
     const scheduleData = {
