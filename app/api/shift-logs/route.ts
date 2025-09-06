@@ -16,19 +16,25 @@ export async function GET(request: NextRequest) {
     }
     const { searchParams } = new URL(request.url)
     const employee_id = searchParams.get('employee_id')
-    const status = searchParams.get('status')
+    const statusParam = searchParams.get('status')
     const start_date = searchParams.get('start_date')
     const end_date = searchParams.get('end_date')
 
     // Build filters
     const filters: any = {}
     if (employee_id) filters.employee_id = employee_id
-    if (status) filters.status = status
+    if (statusParam) filters.status = (statusParam === 'active') ? 'in-progress' : statusParam
     if (start_date) filters.start_date = start_date
     if (end_date) filters.end_date = end_date
 
     // Enforce tenant scoping at the query level
-    const shiftLogs = await getShiftLogs({ ...filters, tenant_id: tenant.tenant_id })
+    let shiftLogs = await getShiftLogs({ ...filters, tenant_id: tenant.tenant_id })
+
+    // Normalize legacy statuses to UI-friendly statuses
+    shiftLogs = shiftLogs.map((row: any) => ({
+      ...row,
+      status: row.status === 'in-progress' ? 'active' : row.status,
+    }))
 
     return NextResponse.json({
       success: true,
