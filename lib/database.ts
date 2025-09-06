@@ -1515,17 +1515,18 @@ export async function updateShiftLog(id: string, shiftLogData: Partial<ShiftLog>
 }
 
 // Get shift logs for an employee
-export async function getShiftLogs(filters: { employee_id?: string; start_date?: string; end_date?: string; status?: string; }) {
+export async function getShiftLogs(filters: { employee_id?: string; start_date?: string; end_date?: string; status?: string; tenant_id?: string; }) {
   const conditions: string[] = []
   const params: any[] = []
   let i = 0
+  if (filters.tenant_id) { i++; conditions.push(`e.tenant_id = $${i}`); params.push(filters.tenant_id) }
   if (filters.employee_id) { i++; conditions.push(`te.employee_id = $${i}`); params.push(filters.employee_id) }
   if (filters.start_date) { i++; conditions.push(`DATE(te.clock_in) >= $${i}`); params.push(filters.start_date) }
   if (filters.end_date) { i++; conditions.push(`DATE(te.clock_in) <= $${i}`); params.push(filters.end_date) }
   if (filters.status) { i++; conditions.push(`te.status = $${i}`); params.push(filters.status) }
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
   const res = await query(
-    `SELECT te.*, e.first_name, e.last_name, e.employee_code as emp_code
+    `SELECT te.*, e.first_name, e.last_name, e.employee_code as emp_code, e.tenant_id as tenant_id
      FROM time_entries te
      LEFT JOIN employees e ON te.employee_id = e.id
      ${where}
@@ -1581,12 +1582,19 @@ export async function getBreakLogs(filters: { employee_id?: string; shift_log_id
 }
 
 // Get current active break for an employee
-export async function getCurrentBreak(employeeId: string) {
+export async function getCurrentBreak(employeeId: string, tenantId?: string) {
+  const params: any[] = [employeeId]
+  let tenantClause = ''
+  if (tenantId) {
+    params.push(tenantId)
+    tenantClause = 'AND e.tenant_id = $2'
+  }
   const res = await query(
     `SELECT te.* FROM time_entries te
-     WHERE te.employee_id = $1 AND te.status = 'break'
+     LEFT JOIN employees e ON te.employee_id = e.id
+     WHERE te.employee_id = $1 AND te.status = 'break' ${tenantClause}
      ORDER BY te.break_start DESC LIMIT 1`,
-    [employeeId]
+    params
   )
   return res.rows[0] || null
 }

@@ -45,7 +45,7 @@ import { ImpersonationModal } from "@/components/admin/ImpersonationModal"
 
 interface Employee {
   id: string
-  employee_code: string
+  employee_id: string
   first_name: string
   last_name: string
   email: string
@@ -91,9 +91,14 @@ export default function AdminEmployees() {
       router.push("/login")
     } else {
       setAdminUser(user.email || 'Administrator')
-      setCurrentUser?.(user)
     }
   }, [router])
+
+  // Load employees on initial mount
+  useEffect(() => {
+    loadEmployees()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     filterEmployees()
@@ -131,7 +136,7 @@ export default function AdminEmployees() {
         emp.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.employee_code.toLowerCase().includes(searchTerm.toLowerCase())
+        emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
@@ -210,11 +215,12 @@ export default function AdminEmployees() {
   const handleStartImpersonation = async (employee: any) => {
     try {
       console.log('🔄 Starting impersonation for:', employee.email)
-      
+      const user = AuthService.getCurrentUser()
       const response = await fetch('/api/admin/impersonation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
         },
         body: JSON.stringify({ targetUserId: employee.id }),
       })
@@ -227,7 +233,6 @@ export default function AdminEmployees() {
         
         toast.success(`Now impersonating ${employee.first_name} ${employee.last_name}`)
         
-        // Redirect based on impersonated user's role
         const role = data.targetUser.role
         if (role === 'employee' || role === 'agent') {
           router.push('/employee/dashboard')
@@ -455,7 +460,7 @@ export default function AdminEmployees() {
                           {employee.email}
                         </div>
                         <div className="text-xs text-gray-400">
-                          ID: {employee.employee_code}
+                          ID: {employee.employee_id}
                         </div>
                       </div>
                     </TableCell>
