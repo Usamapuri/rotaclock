@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Clock, User, Calendar } from 'lucide-react'
+import { AuthService } from '@/lib/auth'
 
 interface Employee {
   id: string
@@ -120,9 +121,13 @@ export default function ShiftAssignmentModal({
 
       // Create assignments sequentially to keep logs simple
       for (const d of dates) {
+        const user = AuthService.getCurrentUser()
         const res = await fetch('/api/scheduling/assign', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(user?.id ? { authorization: `Bearer ${user.id}`, 'x-employee-id': user.id } : {}),
+          },
           body: JSON.stringify({
             employee_id: employee.id,
             template_id: useCustomShift ? undefined : selectedTemplate,
