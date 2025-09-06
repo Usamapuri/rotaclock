@@ -1494,13 +1494,29 @@ export async function createShiftLog(shiftLogData: Omit<ShiftLog, 'id' | 'create
   const tenant_id = emp.rows[0]?.tenant_id || null
   const organization_id = emp.rows[0]?.organization_id || null
 
-  const result = await query(
-    `INSERT INTO time_entries (
-      employee_id, shift_assignment_id, date, clock_in, status, tenant_id, organization_id
-    ) VALUES ($1, $2, $3, $4, 'in-progress', $5, $6) RETURNING *`,
-    [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id, organization_id]
-  );
-  return result.rows[0];
+  // Prefer inserting organization_id when column exists; otherwise fall back
+  try {
+    const result = await query(
+      `INSERT INTO time_entries (
+        employee_id, shift_assignment_id, date, clock_in, status, tenant_id, organization_id
+      ) VALUES ($1, $2, $3, $4, 'in-progress', $5, $6) RETURNING *`,
+      [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id, organization_id]
+    );
+    return result.rows[0];
+  } catch (err: any) {
+    // If organization_id column does not exist, retry without it
+    const msg = (err && err.message) || ''
+    if (msg.includes('organization_id') && msg.includes('does not exist')) {
+      const result = await query(
+        `INSERT INTO time_entries (
+          employee_id, shift_assignment_id, date, clock_in, status, tenant_id
+        ) VALUES ($1, $2, $3, $4, 'in-progress', $5) RETURNING *`,
+        [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id]
+      );
+      return result.rows[0]
+    }
+    throw err
+  }
 }
 
 // Update shift log (clock out)
@@ -1791,14 +1807,27 @@ export async function createShiftLogByEmail(shiftLogData: {
     }
   }
   
-  const result = await query(
-    `INSERT INTO time_entries (
-      employee_id, shift_assignment_id, date, clock_in, status, tenant_id, organization_id
-    ) VALUES ($1, $2, $3, $4, 'in-progress', $5, $6) RETURNING *`,
-    [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id, organization_id]
-  );
-  
-  return result.rows[0];
+  try {
+    const result = await query(
+      `INSERT INTO time_entries (
+        employee_id, shift_assignment_id, date, clock_in, status, tenant_id, organization_id
+      ) VALUES ($1, $2, $3, $4, 'in-progress', $5, $6) RETURNING *`,
+      [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id, organization_id]
+    );
+    return result.rows[0]
+  } catch (err: any) {
+    const msg = (err && err.message) || ''
+    if (msg.includes('organization_id') && msg.includes('does not exist')) {
+      const result = await query(
+        `INSERT INTO time_entries (
+          employee_id, shift_assignment_id, date, clock_in, status, tenant_id
+        ) VALUES ($1, $2, $3, $4, 'in-progress', $5) RETURNING *`,
+        [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id]
+      );
+      return result.rows[0]
+    }
+    throw err
+  }
 }
 
 /**
