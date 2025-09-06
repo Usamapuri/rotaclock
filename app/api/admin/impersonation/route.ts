@@ -96,21 +96,25 @@ export async function DELETE(request: NextRequest) {
 
     const tenant = await getTenantContext(user.id)
 
-    // Log impersonation end action (no tenant_id column)
-    const auditQuery = `
-      INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, created_at)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
-    `
-    await query(auditQuery, [
-      user.id,
-      'impersonation_end',
-      null,
-      JSON.stringify({
-        admin_email: user.email,
-        action: 'impersonation_stopped',
-        tenant_id: tenant?.tenant_id || null,
-      }),
-    ])
+    // Best-effort audit logging; skip if table doesn't exist
+    try {
+      const auditQuery = `
+        INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, created_at)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
+      `
+      await query(auditQuery, [
+        user.id,
+        'impersonation_end',
+        null,
+        JSON.stringify({
+          admin_email: user.email,
+          action: 'impersonation_stopped',
+          tenant_id: tenant?.tenant_id || null,
+        }),
+      ])
+    } catch (e) {
+      console.warn('Audit log insert skipped:', e instanceof Error ? e.message : e)
+    }
 
     return NextResponse.json({ success: true })
 
