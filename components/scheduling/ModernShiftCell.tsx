@@ -109,18 +109,19 @@ export default function ModernShiftCell({
   const handleDragStart = (e: React.DragEvent, template: ShiftTemplate | Assignment) => {
     e.dataTransfer.setData('application/json', JSON.stringify(template))
     e.dataTransfer.effectAllowed = 'move'
-    if ('name' in template) {
+    if ('name' in template && 'start_time' in template) {
       // It's a ShiftTemplate
       onDragStart(template)
     } else {
       // It's an Assignment - convert to template-like object for drag
+      const assignment = template as Assignment
       const templateLike: ShiftTemplate = {
-        id: template.template_id || template.id,
-        name: getShiftDisplayName(template),
+        id: assignment.template_id || assignment.id,
+        name: getShiftDisplayName(assignment),
         start_time: getShiftStartTime(assignment),
         end_time: getShiftEndTime(assignment),
         color: getShiftColor(assignment),
-        department: template.template?.department || 'General',
+        department: assignment.template?.department || 'General',
         required_staff: 1
       }
       onDragStart(templateLike)
