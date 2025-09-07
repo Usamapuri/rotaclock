@@ -220,21 +220,19 @@ export default function ModernShiftCell({
               )}
             </div>
             
-            {isHovered && (
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRemoveAssignment(assignment.id)
-                  }}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center gap-1 w-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRemoveAssignment(assignment.id)
+                }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
         </div>
       ))}

@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         e.hourly_rate,
         e.max_hours_per_week
       FROM employees e
-      WHERE e.is_active = true AND e.role != 'admin' AND e.tenant_id = $1
+      WHERE e.is_active = true AND e.role = 'agent' AND e.tenant_id = $1
     `
     const params: any[] = [tenant.tenant_id]
     let paramIndex = 2
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     let countQuery = `
       SELECT COUNT(*) as total
       FROM employees e
-      WHERE e.is_active = true AND e.role != 'admin' AND e.tenant_id = $1
+      WHERE e.is_active = true AND e.role = 'agent' AND e.tenant_id = $1
     `
     const countParams: any[] = [tenant.tenant_id]
     let countParamIndex = 2

@@ -232,7 +232,7 @@ export default function SchedulingPage() {
   const handleDragDrop = async (employeeId: string, date: string, templateId: string) => {
     try {
       const user = AuthService.getCurrentUser()
-      const res = await fetch('/api/scheduling/assignments', {
+      const res = await fetch('/api/scheduling/assign', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -241,15 +241,17 @@ export default function SchedulingPage() {
         body: JSON.stringify({
           employee_id: employeeId,
           date: date,
-          template_id: templateId
+          template_id: templateId,
+          rota_id: currentRotaId
         })
       })
       
       if (res.ok) {
-        await loadWeek()
+        await loadWeek(selectedDate, currentRotaId)
         toast.success('Shift assigned via drag & drop')
       } else {
-        toast.error('Failed to assign shift')
+        const errorData = await res.json().catch(() => ({}))
+        toast.error(errorData.error || 'Failed to assign shift')
       }
     } catch (error) {
       console.error('Drag drop error:', error)
