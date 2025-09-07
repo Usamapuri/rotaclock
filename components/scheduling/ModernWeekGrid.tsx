@@ -426,6 +426,7 @@ export default function ModernWeekGrid({
   }
 
   return (
+    <>
     <Card className="bg-white shadow-sm border-0">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -672,5 +673,6 @@ export default function ModernWeekGrid({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   )
 }
