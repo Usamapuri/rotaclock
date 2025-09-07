@@ -15,6 +15,7 @@ import ShiftAssignmentModal from '@/components/scheduling/ShiftAssignmentModal'
 import ShiftEditModal from '@/components/scheduling/ShiftEditModal'
 import ShiftTemplateModal from '@/components/scheduling/ShiftTemplateModal'
 import TemplateLibrary from '@/components/scheduling/TemplateLibrary'
+import PublishedRotasView from '@/components/scheduling/PublishedRotasView'
 
 interface Employee {
   id: string
@@ -104,6 +105,9 @@ export default function SchedulingPage() {
     const params = new URLSearchParams()
     if (rotaId) {
       params.append('rota_id', rotaId)
+    } else {
+      // When no specific rota is selected, show draft shifts only
+      params.append('show_drafts_only', 'true')
     }
     if (params.toString()) {
       url += `?${params.toString()}`
@@ -291,8 +295,8 @@ export default function SchedulingPage() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Scheduling</h1>
-              <p className="text-gray-600">Plan and manage weekly shifts with drag & drop</p>
+              <h1 className="text-3xl font-bold text-gray-900">Rota Management</h1>
+              <p className="text-gray-600">Create, edit, and publish rotas with full draft workflow control</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
@@ -405,20 +409,26 @@ export default function SchedulingPage() {
         </div>
 
         {/* Main Content */}
-        <Tabs defaultValue="schedule" className="space-y-6">
+        <Tabs defaultValue="draft-rotas" className="space-y-6">
           <TabsList className="bg-white shadow-sm border">
-            <TabsTrigger value="schedule" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
-              Week Schedule
+            <TabsTrigger value="draft-rotas" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              Draft Rotas
             </TabsTrigger>
-            <TabsTrigger value="employees" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
-              Employees
+            <TabsTrigger value="published-rotas" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              Published Rotas
+            </TabsTrigger>
+            <TabsTrigger value="current-week" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              Current Week View
+            </TabsTrigger>
+            <TabsTrigger value="master-calendar" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+              Master Calendar
             </TabsTrigger>
             <TabsTrigger value="templates" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
               Shift Templates
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="schedule" className="space-y-6">
+          <TabsContent value="draft-rotas" className="space-y-6">
             <ModernWeekGrid
               employees={employees}
               templates={templates}
@@ -439,20 +449,30 @@ export default function SchedulingPage() {
             />
           </TabsContent>
           
-          <TabsContent value="employees" className="space-y-6">
-            <EmployeeList 
-              selectedEmployeeId={selectedEmployee?.id} 
-              onEmployeeSelect={e => setSelectedEmployee({
-                id: e.id,
-                employee_code: e.employee_code,
-                first_name: e.first_name,
-                last_name: e.last_name,
-                email: e.email,
-                department: e.department,
-                job_position: e.job_position,
-                assignments: {}
-              })} 
+          <TabsContent value="published-rotas" className="space-y-6">
+            <PublishedRotasView 
+              onViewRota={(rotaId) => {
+                setCurrentRotaId(rotaId)
+                // Switch to draft-rotas tab to view the selected rota
+                // Note: In a full implementation, you might want to create a separate read-only view
+              }}
             />
+          </TabsContent>
+
+          <TabsContent value="current-week" className="space-y-6">
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Current Week View</h3>
+              <p className="text-gray-500">Read-only view showing exactly what employees see</p>
+              <div className="mt-6 text-sm text-gray-400">Coming soon...</div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="master-calendar" className="space-y-6">
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Master Calendar</h3>
+              <p className="text-gray-500">Comprehensive coverage analysis with gap detection</p>
+              <div className="mt-6 text-sm text-gray-400">Coming soon...</div>
+            </div>
           </TabsContent>
           
           <TabsContent value="templates" className="space-y-6">

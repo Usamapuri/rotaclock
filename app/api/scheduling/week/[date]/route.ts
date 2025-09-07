@@ -24,6 +24,7 @@ export async function GET(
     const employeeId = searchParams.get('employee_id') || ''
     const rotaId = searchParams.get('rota_id') || ''
     const showPublishedOnly = searchParams.get('published_only') === 'true'
+    const showDraftsOnly = searchParams.get('show_drafts_only') === 'true'
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 })
@@ -131,6 +132,8 @@ export async function GET(
     // Filter by published status if requested (for employee view)
     if (showPublishedOnly) {
       assignmentsQuery += ` AND sa.is_published = true`
+    } else if (showDraftsOnly) {
+      assignmentsQuery += ` AND sa.is_published = false`
     }
 
     if (employeeId) {
