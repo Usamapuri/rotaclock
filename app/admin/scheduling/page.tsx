@@ -15,7 +15,10 @@ import ShiftAssignmentModal from '@/components/scheduling/ShiftAssignmentModal'
 import ShiftEditModal from '@/components/scheduling/ShiftEditModal'
 import ShiftTemplateModal from '@/components/scheduling/ShiftTemplateModal'
 import TemplateLibrary from '@/components/scheduling/TemplateLibrary'
+import EnhancedTemplateLibrary from '@/components/scheduling/EnhancedTemplateLibrary'
 import PublishedRotasView from '@/components/scheduling/PublishedRotasView'
+import CurrentWeekView from '@/components/scheduling/CurrentWeekView'
+import MasterCalendar from '@/components/scheduling/MasterCalendar'
 
 interface Employee {
   id: string
@@ -460,64 +463,28 @@ export default function SchedulingPage() {
           </TabsContent>
 
           <TabsContent value="current-week" className="space-y-6">
-            <div className="text-center py-12">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Current Week View</h3>
-              <p className="text-gray-500">Read-only view showing exactly what employees see</p>
-              <div className="mt-6 text-sm text-gray-400">Coming soon...</div>
-            </div>
+            <CurrentWeekView 
+              selectedDate={selectedDate}
+              onDateChange={handleDateChange}
+            />
           </TabsContent>
 
           <TabsContent value="master-calendar" className="space-y-6">
-            <div className="text-center py-12">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Master Calendar</h3>
-              <p className="text-gray-500">Comprehensive coverage analysis with gap detection</p>
-              <div className="mt-6 text-sm text-gray-400">Coming soon...</div>
-            </div>
+            <MasterCalendar 
+              selectedDate={selectedDate}
+              onDateChange={handleDateChange}
+            />
           </TabsContent>
           
           <TabsContent value="templates" className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">Shift Templates</h3>
-                  <p className="text-gray-600">Manage your shift templates and assign them to employees</p>
-                </div>
-                <Button 
-                  onClick={() => { setEditingTemplate(null); setShowTemplateModal(true) }}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Template
-                </Button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {templates.map((template) => (
-                  <Card key={template.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div 
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: template.color }}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => { setEditingTemplate(template); setShowTemplateModal(true) }}
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <h4 className="font-semibold text-gray-900 mb-2">{template.name}</h4>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p>{template.start_time} - {template.end_time}</p>
-                        <p>{template.department} • {template.required_staff} staff</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+            <EnhancedTemplateLibrary
+              templates={templates}
+              onTemplateEdit={(template) => {
+                setEditingTemplate(template)
+                setShowTemplateModal(true)
+              }}
+              onTemplateSaved={loadTemplates}
+            />
           </TabsContent>
         </Tabs>
 
