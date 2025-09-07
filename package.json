@@ -13,7 +13,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:integration": "playwright test",
-    "test:setup": "node scripts/setup-test-database.js"
+    "test:setup": "node scripts/setup-test-database.js",
+    "db:run-sql": "node scripts/run-sql-file.js",
+    "db:fix:agents": "node scripts/run-sql-file.js --file scripts/fixes/mark_non_admin_as_agents.sql"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

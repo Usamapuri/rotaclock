@@ -540,8 +540,9 @@ export default function ModernWeekGrid({
       </CardHeader>
       
       <CardContent className="p-0">
+        {/* Use the full horizontal space on desktop, fall back to scroll on very small screens */}
         <div className="overflow-x-auto">
-          <div className="min-w-max">
+          <div className="min-w-full xl:min-w-0">
             {/* Header row with day names */}
             <div className="grid grid-cols-8 gap-1 border-b bg-gray-50">
               <div className="p-4 font-medium text-sm text-gray-600">

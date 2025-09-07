@@ -161,8 +161,9 @@ export async function GET(
     const assignments = assignmentsResult.rows
     const templates = templatesResult.rows
 
-    // Get rotas for this week if not filtering by specific rota
-    let rotas = []
+    // Get rotas for this week and/or details for the selected rota
+    let rotas: any[] = []
+    let currentRotaDetails: any | null = null
     if (!rotaId) {
       const rotasResult = await query(`
         SELECT r.*, COUNT(sa.id) as total_shifts
@@ -173,6 +174,15 @@ export async function GET(
         ORDER BY r.created_at DESC
       `, [tenantContext.tenant_id, weekStartStr])
       rotas = rotasResult.rows
+    } else {
+      const currentRotaRes = await query(`
+        SELECT r.*, COUNT(sa.id) as total_shifts
+        FROM rotas r
+        LEFT JOIN shift_assignments sa ON r.id = sa.rota_id
+        WHERE r.tenant_id = $1 AND r.id = $2
+        GROUP BY r.id
+      `, [tenantContext.tenant_id, rotaId])
+      currentRotaDetails = currentRotaRes.rows[0] || null
     }
 
     const scheduleData = {
@@ -182,7 +192,7 @@ export async function GET(
       templates,
       assignments: assignments,
       rotas: rotas,
-      currentRota: rotaId ? rotas.find(r => r.id === rotaId) : null
+      currentRota: rotaId ? currentRotaDetails : null
     }
 
     employees.forEach(employee => {
