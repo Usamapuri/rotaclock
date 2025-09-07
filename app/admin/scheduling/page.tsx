@@ -12,6 +12,7 @@ import { Calendar, Plus, RefreshCw, Settings, Users, Grid, List, Filter } from '
 import ModernWeekGrid from '@/components/scheduling/ModernWeekGrid'
 import EmployeeList from '@/components/scheduling/EmployeeList'
 import ShiftAssignmentModal from '@/components/scheduling/ShiftAssignmentModal'
+import ShiftEditModal from '@/components/scheduling/ShiftEditModal'
 import ShiftTemplateModal from '@/components/scheduling/ShiftTemplateModal'
 import TemplateLibrary from '@/components/scheduling/TemplateLibrary'
 
@@ -50,10 +51,17 @@ export default function SchedulingPage() {
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false)
 
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null)
+  const [editingAssignment, setEditingAssignment] = useState<any | null>(null)
   const [assignmentEmployeeId, setAssignmentEmployeeId] = useState('')
   const [assignmentDate, setAssignmentDate] = useState('')
+
+  // Rota management state
+  const [rotas, setRotas] = useState<any[]>([])
+  const [currentRotaId, setCurrentRotaId] = useState<string | null>(null)
+  const [currentRota, setCurrentRota] = useState<any | null>(null)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -87,20 +95,116 @@ export default function SchedulingPage() {
     if (data.success) setTemplates(data.data)
   }
 
-  const loadWeek = async (dateOverride?: string) => {
+  const loadWeek = async (dateOverride?: string, rotaId?: string | null) => {
     const dateToLoad = dateOverride || selectedDate
     const user = AuthService.getCurrentUser()
-    const res = await fetch(`/api/scheduling/week/${dateToLoad}`, {
+    
+    // Build URL with rota filter if specified
+    let url = `/api/scheduling/week/${dateToLoad}`
+    const params = new URLSearchParams()
+    if (rotaId) {
+      params.append('rota_id', rotaId)
+    }
+    if (params.toString()) {
+      url += `?${params.toString()}`
+    }
+
+    const res = await fetch(url, {
       headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
     })
     const data = await res.json()
     if (!data.success) return
+    
     setEmployees(data.data.employees.map((e: any) => ({ ...e, assignments: e.assignments || {} })))
+    setRotas(data.data.rotas || [])
+    setCurrentRota(data.data.currentRota || null)
   }
 
   const handleDateChange = async (date: string) => {
     setSelectedDate(date)
-    await loadWeek(date)
+    await loadWeek(date, currentRotaId)
+  }
+
+  const handleCreateRota = async (name: string, weekStart: string) => {
+    const user = AuthService.getCurrentUser()
+    const res = await fetch('/api/rotas', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(user?.id ? { authorization: `Bearer ${user.id}` } : {})
+      },
+      body: JSON.stringify({
+        name,
+        week_start_date: weekStart,
+        description: `Rota for week starting ${weekStart}`
+      })
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || 'Failed to create rota')
+    }
+
+    const data = await res.json()
+    const newRota = data.data
+    
+    // Switch to the new rota
+    setCurrentRotaId(newRota.id)
+    setCurrentRota(newRota)
+    await loadWeek(selectedDate, newRota.id)
+  }
+
+  const handlePublishRota = async (rotaId: string) => {
+    const user = AuthService.getCurrentUser()
+    const res = await fetch(`/api/rotas/${rotaId}/publish`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(user?.id ? { authorization: `Bearer ${user.id}` } : {})
+      }
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || 'Failed to publish rota')
+    }
+
+    // Reload to get updated rota status
+    await loadWeek(selectedDate, currentRotaId)
+  }
+
+  const handleSelectRota = async (rotaId: string | null) => {
+    setCurrentRotaId(rotaId)
+    if (rotaId) {
+      const selectedRota = rotas.find(r => r.id === rotaId)
+      setCurrentRota(selectedRota || null)
+    } else {
+      setCurrentRota(null)
+    }
+    await loadWeek(selectedDate, rotaId)
+  }
+
+  const handleEditShift = (assignment: any) => {
+    // Find the employee for this assignment
+    const employee = employees.find(e => e.id === assignment.employee_id)
+    setEditingAssignment(assignment)
+    setSelectedEmployee(employee || null)
+    setShowEditModal(true)
+  }
+
+  const handleAssignmentUpdated = async () => {
+    await loadWeek(selectedDate, currentRotaId)
+  }
+
+  const handleAssignmentDeleted = async (assignmentId: string) => {
+    // Remove from local state immediately for better UX
+    setEmployees(prev => prev.map(e => {
+      const updatedAssignments: any = {}
+      Object.entries(e.assignments || {}).forEach(([d, arr]) => {
+        updatedAssignments[d] = (arr as any[]).filter(a => a.id !== assignmentId)
+      })
+      return { ...e, assignments: updatedAssignments }
+    }))
   }
 
   const handleRefresh = async () => {
@@ -321,16 +425,15 @@ export default function SchedulingPage() {
               onDateChange={handleDateChange}
               onAssignShift={handleAssignShift}
               onDragDrop={handleDragDrop}
-              onRemoveShift={(assignmentId: string) => {
-                setEmployees(prev => prev.map(e => {
-                  const updatedAssignments: any = {}
-                  Object.entries(e.assignments || {}).forEach(([d, arr]) => {
-                    updatedAssignments[d] = (arr as any[]).filter(a => a.id !== assignmentId)
-                  })
-                  return { ...e, assignments: updatedAssignments }
-                }))
-              }}
+              onRemoveShift={handleAssignmentDeleted}
               onAssignmentCreated={handleAssignmentCreated}
+              onEditShift={handleEditShift}
+              currentRotaId={currentRotaId}
+              currentRota={currentRota}
+              rotas={rotas}
+              onCreateRota={handleCreateRota}
+              onPublishRota={handlePublishRota}
+              onSelectRota={handleSelectRota}
             />
           </TabsContent>
           
@@ -404,6 +507,20 @@ export default function SchedulingPage() {
           date={assignmentDate}
           templates={templates}
           onAssignmentCreated={handleAssignmentCreated}
+        />
+
+        <ShiftEditModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false)
+            setEditingAssignment(null)
+            setSelectedEmployee(null)
+          }}
+          assignment={editingAssignment}
+          employee={selectedEmployee}
+          templates={templates}
+          onAssignmentUpdated={handleAssignmentUpdated}
+          onAssignmentDeleted={handleAssignmentDeleted}
         />
 
         <ShiftTemplateModal

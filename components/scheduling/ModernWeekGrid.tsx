@@ -4,10 +4,14 @@ import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, ChevronRight, Calendar, Plus, Search, Filter, MoreHorizontal } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, Plus, Search, Filter, MoreHorizontal, Users, Send, Eye } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import ModernShiftCell from './ModernShiftCell'
+import { toast } from 'sonner'
 
 interface Employee {
   id: string
@@ -41,6 +45,13 @@ interface ModernWeekGridProps {
   onDragDrop: (employeeId: string, date: string, templateId: string) => void
   onRemoveShift: (assignmentId: string) => void
   onAssignmentCreated?: () => void
+  onEditShift?: (assignment: any) => void
+  currentRotaId?: string | null
+  currentRota?: any | null
+  rotas?: any[]
+  onCreateRota?: (name: string, weekStart: string) => void
+  onPublishRota?: (rotaId: string) => void
+  onSelectRota?: (rotaId: string | null) => void
 }
 
 export default function ModernWeekGrid({
@@ -52,7 +63,14 @@ export default function ModernWeekGrid({
   onAssignShift,
   onDragDrop,
   onRemoveShift,
-  onAssignmentCreated
+  onAssignmentCreated,
+  onEditShift,
+  currentRotaId,
+  currentRota,
+  rotas = [],
+  onCreateRota,
+  onPublishRota,
+  onSelectRota
 }: ModernWeekGridProps) {
   const [weekStart, setWeekStart] = useState<Date>(new Date())
   const [weekDays, setWeekDays] = useState<string[]>([])
@@ -62,6 +80,10 @@ export default function ModernWeekGrid({
   const [dragOverCell, setDragOverCell] = useState<{ employeeId: string; date: string } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isAssigning, setIsAssigning] = useState(false)
+  const [showCreateRotaDialog, setShowCreateRotaDialog] = useState(false)
+  const [newRotaName, setNewRotaName] = useState('')
+  const [isCreatingRota, setIsCreatingRota] = useState(false)
+  const [isPublishingRota, setIsPublishingRota] = useState(false)
   const dragTimeoutRef = useRef<NodeJS.Timeout>()
 
   // Initialize week when selectedDate changes
@@ -190,6 +212,46 @@ export default function ModernWeekGrid({
     setDragOverCell(null)
   }
 
+  const handleCreateRota = async () => {
+    if (!newRotaName.trim()) {
+      toast.error('Please enter a rota name')
+      return
+    }
+
+    setIsCreatingRota(true)
+    try {
+      const weekStartStr = weekStart.toISOString().split('T')[0]
+      await onCreateRota?.(newRotaName.trim(), weekStartStr)
+      setNewRotaName('')
+      setShowCreateRotaDialog(false)
+      toast.success('Rota created successfully')
+    } catch (error) {
+      console.error('Error creating rota:', error)
+      toast.error('Failed to create rota')
+    } finally {
+      setIsCreatingRota(false)
+    }
+  }
+
+  const handlePublishRota = async () => {
+    if (!currentRota?.id) return
+
+    setIsPublishingRota(true)
+    try {
+      await onPublishRota?.(currentRota.id)
+      toast.success(`Rota "${currentRota.name}" published successfully`)
+    } catch (error) {
+      console.error('Error publishing rota:', error)
+      toast.error('Failed to publish rota')
+    } finally {
+      setIsPublishingRota(false)
+    }
+  }
+
+  const getWeekStartString = () => {
+    return weekStart.toISOString().split('T')[0]
+  }
+
   if (viewMode === 'list') {
     return (
       <Card className="bg-white shadow-sm border-0">
@@ -198,18 +260,73 @@ export default function ModernWeekGrid({
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               Week Schedule - List View
+              {currentRota && (
+                <Badge variant={currentRota.status === 'published' ? 'default' : 'secondary'} className="ml-2">
+                  {currentRota.name} ({currentRota.status})
+                </Badge>
+              )}
             </CardTitle>
             
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
-                Today
-              </Button>
-              <Button variant="outline" size="sm" onClick={goToNextWeek}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              {/* Rota Management Buttons */}
+              {currentRota ? (
+                <>
+                  {currentRota.status === 'draft' && (
+                    <Button 
+                      size="sm" 
+                      onClick={handlePublishRota}
+                      disabled={isPublishingRota}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Send className="h-4 w-4 mr-1" />
+                      {isPublishingRota ? 'Publishing...' : 'Publish Rota'}
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => onSelectRota?.(null)}>
+                    <Eye className="h-4 w-4 mr-1" />
+                    View All
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setShowCreateRotaDialog(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Create Rota
+                  </Button>
+                  {rotas.length > 0 && (
+                    <Select value={currentRotaId || ''} onValueChange={(value) => onSelectRota?.(value || null)}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select existing rota" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All Shifts</SelectItem>
+                        {rotas.map((rota) => (
+                          <SelectItem key={rota.id} value={rota.id}>
+                            {rota.name} ({rota.status}) - {rota.total_shifts} shifts
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </>
+              )}
+
+              {/* Week Navigation */}
+              <div className="flex items-center gap-1 border-l pl-2 ml-2">
+                <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+                  Today
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToNextWeek}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
           
@@ -265,20 +382,21 @@ export default function ModernWeekGrid({
                   <Badge variant="outline">{employee.job_position}</Badge>
                 </div>
                 
-                <div className="grid grid-cols-7 gap-2">
-                  {weekDays.map((day) => (
-                    <div
-                      key={day}
-                      className={`
-                        p-3 border rounded-lg min-h-[80px] relative
-                        ${isWeekend(day) ? 'bg-gray-50' : 'bg-white'}
-                        ${isToday(day) ? 'ring-2 ring-blue-200' : ''}
-                        ${dragOverCell?.employeeId === employee.id && dragOverCell?.date === day ? 'ring-2 ring-blue-400 bg-blue-50' : ''}
-                      `}
-                      onDragOver={(e) => handleDragOver(e, employee.id, day)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, employee.id, day)}
-                    >
+                  <div className="grid grid-cols-7 gap-3">
+                    {weekDays.map((day) => (
+                      <div
+                        key={day}
+                        className={`
+                          p-4 border rounded-lg min-h-[120px] relative transition-all duration-200
+                          ${isWeekend(day) ? 'bg-gray-50' : 'bg-white'}
+                          ${isToday(day) ? 'ring-2 ring-blue-200' : ''}
+                          ${dragOverCell?.employeeId === employee.id && dragOverCell?.date === day ? 'ring-4 ring-blue-400 bg-blue-50 shadow-lg scale-[1.02]' : ''}
+                          hover:shadow-md hover:bg-gray-25
+                        `}
+                        onDragOver={(e) => handleDragOver(e, employee.id, day)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, employee.id, day)}
+                      >
                       <div className="text-xs text-gray-500 mb-2">
                         {new Date(day).toLocaleDateString('en-US', { weekday: 'short' })}
                       </div>
@@ -292,6 +410,9 @@ export default function ModernWeekGrid({
                         onAssignmentCreated={onAssignmentCreated}
                         onDragStart={handleDragStart}
                         isDragOver={dragOverCell?.employeeId === employee.id && dragOverCell?.date === day}
+                        onEditShift={onEditShift}
+                        currentRotaId={currentRotaId}
+                        isRotaMode={!!currentRotaId}
                       />
                     </div>
                   ))}
@@ -306,25 +427,80 @@ export default function ModernWeekGrid({
 
   return (
     <Card className="bg-white shadow-sm border-0">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Week Schedule - Grid View
-          </CardTitle>
-          
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
-              Today
-            </Button>
-            <Button variant="outline" size="sm" onClick={goToNextWeek}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Week Schedule - Grid View
+              {currentRota && (
+                <Badge variant={currentRota.status === 'published' ? 'default' : 'secondary'} className="ml-2">
+                  {currentRota.name} ({currentRota.status})
+                </Badge>
+              )}
+            </CardTitle>
+            
+            <div className="flex items-center gap-2">
+              {/* Rota Management Buttons */}
+              {currentRota ? (
+                <>
+                  {currentRota.status === 'draft' && (
+                    <Button 
+                      size="sm" 
+                      onClick={handlePublishRota}
+                      disabled={isPublishingRota}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Send className="h-4 w-4 mr-1" />
+                      {isPublishingRota ? 'Publishing...' : 'Publish Rota'}
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => onSelectRota?.(null)}>
+                    <Eye className="h-4 w-4 mr-1" />
+                    View All
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setShowCreateRotaDialog(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Create Rota
+                  </Button>
+                  {rotas.length > 0 && (
+                    <Select value={currentRotaId || ''} onValueChange={(value) => onSelectRota?.(value || null)}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select existing rota" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All Shifts</SelectItem>
+                        {rotas.map((rota) => (
+                          <SelectItem key={rota.id} value={rota.id}>
+                            {rota.name} ({rota.status}) - {rota.total_shifts} shifts
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </>
+              )}
+
+              {/* Week Navigation */}
+              <div className="flex items-center gap-1 border-l pl-2 ml-2">
+                <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+                  Today
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToNextWeek}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
         
         <div className="flex items-center gap-4 mt-4">
           <div className="relative flex-1 max-w-sm">
@@ -411,10 +587,11 @@ export default function ModernWeekGrid({
                       <div
                         key={day}
                         className={`
-                          p-2 border-r min-h-[80px] relative
+                          p-3 border-r min-h-[120px] relative transition-all duration-200
                           ${isWeekend(day) ? 'bg-gray-50' : ''}
                           ${isToday(day) ? 'bg-blue-25' : ''}
-                          ${dragOverCell?.employeeId === employee.id && dragOverCell?.date === day ? 'ring-2 ring-blue-400 bg-blue-50' : ''}
+                          ${dragOverCell?.employeeId === employee.id && dragOverCell?.date === day ? 'ring-4 ring-blue-400 bg-blue-50 shadow-lg scale-[1.02]' : ''}
+                          hover:bg-gray-25 hover:shadow-sm
                         `}
                         onDragOver={(e) => handleDragOver(e, employee.id, day)}
                         onDragLeave={handleDragLeave}
@@ -430,6 +607,9 @@ export default function ModernWeekGrid({
                           onAssignmentCreated={onAssignmentCreated}
                           onDragStart={handleDragStart}
                           isDragOver={dragOverCell?.employeeId === employee.id && dragOverCell?.date === day}
+                          onEditShift={onEditShift}
+                          currentRotaId={currentRotaId}
+                          isRotaMode={!!currentRotaId}
                         />
                       </div>
                     ))}
@@ -441,5 +621,56 @@ export default function ModernWeekGrid({
         </div>
       </CardContent>
     </Card>
+
+    {/* Create Rota Dialog */}
+    <Dialog open={showCreateRotaDialog} onOpenChange={setShowCreateRotaDialog}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Create New Rota
+          </DialogTitle>
+          <DialogDescription>
+            Create a new rota for the week of {formatDate(weekDays[0])} - {formatDate(weekDays[6])}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="rota-name">Rota Name</Label>
+            <Input
+              id="rota-name"
+              value={newRotaName}
+              onChange={(e) => setNewRotaName(e.target.value)}
+              placeholder="e.g., Weekly Schedule, Holiday Coverage"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateRota()
+                }
+              }}
+            />
+          </div>
+          <div className="text-sm text-gray-500">
+            This rota will be created as a draft. You can add shifts and publish it when ready.
+          </div>
+        </div>
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setShowCreateRotaDialog(false)
+              setNewRotaName('')
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCreateRota}
+            disabled={isCreatingRota || !newRotaName.trim()}
+          >
+            {isCreatingRota ? 'Creating...' : 'Create Rota'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

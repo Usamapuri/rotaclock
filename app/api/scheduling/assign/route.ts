@@ -15,13 +15,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No tenant context found' }, { status: 403 })
     }
 
-    const body = await request.json()
-    const { employee_id, date, notes, assigned_by } = body
-    const template_id = body.template_id ?? body.shift_id
-    const override_name = body.override_name ?? null
-    const override_start_time = body.override_start_time ?? null
-    const override_end_time = body.override_end_time ?? null
-    const override_color = body.override_color ?? null
+  const body = await request.json()
+  const { employee_id, date, notes, assigned_by, rota_id } = body
+  const template_id = body.template_id ?? body.shift_id
+  const override_name = body.override_name ?? null
+  const override_start_time = body.override_start_time ?? null
+  const override_end_time = body.override_end_time ?? null
+  const override_color = body.override_color ?? null
 
     const hasTemplate = !!template_id
     const hasOverrides = !!(override_name && override_start_time && override_end_time)
@@ -105,23 +105,42 @@ export async function POST(request: NextRequest) {
 
     let insertSql: string
     let insertParams: any[]
+    // Check if rota_id is provided and validate it
+    let rotaStatus = null
+    if (rota_id) {
+      const rotaResult = await query(
+        'SELECT status FROM rotas WHERE id = $1 AND tenant_id = $2',
+        [rota_id, tenantContext.tenant_id]
+      )
+      if (rotaResult.rows.length === 0) {
+        return NextResponse.json({ success: false, error: 'Rota not found' }, { status: 404 })
+      }
+      rotaStatus = rotaResult.rows[0].status
+      if (rotaStatus === 'published') {
+        return NextResponse.json({ success: false, error: 'Cannot modify shifts in a published rota' }, { status: 400 })
+      }
+    }
+
+    // Determine if shift should be published (true if no rota, false if draft rota)
+    const isPublished = rota_id ? false : true
+
     if (hasOverrideCols) {
       insertSql = `
         INSERT INTO shift_assignments (
           employee_id, template_id, date, override_name, override_start_time, override_end_time, override_color,
-          status, notes, assigned_by, tenant_id, organization_id, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'assigned', $8, $9, $10, $11, NOW(), NOW())
-        RETURNING id, employee_id, template_id, date, override_name, override_start_time, override_end_time, override_color, status, notes, created_at
+          status, notes, assigned_by, tenant_id, organization_id, rota_id, is_published, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'assigned', $8, $9, $10, $11, $12, $13, NOW(), NOW())
+        RETURNING id, employee_id, template_id, date, override_name, override_start_time, override_end_time, override_color, status, notes, rota_id, is_published, created_at
       `
-      insertParams = [employee_id, effectiveTemplateId || null, date, override_name, override_start_time, override_end_time, override_color, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id]
+      insertParams = [employee_id, effectiveTemplateId || null, date, override_name, override_start_time, override_end_time, override_color, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id, rota_id || null, isPublished]
     } else {
       insertSql = `
         INSERT INTO shift_assignments (
-          employee_id, template_id, date, status, notes, assigned_by, tenant_id, organization_id, created_at, updated_at
-        ) VALUES ($1, $2, $3, 'assigned', $4, $5, $6, $7, NOW(), NOW())
-        RETURNING id, employee_id, template_id, date, status, notes, created_at
+          employee_id, template_id, date, status, notes, assigned_by, tenant_id, organization_id, rota_id, is_published, created_at, updated_at
+        ) VALUES ($1, $2, $3, 'assigned', $4, $5, $6, $7, $8, $9, NOW(), NOW())
+        RETURNING id, employee_id, template_id, date, status, notes, rota_id, is_published, created_at
       `
-      insertParams = [employee_id, effectiveTemplateId || null, date, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id]
+      insertParams = [employee_id, effectiveTemplateId || null, date, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id, rota_id || null, isPublished]
     }
 
     const result = await query(insertSql, insertParams)
@@ -130,12 +149,14 @@ export async function POST(request: NextRequest) {
     const fullAssignmentResult = await query(`
       SELECT 
         sa.id, sa.employee_id, sa.template_id, sa.date, sa.override_name, sa.override_start_time, sa.override_end_time, sa.override_color,
-        sa.status, sa.notes, sa.created_at,
+        sa.status, sa.notes, sa.rota_id, sa.is_published, sa.created_at,
         e.first_name, e.last_name, e.employee_code,
-        st.name as shift_name, st.start_time, st.end_time, st.color
+        st.name as shift_name, st.start_time, st.end_time, st.color,
+        r.name as rota_name, r.status as rota_status
       FROM shift_assignments sa
       JOIN employees e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
       LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
+      LEFT JOIN rotas r ON sa.rota_id = r.id
       WHERE sa.id = $1 AND sa.tenant_id = $2
     `, [assignment.id, tenantContext.tenant_id])
 

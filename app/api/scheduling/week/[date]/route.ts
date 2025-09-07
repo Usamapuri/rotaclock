@@ -22,6 +22,8 @@ export async function GET(
     const { date } = await params
     const { searchParams } = new URL(request.url)
     const employeeId = searchParams.get('employee_id') || ''
+    const rotaId = searchParams.get('rota_id') || ''
+    const showPublishedOnly = searchParams.get('published_only') === 'true'
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return NextResponse.json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 })
@@ -61,7 +63,7 @@ export async function GET(
     `)
     const hasOverrides = colCheck.rows.length > 0
 
-    // Assignments for tenant
+    // Assignments for tenant - filter based on rota and published status
     let assignmentsQuery = ''
     if (hasOverrides) {
       assignmentsQuery = `
@@ -76,14 +78,19 @@ export async function GET(
           sa.override_color,
           sa.status,
           sa.notes,
+          sa.rota_id,
+          sa.is_published,
           sa.created_at,
           COALESCE(sa.override_name, st.name) as template_name,
           COALESCE(sa.override_start_time, st.start_time) as start_time,
           COALESCE(sa.override_end_time, st.end_time) as end_time,
           COALESCE(sa.override_color, st.color) as color,
-          st.department as template_department
+          st.department as template_department,
+          r.name as rota_name,
+          r.status as rota_status
         FROM shift_assignments sa
         LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
+        LEFT JOIN rotas r ON sa.rota_id = r.id
         WHERE sa.date >= $1 AND sa.date <= $2 AND sa.tenant_id = $3
       `
     } else {
@@ -95,22 +102,41 @@ export async function GET(
           to_char(sa.date, 'YYYY-MM-DD') as date,
           sa.status,
           sa.notes,
+          sa.rota_id,
+          sa.is_published,
           sa.created_at,
           st.name as template_name,
           st.start_time as start_time,
           st.end_time as end_time,
           st.color as color,
-          st.department as template_department
+          st.department as template_department,
+          r.name as rota_name,
+          r.status as rota_status
         FROM shift_assignments sa
         LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
+        LEFT JOIN rotas r ON sa.rota_id = r.id
         WHERE sa.date >= $1 AND sa.date <= $2 AND sa.tenant_id = $3
       `
     }
     const assignmentsParams: any[] = [weekStartStr, weekEndStr, tenantContext.tenant_id]
+    let paramIndex = 4
+
+    // Filter by specific rota if provided
+    if (rotaId) {
+      assignmentsQuery += ` AND sa.rota_id = $${paramIndex}`
+      assignmentsParams.push(rotaId)
+      paramIndex++
+    }
+
+    // Filter by published status if requested (for employee view)
+    if (showPublishedOnly) {
+      assignmentsQuery += ` AND sa.is_published = true`
+    }
 
     if (employeeId) {
-      assignmentsQuery += ` AND sa.employee_id = $4`
+      assignmentsQuery += ` AND sa.employee_id = $${paramIndex}`
       assignmentsParams.push(employeeId)
+      paramIndex++
     }
 
     assignmentsQuery += ` ORDER BY sa.date, sa.employee_id`
@@ -132,12 +158,28 @@ export async function GET(
     const assignments = assignmentsResult.rows
     const templates = templatesResult.rows
 
+    // Get rotas for this week if not filtering by specific rota
+    let rotas = []
+    if (!rotaId) {
+      const rotasResult = await query(`
+        SELECT r.*, COUNT(sa.id) as total_shifts
+        FROM rotas r
+        LEFT JOIN shift_assignments sa ON r.id = sa.rota_id
+        WHERE r.tenant_id = $1 AND r.week_start_date = $2
+        GROUP BY r.id
+        ORDER BY r.created_at DESC
+      `, [tenantContext.tenant_id, weekStartStr])
+      rotas = rotasResult.rows
+    }
+
     const scheduleData = {
       weekStart: weekStartStr,
       weekEnd: weekEndStr,
       employees: employees.map(emp => ({ ...emp, assignments: {} })),
       templates,
       assignments: assignments,
+      rotas: rotas,
+      currentRota: rotaId ? rotas.find(r => r.id === rotaId) : null
     }
 
     employees.forEach(employee => {

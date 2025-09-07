@@ -30,17 +30,33 @@ interface ShiftTemplate {
 interface Assignment {
   id: string
   employee_id: string
-  template_id: string
+  template_id?: string
   date: string
   status: string
   notes?: string
-  template: {
+  rota_id?: string
+  is_published?: boolean
+  // Template or override data
+  template_name?: string
+  start_time?: string
+  end_time?: string
+  color?: string
+  // Override fields
+  override_name?: string
+  override_start_time?: string
+  override_end_time?: string
+  override_color?: string
+  // Legacy template object (for backward compatibility)
+  template?: {
     name: string
     start_time: string
     end_time: string
     color: string
     department: string
   }
+  // Rota information
+  rota_name?: string
+  rota_status?: string
 }
 
 interface ModernShiftCellProps {
@@ -53,6 +69,9 @@ interface ModernShiftCellProps {
   onAssignmentCreated?: () => void
   onDragStart: (template: ShiftTemplate) => void
   isDragOver?: boolean
+  onEditShift?: (assignment: Assignment) => void
+  currentRotaId?: string | null
+  isRotaMode?: boolean
 }
 
 export default function ModernShiftCell({
@@ -64,7 +83,10 @@ export default function ModernShiftCell({
   onRemoveShift,
   onAssignmentCreated,
   onDragStart,
-  isDragOver
+  isDragOver,
+  onEditShift,
+  currentRotaId,
+  isRotaMode = false
 }: ModernShiftCellProps) {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -84,10 +106,25 @@ export default function ModernShiftCell({
     }
   }
 
-  const handleDragStart = (e: React.DragEvent, template: ShiftTemplate) => {
+  const handleDragStart = (e: React.DragEvent, template: ShiftTemplate | Assignment) => {
     e.dataTransfer.setData('application/json', JSON.stringify(template))
     e.dataTransfer.effectAllowed = 'move'
-    onDragStart(template)
+    if ('name' in template) {
+      // It's a ShiftTemplate
+      onDragStart(template)
+    } else {
+      // It's an Assignment - convert to template-like object for drag
+      const templateLike: ShiftTemplate = {
+        id: template.template_id || template.id,
+        name: getShiftDisplayName(template),
+        start_time: getShiftStartTime(assignment),
+        end_time: getShiftEndTime(assignment),
+        color: getShiftColor(assignment),
+        department: template.template?.department || 'General',
+        required_staff: 1
+      }
+      onDragStart(templateLike)
+    }
   }
 
   const handleDragEnd = () => {
@@ -95,12 +132,56 @@ export default function ModernShiftCell({
     setIsHovered(false)
   }
 
+  // Helper functions to get shift display data
+  const getShiftDisplayName = (assignment: Assignment) => {
+    return assignment.override_name || assignment.template_name || assignment.template?.name || 'Unknown Shift'
+  }
+
+  const getShiftStartTime = (assignment: Assignment) => {
+    return assignment.override_start_time || assignment.start_time || assignment.template?.start_time || '00:00'
+  }
+
+  const getShiftEndTime = (assignment: Assignment) => {
+    return assignment.override_end_time || assignment.end_time || assignment.template?.end_time || '00:00'
+  }
+
+  const getShiftColor = (assignment: Assignment) => {
+    return assignment.override_color || assignment.color || assignment.template?.color || '#3B82F6'
+  }
+
+  const handleShiftClick = (assignment: Assignment) => {
+    if (onEditShift) {
+      onEditShift(assignment)
+    }
+  }
+
+  const handleQuickAssign = async (template: ShiftTemplate) => {
+    try {
+      const res = await fetch('/api/scheduling/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: employee.id,
+          date: date,
+          template_id: template.id,
+          rota_id: currentRotaId
+        })
+      })
+      
+      if (res.ok) {
+        onAssignmentCreated?.()
+      }
+    } catch (error) {
+      console.error('Error assigning shift:', error)
+    }
+  }
+
   return (
     <div
       className={`
-        relative min-h-[60px] p-2 rounded-lg transition-all duration-200
-        ${isDragOver ? 'ring-2 ring-blue-400 bg-blue-50 scale-105' : ''}
-        ${assignments.length > 0 ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'}
+        relative min-h-[80px] p-2 rounded-lg transition-all duration-200
+        ${isDragOver ? 'ring-2 ring-blue-400 bg-blue-100 shadow-md' : ''}
+        ${assignments.length > 0 ? 'bg-transparent' : 'bg-transparent hover:bg-gray-100'}
       `}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -110,30 +191,49 @@ export default function ModernShiftCell({
         <div
           key={assignment.id}
           draggable
-          onDragStart={(e) => handleDragStart(e, assignment.template)}
+          onDragStart={(e) => handleDragStart(e, assignment)}
           onDragEnd={handleDragEnd}
-          className="mb-1 p-2 rounded text-xs font-medium text-white relative group cursor-move"
-          style={{ backgroundColor: assignment.template?.color || '#3B82F6' }}
+          onClick={() => handleShiftClick(assignment)}
+          className="mb-1 p-2 rounded text-xs font-medium text-white relative group cursor-pointer hover:shadow-md transition-shadow"
+          style={{ backgroundColor: getShiftColor(assignment) }}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <div className="font-semibold truncate">
-                {assignment.template?.name || 'Unknown Shift'}
+                {getShiftDisplayName(assignment)}
               </div>
-              <div className="text-xs opacity-90">
-                {assignment.template?.start_time} - {assignment.template?.end_time}
+              <div className="text-xs opacity-90 flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {getShiftStartTime(assignment)} - {getShiftEndTime(assignment)}
               </div>
+              {/* Show rota info if in rota mode */}
+              {isRotaMode && assignment.rota_name && (
+                <div className="text-xs opacity-75 mt-1">
+                  {assignment.rota_name}
+                </div>
+              )}
+              {/* Show status if not assigned */}
+              {assignment.status && assignment.status !== 'assigned' && (
+                <div className="text-xs opacity-75 mt-1 capitalize">
+                  {assignment.status}
+                </div>
+              )}
             </div>
             
             {isHovered && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30"
-                onClick={() => handleRemoveAssignment(assignment.id)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRemoveAssignment(assignment.id)
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -175,25 +275,7 @@ export default function ModernShiftCell({
               <DropdownMenuItem
                 key={template.id}
                 className="flex items-center gap-2 cursor-pointer"
-                onClick={async () => {
-                  try {
-                    const res = await fetch('/api/scheduling/assignments', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        employee_id: employee.id,
-                        date: date,
-                        template_id: template.id
-                      })
-                    })
-                    
-                    if (res.ok) {
-                      onAssignmentCreated?.()
-                    }
-                  } catch (error) {
-                    console.error('Error assigning shift:', error)
-                  }
-                }}
+                onClick={() => handleQuickAssign(template)}
               >
                 <div
                   className="w-3 h-3 rounded-full"
@@ -220,8 +302,10 @@ export default function ModernShiftCell({
 
       {/* Drag and Drop Visual Feedback */}
       {isDragOver && (
-        <div className="absolute inset-0 bg-blue-100 bg-opacity-50 rounded-lg border-2 border-dashed border-blue-400 flex items-center justify-center">
-          <div className="text-xs font-medium text-blue-700">Drop to assign</div>
+        <div className="absolute inset-0 bg-blue-100 bg-opacity-80 rounded-lg border-2 border-dashed border-blue-500 flex items-center justify-center z-10 shadow-lg">
+          <div className="text-sm font-medium text-blue-700 bg-white px-3 py-1 rounded-full shadow-sm">
+            Drop to assign
+          </div>
         </div>
       )}
     </div>

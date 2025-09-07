@@ -1489,32 +1489,20 @@ export async function createShiftLogsTables() {
 // Create a new shift log
 export async function createShiftLog(shiftLogData: Omit<ShiftLog, 'id' | 'created_at' | 'updated_at'>) {
   const { employee_id, shift_assignment_id, clock_in_time } = shiftLogData;
-  // Resolve tenant and organization from employee
-  const emp = await query(`SELECT tenant_id, organization_id FROM employees WHERE id = $1`, [employee_id])
+  // Resolve tenant from employee
+  const emp = await query(`SELECT tenant_id FROM employees WHERE id = $1`, [employee_id])
   const tenant_id = emp.rows[0]?.tenant_id || null
-  const organization_id = emp.rows[0]?.organization_id || null
 
-  // Prefer inserting organization_id when column exists; otherwise fall back
   try {
     const result = await query(
       `INSERT INTO time_entries (
-        employee_id, shift_assignment_id, date, clock_in, status, tenant_id, organization_id
-      ) VALUES ($1, $2, $3, $4, 'in-progress', $5, $6) RETURNING *`,
-      [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id, organization_id]
+        employee_id, shift_assignment_id, date, clock_in, status, tenant_id
+      ) VALUES ($1, $2, $3, $4, 'in-progress', $5) RETURNING *`,
+      [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id]
     );
     return result.rows[0];
   } catch (err: any) {
-    // If organization_id column does not exist, retry without it
-    const msg = (err && err.message) || ''
-    if (msg.includes('organization_id') && msg.includes('does not exist')) {
-      const result = await query(
-        `INSERT INTO time_entries (
-          employee_id, shift_assignment_id, date, clock_in, status, tenant_id
-        ) VALUES ($1, $2, $3, $4, 'in-progress', $5) RETURNING *`,
-        [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id]
-      );
-      return result.rows[0]
-    }
+    console.error('Error creating shift log:', err)
     throw err
   }
 }
@@ -1769,7 +1757,7 @@ export async function createShiftLogByEmail(shiftLogData: {
   
   // Get employee UUID by email
   const employeeResult = await query(`
-    SELECT id, tenant_id, organization_id FROM employees WHERE email = $1
+    SELECT id, tenant_id FROM employees WHERE email = $1
   `, [email])
   
   if (employeeResult.rows.length === 0) {
@@ -1778,7 +1766,6 @@ export async function createShiftLogByEmail(shiftLogData: {
   
   const employee_id = employeeResult.rows[0].id
   const tenant_id = employeeResult.rows[0].tenant_id
-  const organization_id = employeeResult.rows[0].organization_id
   
   // Get the assigned shift to check for lateness
   let is_late = false;
@@ -1810,22 +1797,13 @@ export async function createShiftLogByEmail(shiftLogData: {
   try {
     const result = await query(
       `INSERT INTO time_entries (
-        employee_id, shift_assignment_id, date, clock_in, status, tenant_id, organization_id
-      ) VALUES ($1, $2, $3, $4, 'in-progress', $5, $6) RETURNING *`,
-      [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id, organization_id]
+        employee_id, shift_assignment_id, date, clock_in, status, tenant_id
+      ) VALUES ($1, $2, $3, $4, 'in-progress', $5) RETURNING *`,
+      [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id]
     );
     return result.rows[0]
   } catch (err: any) {
-    const msg = (err && err.message) || ''
-    if (msg.includes('organization_id') && msg.includes('does not exist')) {
-      const result = await query(
-        `INSERT INTO time_entries (
-          employee_id, shift_assignment_id, date, clock_in, status, tenant_id
-        ) VALUES ($1, $2, $3, $4, 'in-progress', $5) RETURNING *`,
-        [employee_id, shift_assignment_id || null, clock_in_time.split('T')[0], clock_in_time, tenant_id]
-      );
-      return result.rows[0]
-    }
+    console.error('Error creating time entry:', err)
     throw err
   }
 }
