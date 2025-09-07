@@ -108,10 +108,9 @@ export default function SchedulingPage() {
     const params = new URLSearchParams()
     if (rotaId) {
       params.append('rota_id', rotaId)
-    } else {
-      // When no specific rota is selected, show draft shifts only
-      params.append('show_drafts_only', 'true')
     }
+    // Note: Don't add show_drafts_only by default - let it load all data initially
+    // The draft/published filtering will be handled by the rota selection
     if (params.toString()) {
       url += `?${params.toString()}`
     }
@@ -120,8 +119,12 @@ export default function SchedulingPage() {
       headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
     })
     const data = await res.json()
-    if (!data.success) return
+    if (!data.success) {
+      console.error('Failed to load week data:', data.error)
+      return
+    }
     
+    console.log('Week data loaded:', data.data) // Debug log
     setEmployees(data.data.employees.map((e: any) => ({ ...e, assignments: e.assignments || {} })))
     setRotas(data.data.rotas || [])
     setCurrentRota(data.data.currentRota || null)

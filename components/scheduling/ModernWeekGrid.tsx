@@ -72,7 +72,7 @@ export default function ModernWeekGrid({
   onPublishRota,
   onSelectRota
 }: ModernWeekGridProps) {
-  const [weekStart, setWeekStart] = useState<Date>(new Date())
+  const [weekStart, setWeekStart] = useState(new Date())
   const [weekDays, setWeekDays] = useState<string[]>([])
   const [search, setSearch] = useState<string>('')
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
