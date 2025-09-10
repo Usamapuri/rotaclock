@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 		// Create notification for admin about pending approval
 		await query(
 			`
-				INSERT INTO notifications (employee_id, title, message, type, is_read, action_url, tenant_id)
+				INSERT INTO notifications (user_id, title, message, type, read, action_url, tenant_id)
 				SELECT 
 					 e.id,
 					 'Shift Approval Required',
