@@ -1,0 +1,16 @@
+app/admin/scheduling/page.tsx
+app/api/admin/payroll/bonuses/route.ts
+app/api/admin/payroll/deductions/route.ts
+app/api/shifts/[id]/end/route.ts
+components/scheduling/ModernWeekGrid.tsx
+scripts/check-employee-tables.js
+scripts/check-new-tables.js
+scripts/check-object-types.js
+scripts/cleanup-legacy-tables.js
+scripts/copy-database-v2.js
+scripts/copy-database.js
+scripts/copy-to-new.js
+scripts/create-shift-templates.sql
+scripts/drop-legacy-objects.js
+scripts/verify-new-db.js
+tatus
