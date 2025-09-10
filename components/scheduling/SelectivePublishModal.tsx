@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, Clock, Users, Send, X } from 'lucide-react'
-import { AuthService } from '@/lib/api-auth'
+import { AuthService } from '@/lib/auth'
 import { toast } from 'sonner'
 
 interface Employee {

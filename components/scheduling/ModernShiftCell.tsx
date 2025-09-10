@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Plus, MoreHorizontal, Clock, X } from 'lucide-react'
-import { AuthService } from '@/lib/api-auth'
+import { AuthService } from '@/lib/auth'
 
 interface Employee {
   id: string
