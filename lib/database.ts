@@ -812,8 +812,8 @@ export async function createShiftAssignment(assignmentData: Omit<ShiftAssignment
   const result = await query(`
     INSERT INTO shift_assignments (
       employee_id, template_id, date, start_time, end_time, 
-      status, assigned_by, notes
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      status, assigned_by, notes, is_published
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING *
   `, [
     assignmentData.employee_id,
@@ -823,7 +823,8 @@ export async function createShiftAssignment(assignmentData: Omit<ShiftAssignment
     assignmentData.end_time,
     assignmentData.status,
     assignmentData.assigned_by,
-    assignmentData.notes
+    assignmentData.notes,
+    false // Always create as draft
   ])
 
   return result.rows[0]

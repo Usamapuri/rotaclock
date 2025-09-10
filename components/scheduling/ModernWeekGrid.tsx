@@ -51,6 +51,7 @@ interface ModernWeekGridProps {
   rotas?: any[]
   onCreateRota?: (name: string, weekStart: string) => void
   onPublishRota?: (rotaId: string) => void
+  onPublishShifts?: () => void
   onSelectRota?: (rotaId: string | null) => void
 }
 
@@ -70,6 +71,7 @@ export default function ModernWeekGrid({
   rotas = [],
   onCreateRota,
   onPublishRota,
+  onPublishShifts,
   onSelectRota
 }: ModernWeekGridProps) {
   const [weekStart, setWeekStart] = useState(new Date())
@@ -462,6 +464,14 @@ export default function ModernWeekGrid({
                 </>
               ) : (
                 <>
+                  <Button 
+                    size="sm" 
+                    onClick={onPublishShifts}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    Publish Shifts
+                  </Button>
                   <Button 
                     size="sm" 
                     onClick={() => setShowCreateRotaDialog(true)}
