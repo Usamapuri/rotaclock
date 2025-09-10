@@ -27,24 +27,24 @@ export async function GET(request: NextRequest) {
     let params: any[] = []
     
     if (status === 'pending') {
-      whereClause = 'WHERE sl.approval_status = $1 AND sl.status = $2'
-      params.push('pending', 'completed')
+      whereClause = 'WHERE te.approval_status = $1 AND te.status = $2 AND te.tenant_id = $3'
+      params.push('pending', 'completed', tenantContext.tenant_id)
     } else if (status === 'approved') {
-      whereClause = 'WHERE sl.approval_status = $1 AND sl.status = $2'
-      params.push('approved', 'completed')
+      whereClause = 'WHERE te.approval_status = $1 AND te.status = $2 AND te.tenant_id = $3'
+      params.push('approved', 'completed', tenantContext.tenant_id)
     } else if (status === 'rejected') {
-      whereClause = 'WHERE sl.approval_status = $1 AND sl.status = $2'
-      params.push('rejected', 'completed')
+      whereClause = 'WHERE te.approval_status = $1 AND te.status = $2 AND te.tenant_id = $3'
+      params.push('rejected', 'completed', tenantContext.tenant_id)
     } else if (status === 'all') {
-      whereClause = 'WHERE sl.approval_status IN ($1, $2, $3) AND sl.status = $4'
-      params.push('pending', 'approved', 'rejected', 'completed')
+      whereClause = 'WHERE te.approval_status IN ($1, $2, $3) AND te.status = $4 AND te.tenant_id = $5'
+      params.push('pending', 'approved', 'rejected', 'completed', tenantContext.tenant_id)
     }
 
     // Get total count
     const countQuery = `
       SELECT COUNT(*) as total
-      FROM time_entries sl
-      JOIN employees e ON sl.employee_id = e.id
+      FROM time_entries te
+      JOIN employees e ON te.employee_id = e.id AND e.tenant_id = te.tenant_id
       ${whereClause}
     `
     const countResult = await query(countQuery, params)
@@ -53,22 +53,22 @@ export async function GET(request: NextRequest) {
     // Get shift approvals with pagination
     const approvalsQuery = `
       SELECT 
-        sl.id,
-        sl.employee_id,
-        sl.assignment_id,
-        sl.clock_in,
-        sl.clock_out,
-        sl.total_hours,
-        sl.break_hours,
-        sl.total_calls_taken,
-        sl.leads_generated,
-        sl.shift_remarks,
-        sl.performance_rating,
-        sl.approval_status,
-        sl.admin_notes,
-        sl.rejection_reason,
-        sl.created_at,
-        sl.updated_at,
+        te.id,
+        te.employee_id,
+        te.assignment_id,
+        te.clock_in,
+        te.clock_out,
+        te.total_hours,
+        te.break_hours,
+        te.total_calls_taken,
+        te.leads_generated,
+        te.shift_remarks,
+        te.performance_rating,
+        te.approval_status,
+        te.admin_notes,
+        te.rejection_reason,
+        te.created_at,
+        te.updated_at,
         e.first_name,
         e.last_name,
         e.employee_code,
@@ -81,13 +81,13 @@ export async function GET(request: NextRequest) {
         s.end_time as scheduled_end_time,
         approver.first_name as approver_first_name,
         approver.last_name as approver_last_name
-      FROM time_entries sl
-      JOIN employees e ON sl.employee_id = e.id
-      LEFT JOIN shift_assignments sa ON sl.assignment_id = sa.id
-      LEFT JOIN shift_templates s ON sa.template_id = s.id
-      LEFT JOIN employees approver ON sl.approved_by = approver.id
+      FROM time_entries te
+      JOIN employees e ON te.employee_id = e.id AND e.tenant_id = te.tenant_id
+      LEFT JOIN shift_assignments sa ON te.assignment_id = sa.id AND sa.tenant_id = te.tenant_id
+      LEFT JOIN shift_templates s ON sa.template_id = s.id AND s.tenant_id = te.tenant_id
+      LEFT JOIN employees approver ON te.approved_by = approver.id AND approver.tenant_id = te.tenant_id
       ${whereClause}
-      ORDER BY sl.created_at DESC
+      ORDER BY te.created_at DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `
     
@@ -100,12 +100,12 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE approval_status = 'pending') as pending_count,
         COUNT(*) FILTER (WHERE approval_status = 'approved') as approved_count,
         COUNT(*) FILTER (WHERE approval_status = 'rejected') as rejected_count,
-        SUM(total_shift_hours) FILTER (WHERE approval_status = 'pending') as pending_hours,
-        SUM(total_shift_hours) FILTER (WHERE approval_status = 'approved') as approved_hours
+        SUM(total_hours) FILTER (WHERE approval_status = 'pending') as pending_hours,
+        SUM(total_hours) FILTER (WHERE approval_status = 'approved') as approved_hours
       FROM time_entries
-      WHERE approval_status IN ('pending', 'approved', 'rejected') AND status = 'completed'
+      WHERE approval_status IN ('pending', 'approved', 'rejected') AND status = 'completed' AND tenant_id = $1
     `
-    const statsResult = await query(statsQuery)
+    const statsResult = await query(statsQuery, [tenantContext.tenant_id])
     const stats = statsResult.rows[0]
 
     return NextResponse.json({
