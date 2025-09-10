@@ -119,9 +119,9 @@ export async function POST(request: NextRequest) {
 					 'info',
 					 false,
 					 '/admin/shift-approvals',
-					 $2::uuid
+					 $2
 				FROM employees e 
-				WHERE e.role = 'admin' AND e.tenant_id::uuid = $2::uuid
+				WHERE e.role = 'admin' AND e.tenant_id = $2
 			`,
 			[`${employeeName} has completed a shift and requires approval`, tenantContext.tenant_id]
 		)
