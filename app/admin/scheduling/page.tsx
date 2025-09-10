@@ -543,6 +543,7 @@ export default function SchedulingPage() {
           date={assignmentDate}
           templates={templates}
           onAssignmentCreated={handleAssignmentCreated}
+          currentRotaId={currentRotaId}
         />
 
         <ShiftEditModal
