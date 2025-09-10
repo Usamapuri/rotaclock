@@ -1,5 +1,0 @@
-[33mceecf66[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m Fix database errors and complete scheduling system
-[33mf0479cc[m Fix scheduling system: Add draft/publish workflow
-[33m298a440[m fix: remove legacy employees_new references and clean up database
-[33m40e1524[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/development[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mdevelopment[m[33m)[m feat: configure database routing for production and development
-[33m7a3d191[m fix(dnd): ensure dragging an existing assignment carries times/name as template-like object

@@ -121,9 +121,9 @@ export async function POST(request: NextRequest) {
 					 '/admin/shift-approvals',
 					 $2
 				FROM employees e 
-				WHERE e.role = 'admin' AND e.tenant_id = $2
+				WHERE e.role = 'admin' AND e.tenant_id = $3
 			`,
-			[`${employeeName} has completed a shift and requires approval`, tenantContext.tenant_id]
+			[`${employeeName} has completed a shift and requires approval`, tenantContext.tenant_id, tenantContext.tenant_id]
 		)
 
 		return NextResponse.json({
