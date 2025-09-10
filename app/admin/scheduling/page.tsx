@@ -183,6 +183,49 @@ export default function SchedulingPage() {
     await loadWeek(selectedDate, currentRotaId)
   }
 
+  const handlePublishShifts = async () => {
+    try {
+      const user = AuthService.getCurrentUser()
+      
+      // Calculate week start and end dates
+      const selectedDateObj = new Date(selectedDate)
+      const dayOfWeek = selectedDateObj.getDay()
+      const weekStart = new Date(selectedDateObj)
+      weekStart.setDate(selectedDateObj.getDate() - dayOfWeek)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekStart.getDate() + 6)
+      
+      const startDate = weekStart.toISOString().split('T')[0]
+      const endDate = weekEnd.toISOString().split('T')[0]
+
+      const res = await fetch('/api/scheduling/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {})
+        },
+        body: JSON.stringify({
+          start_date: startDate,
+          end_date: endDate
+        })
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to publish shifts')
+      }
+
+      const data = await res.json()
+      toast.success(data.message || 'Shifts published successfully')
+      
+      // Reload to get updated shift status
+      await loadWeek(selectedDate, currentRotaId)
+    } catch (error) {
+      console.error('Error publishing shifts:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to publish shifts')
+    }
+  }
+
   const handleSelectRota = async (rotaId: string | null) => {
     setCurrentRotaId(rotaId)
     if (rotaId) {
@@ -451,6 +494,7 @@ export default function SchedulingPage() {
               rotas={rotas}
               onCreateRota={handleCreateRota}
               onPublishRota={handlePublishRota}
+              onPublishShifts={handlePublishShifts}
               onSelectRota={handleSelectRota}
             />
           </TabsContent>

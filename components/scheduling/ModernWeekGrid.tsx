@@ -51,6 +51,7 @@ interface ModernWeekGridProps {
   rotas?: any[]
   onCreateRota?: (name: string, weekStart: string) => void
   onPublishRota?: (rotaId: string) => void
+  onPublishShifts?: () => void
   onSelectRota?: (rotaId: string | null) => void
 }
 
@@ -70,6 +71,7 @@ export default function ModernWeekGrid({
   rotas = [],
   onCreateRota,
   onPublishRota,
+  onPublishShifts,
   onSelectRota
 }: ModernWeekGridProps) {
   const [weekStart, setWeekStart] = useState(new Date())
@@ -298,12 +300,12 @@ export default function ModernWeekGrid({
                     Create Rota
                   </Button>
                   {rotas.length > 0 && (
-                    <Select value={currentRotaId || ''} onValueChange={(value) => onSelectRota?.(value || null)}>
+                    <Select value={currentRotaId || 'all'} onValueChange={(value) => onSelectRota?.(value === 'all' ? null : value)}>
                       <SelectTrigger className="w-48">
                         <SelectValue placeholder="Select existing rota" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Shifts</SelectItem>
+                        <SelectItem value="all">All Shifts</SelectItem>
                         {rotas.map((rota) => (
                           <SelectItem key={rota.id} value={rota.id}>
                             {rota.name} ({rota.status}) - {rota.total_shifts} shifts
@@ -464,6 +466,14 @@ export default function ModernWeekGrid({
                 <>
                   <Button 
                     size="sm" 
+                    onClick={onPublishShifts}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    Publish Shifts
+                  </Button>
+                  <Button 
+                    size="sm" 
                     onClick={() => setShowCreateRotaDialog(true)}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
@@ -471,12 +481,12 @@ export default function ModernWeekGrid({
                     Create Rota
                   </Button>
                   {rotas.length > 0 && (
-                    <Select value={currentRotaId || ''} onValueChange={(value) => onSelectRota?.(value || null)}>
+                    <Select value={currentRotaId || 'all'} onValueChange={(value) => onSelectRota?.(value === 'all' ? null : value)}>
                       <SelectTrigger className="w-48">
                         <SelectValue placeholder="Select existing rota" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Shifts</SelectItem>
+                        <SelectItem value="all">All Shifts</SelectItem>
                         {rotas.map((rota) => (
                           <SelectItem key={rota.id} value={rota.id}>
                             {rota.name} ({rota.status}) - {rota.total_shifts} shifts

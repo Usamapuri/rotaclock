@@ -121,8 +121,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Determine if shift should be published (true if no rota, false if draft rota)
-    const isPublished = rota_id ? false : true
+    // Always create shifts as drafts by default - no auto-publishing
+    const isPublished = false
 
     if (hasOverrideCols) {
       insertSql = `
