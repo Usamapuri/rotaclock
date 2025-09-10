@@ -3,7 +3,9 @@ import bcrypt from 'bcryptjs'
 
 // Connection pool configuration for high concurrency and performance
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:QlUXSBsWFuwjhodaivUXTUXDuQhWigHL@metro.proxy.rlwy.net:36516/railway',
+  connectionString: process.env.DATABASE_URL || (process.env.NODE_ENV === 'production' 
+    ? 'postgresql://postgres:IImsWCOMgonNsYLXSDBUGsrpbGNbbsoZ@hopper.proxy.rlwy.net:48063/railway'
+    : 'postgresql://postgres:QlUXSBsWFuwjhodaivUXTUXDuQhWigHL@metro.proxy.rlwy.net:36516/railway'),
   max: 20, // Increased for better concurrency
   min: 2, // Keep minimum connections ready
   idleTimeoutMillis: 30000, // Reduced idle timeout for better resource management

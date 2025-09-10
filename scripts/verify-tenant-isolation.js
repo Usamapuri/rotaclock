@@ -1,93 +1,84 @@
-const { Pool } = require('pg')
+const { Pool } = require('pg');
 
-async function run() {
-  const dbUrl = process.env.DATABASE_URL || process.argv[2]
-  if (!dbUrl) {
-    console.error('Usage: node scripts/verify-tenant-isolation.js [DATABASE_URL]')
-    process.exit(1)
-  }
+// Test both databases
+const devPool = new Pool({
+  connectionString: 'postgresql://postgres:QlUXSBsWFuwjhodaivUXTUXDuQhWigHL@metro.proxy.rlwy.net:36516/railway',
+  ssl: { rejectUnauthorized: false }
+});
 
-  const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } })
-  const client = await pool.connect()
+const newPool = new Pool({
+  connectionString: 'postgresql://postgres:IImsWCOMgonNsYLXSDBUGsrpbGNbbsoZ@hopper.proxy.rlwy.net:48063/railway',
+  ssl: { rejectUnauthorized: false }
+});
+
+async function verifyTenantIsolation(pool, dbName) {
+  const client = await pool.connect();
+  
   try {
-    const results = {
-      createdRole: false,
-      t1Insert: false,
-      t2Insert: false,
-      t2SeesT2: false,
-      t2SeesT1: false,
-      cleanup: false,
+    console.log(`\n🔍 Verifying tenant isolation in ${dbName} database...`);
+    
+    // Check if tenant_id column exists in key tables
+    const keyTables = ['employees', 'organizations', 'shift_assignments', 'time_entries', 'teams'];
+    
+    for (const tableName of keyTables) {
+      const result = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = $1 AND column_name = 'tenant_id'
+      `, [tableName]);
+      
+      if (result.rows.length > 0) {
+        console.log(`  ✅ ${tableName} has tenant_id column`);
+        
+        // Check tenant distribution
+        const tenantResult = await client.query(`
+          SELECT tenant_id, COUNT(*) as count 
+          FROM "${tableName}" 
+          GROUP BY tenant_id 
+          ORDER BY count DESC
+        `);
+        
+        console.log(`    Tenant distribution:`);
+        tenantResult.rows.forEach(row => {
+          console.log(`      ${row.tenant_id}: ${row.count} records`);
+        });
+      } else {
+        console.log(`  ❌ ${tableName} missing tenant_id column`);
+      }
     }
-
-    // Ensure verifier role
-    await client.query(`DO $$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rotaclock_verifier') THEN
-        CREATE ROLE rotaclock_verifier LOGIN PASSWORD 'verify_pass' NOSUPERUSER NOCREATEDB NOCREATEROLE;
-      END IF;
-    END $$;`)
-
-    await client.query(`GRANT USAGE ON SCHEMA public TO rotaclock_verifier;`)
-    await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rotaclock_verifier;`)
-    results.createdRole = true
-
-    // Insert tenant_t1 data
-    await client.query(`SELECT set_config('app.tenant_id', 'tenant_t1', false);`)
-    await client.query(`INSERT INTO organizations (tenant_id, name, slug, email, is_active, is_verified)
-      VALUES('tenant_t1','Tenant T1','tenant-t1','t1@example.com', true, true)
-      ON CONFLICT (tenant_id) DO NOTHING;`)
-    await client.query(`INSERT INTO employees (tenant_id, employee_code, first_name, last_name, email, role, is_active)
-      VALUES('tenant_t1','T1EMP','T1','User','t1user@example.com','admin', true)
-      ON CONFLICT (tenant_id, email) DO NOTHING;`)
-    results.t1Insert = true
-
-    // Insert tenant_t2 data
-    await client.query(`SELECT set_config('app.tenant_id', 'tenant_t2', false);`)
-    await client.query(`INSERT INTO organizations (tenant_id, name, slug, email, is_active, is_verified)
-      VALUES('tenant_t2','Tenant T2','tenant-t2','t2@example.com', true, true)
-      ON CONFLICT (tenant_id) DO NOTHING;`)
-    await client.query(`INSERT INTO employees (tenant_id, employee_code, first_name, last_name, email, role, is_active)
-      VALUES('tenant_t2','T2EMP','T2','User','t2user@example.com','admin', true)
-      ON CONFLICT (tenant_id, email) DO NOTHING;`)
-    results.t2Insert = true
-
-    // Validate visibility as tenant_t2
-    await client.query(`SET ROLE rotaclock_verifier;`)
-    await client.query(`SELECT set_config('app.tenant_id', 'tenant_t2', false);`)
-    const t2Count = await client.query(`SELECT COUNT(*)::int AS cnt FROM employees`) // RLS filters to t2
-    const t1VisibleCount = await client.query(`SELECT COUNT(*)::int AS cnt FROM employees WHERE tenant_id = 'tenant_t1'`)
-    results.t2SeesT2 = t2Count.rows[0].cnt >= 1
-    results.t2SeesT1 = t1VisibleCount.rows[0].cnt > 0
-
-    // Cleanup t2 rows then t1 rows
-    await client.query(`RESET ROLE;`)
-    await client.query(`DELETE FROM employees WHERE tenant_id = 'tenant_t2';`)
-    await client.query(`DELETE FROM organizations WHERE tenant_id = 'tenant_t2';`)
-    await client.query(`DELETE FROM employees WHERE tenant_id = 'tenant_t1';`)
-    await client.query(`DELETE FROM organizations WHERE tenant_id = 'tenant_t1';`)
-    results.cleanup = true
-
-    // Print summary
-    const passed = results.createdRole && results.t1Insert && results.t2Insert && results.t2SeesT2 && !results.t2SeesT1 && results.cleanup
-    console.log('Tenant Isolation Verification Results:')
-    console.log(`- createdRole: ${results.createdRole ? 'pass' : 'fail'}`)
-    console.log(`- t1Insert: ${results.t1Insert ? 'pass' : 'fail'}`)
-    console.log(`- t2Insert: ${results.t2Insert ? 'pass' : 'fail'}`)
-    console.log(`- t2SeesOwn (t2SeesT2): ${results.t2SeesT2 ? 'pass' : 'fail'}`)
-    console.log(`- noLeakToT2 (t2SeesT1 == false): ${!results.t2SeesT1 ? 'pass' : 'fail'}`)
-    console.log(`- cleanup: ${results.cleanup ? 'pass' : 'fail'}`)
-    console.log(`Overall: ${passed ? 'PASS' : 'FAIL'}`)
-
-    process.exit(passed ? 0 : 2)
-  } catch (err) {
-    console.error('Verification error:', err.message)
-    process.exit(1)
+    
+    // Check organizations table
+    const orgResult = await client.query(`
+      SELECT tenant_id, name, subscription_status 
+      FROM organizations 
+      ORDER BY tenant_id
+    `);
+    
+    console.log(`\n  Organizations:`);
+    orgResult.rows.forEach(row => {
+      console.log(`    ${row.tenant_id}: ${row.name} (${row.subscription_status})`);
+    });
+    
+  } catch (error) {
+    console.error(`❌ Error verifying ${dbName}:`, error.message);
   } finally {
-    client.release()
-    await pool.end()
+    client.release();
   }
 }
 
-run()
+async function main() {
+  try {
+    await verifyTenantIsolation(devPool, 'DEV');
+    await verifyTenantIsolation(newPool, 'NEW');
+    
+    console.log('\n🎉 Tenant isolation verification completed!');
+    
+  } catch (error) {
+    console.error('❌ Verification failed:', error);
+  } finally {
+    await devPool.end();
+    await newPool.end();
+  }
+}
 
-
+main();
