@@ -59,6 +59,7 @@ const positions = [
 ]
 
 const roles = [
+  "agent",
   "employee",
   "lead", 
   "manager",
@@ -73,7 +74,7 @@ export default function NewEmployee() {
     email: "",
     department: "",
     job_position: "",
-    role: "employee",
+    role: "agent",
     hire_date: new Date().toISOString().split('T')[0],
     hourly_rate: 0,
     max_hours_per_week: 40,

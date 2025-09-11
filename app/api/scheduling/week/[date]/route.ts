@@ -41,11 +41,11 @@ export async function GET(
     const weekStartStr = weekStart.toISOString().split('T')[0]
     const weekEndStr = weekEnd.toISOString().split('T')[0]
 
-    // Employees for tenant - only show agents
+    // Employees for tenant - show schedulable roles
     let employeesQuery = `
       SELECT id, employee_code, first_name, last_name, email, department, job_position
       FROM employees
-      WHERE is_active = true AND tenant_id = $1 AND role = 'agent'
+      WHERE is_active = true AND tenant_id = $1 AND role IN ('agent','employee')
     `
     const employeesParams: any[] = [tenantContext.tenant_id]
 
