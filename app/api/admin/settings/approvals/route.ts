@@ -8,8 +8,24 @@ export async function GET(request: NextRequest) {
     const auth = createApiAuthMiddleware(); const { user, isAuthenticated } = await auth(request)
     if (!isAuthenticated || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const tenant = await getTenantContext(user.id); if (!tenant) return NextResponse.json({ error: 'No tenant' }, { status: 403 })
-    const res = await query(`SELECT allow_manager_approvals, pay_period_type, custom_period_days, week_start_day FROM tenant_settings WHERE tenant_id = $1`, [tenant.tenant_id])
-    const row = res.rows[0] || { allow_manager_approvals:false, pay_period_type:'weekly', custom_period_days:null, week_start_day:1 }
+    let row: any = null
+    try {
+      const res = await query(`SELECT allow_manager_approvals, pay_period_type, custom_period_days, week_start_day FROM tenant_settings WHERE tenant_id = $1`, [tenant.tenant_id])
+      row = res.rows[0] || null
+    } catch (e: any) {
+      // Auto-bootstrap table if missing (dev env convenience)
+      if (String(e?.message || '').includes('tenant_settings')) {
+        await query(`CREATE TABLE IF NOT EXISTS tenant_settings (
+          tenant_id VARCHAR(80) PRIMARY KEY,
+          allow_manager_approvals BOOLEAN DEFAULT false,
+          pay_period_type VARCHAR(20) DEFAULT 'weekly',
+          custom_period_days INTEGER,
+          week_start_day INTEGER DEFAULT 1,
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )`)
+      }
+    }
+    row = row || { allow_manager_approvals:false, pay_period_type:'weekly', custom_period_days:null, week_start_day:1 }
     return NextResponse.json({ success: true, data: row })
   } catch (e) {
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
