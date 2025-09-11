@@ -1,33 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const id = params.id
-    const result = await query(`
-      SELECT 
-        id,
-        employee_code as employee_id,
-        first_name,
-        last_name,
-        email,
-        department,
-        job_position as position,
-        hire_date,
-        hourly_rate::numeric,
-        is_active,
-        is_online,
-        last_online
-      FROM employees_new
-      WHERE id = $1
-    `, [id])
-    if (result.rows.length === 0) {
-      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 })
+    const auth = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await auth(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const tenant = await getTenantContext(user.id)
+    if (!tenant) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
+
+    const { id } = params
+
+    const result = await query(
+      `SELECT 
+         e.id,
+         e.employee_code as employee_id,
+         e.first_name,
+         e.last_name,
+         e.email,
+         e.department,
+         e.job_position as position,
+         e.role,
+         e.hire_date,
+         e.manager_id,
+         e.team_id,
+         e.hourly_rate,
+         e.max_hours_per_week,
+         e.is_active,
+         e.is_online,
+         e.last_online,
+         e.created_at,
+         e.updated_at
+       FROM employees e
+       WHERE e.id = $1 AND e.tenant_id = $2
+      `,
+      [id, tenant.tenant_id]
+    )
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+    }
+
     return NextResponse.json({ success: true, data: result.rows[0] })
   } catch (error) {
-    console.error('Employee GET error:', error)
-    return NextResponse.json({ success: false, error: 'Failed' }, { status: 500 })
+    console.error('Error in GET /api/employees/[id]:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
