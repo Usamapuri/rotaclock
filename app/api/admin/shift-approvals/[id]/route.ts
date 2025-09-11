@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 import { z } from 'zod'
 
 // Validation schema for shift approval actions
@@ -30,9 +31,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is admin
-    if (authResult.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 })
+    // Allow admins and managers; managers will be location-scoped per manager_locations
+    if (!(authResult.user.role === 'admin' || authResult.user.role === 'manager')) {
+      return NextResponse.json({ error: 'Access denied.' }, { status: 403 })
+    }
+
+    const tenant = await getTenantContext(authResult.user.id)
+    if (!tenant) {
+      return NextResponse.json({ error: 'No tenant' }, { status: 403 })
     }
 
     const shiftId = params.id
@@ -48,8 +54,16 @@ export async function PATCH(
 
     // Get the current shift log
     const shiftResult = await query(
-      'SELECT * FROM shift_logs WHERE id = $1',
-      [shiftId]
+      `SELECT sl.*
+       FROM shift_logs sl
+       JOIN employees e ON e.id = sl.employee_id AND e.tenant_id = sl.tenant_id
+       WHERE sl.id = $1 AND sl.tenant_id = $2
+       ${authResult.user.role === 'manager' ? `AND e.location_id IN (
+          SELECT location_id FROM manager_locations
+          WHERE tenant_id = $2 AND manager_id = $3
+        )` : ''}
+      `,
+      authResult.user.role === 'manager' ? [shiftId, tenant.tenant_id, authResult.user.id] : [shiftId, tenant.tenant_id]
     )
 
     if (shiftResult.rows.length === 0) {

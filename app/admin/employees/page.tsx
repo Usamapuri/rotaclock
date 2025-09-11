@@ -236,10 +236,8 @@ export default function AdminEmployees() {
         const role = data.targetUser.role
         if (role === 'employee' || role === 'agent') {
           router.push('/employee/dashboard')
-        } else if (role === 'team_lead') {
-          router.push('/team-lead/dashboard')
-        } else if (role === 'project_manager') {
-          router.push('/project-manager/dashboard')
+        } else if (role === 'manager') {
+          router.push('/admin/dashboard')
         } else {
           router.push('/admin/dashboard')
         }

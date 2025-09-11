@@ -8,7 +8,7 @@ async function main() {
     process.exit(1)
   }
   const sql = fs.readFileSync(sqlPath, 'utf8')
-  const client = new Client({ connectionString: conn })
+  const client = new Client({ connectionString: conn, ssl: { rejectUnauthorized: false } })
   try {
     await client.connect()
     await client.query('BEGIN')

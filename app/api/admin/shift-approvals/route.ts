@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { getTenantContext } from '@/lib/tenant'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,9 +12,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is admin
-    if (authResult.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 })
+    // Allow admins and managers; managers will be location-scoped
+    if (!(authResult.user.role === 'admin' || authResult.user.role === 'manager')) {
+      return NextResponse.json({ error: 'Access denied.' }, { status: 403 })
+    }
+
+    const tenantContext = await getTenantContext(authResult.user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -22,23 +28,28 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
 
-    // Build the query based on status filter
-    let whereClause = ''
-    let params: any[] = []
-    
+    // Build the query based on status filter and role scoping
+    const whereParts: string[] = ['te.tenant_id = $1', "te.status = 'completed'"]
+    const params: any[] = [tenantContext.tenant_id]
+
     if (status === 'pending') {
-      whereClause = 'WHERE te.approval_status = $1 AND te.status = $2 AND te.tenant_id = $3'
-      params.push('pending', 'completed', tenantContext.tenant_id)
+      whereParts.push("te.approval_status = 'pending'")
     } else if (status === 'approved') {
-      whereClause = 'WHERE te.approval_status = $1 AND te.status = $2 AND te.tenant_id = $3'
-      params.push('approved', 'completed', tenantContext.tenant_id)
+      whereParts.push("te.approval_status = 'approved'")
     } else if (status === 'rejected') {
-      whereClause = 'WHERE te.approval_status = $1 AND te.status = $2 AND te.tenant_id = $3'
-      params.push('rejected', 'completed', tenantContext.tenant_id)
+      whereParts.push("te.approval_status = 'rejected'")
     } else if (status === 'all') {
-      whereClause = 'WHERE te.approval_status IN ($1, $2, $3) AND te.status = $4 AND te.tenant_id = $5'
-      params.push('pending', 'approved', 'rejected', 'completed', tenantContext.tenant_id)
+      whereParts.push("te.approval_status IN ('pending','approved','rejected')")
     }
+
+    // If manager, restrict to their assigned locations
+    if (authResult.user.role === 'manager') {
+      const idx = params.length + 1
+      whereParts.push(`e.location_id IN (SELECT location_id FROM manager_locations WHERE tenant_id = $1 AND manager_id = $${idx})`)
+      params.push(authResult.user.id)
+    }
+
+    const whereClause = `WHERE ${whereParts.join(' AND ')}`
 
     // Get total count
     const countQuery = `

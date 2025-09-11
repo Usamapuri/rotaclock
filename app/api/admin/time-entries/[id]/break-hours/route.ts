@@ -13,7 +13,7 @@ export async function PUT(
     if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (user.role !== 'admin') {
+    if (!(user.role === 'admin' || user.role === 'manager')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const tenant = await getTenantContext(user.id)
@@ -28,12 +28,18 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid break_hours' }, { status: 400 })
     }
 
+    // Enforce manager location scoping by ensuring the employee belongs to a location they manage
     const res = await query(
-      `UPDATE time_entries 
+      `UPDATE time_entries te
        SET break_hours = $1, updated_at = NOW()
-       WHERE id = $2 AND tenant_id = $3
-       RETURNING *`,
-      [newBreakHours, id, tenant.tenant_id]
+       FROM employees e
+       WHERE te.id = $2 AND te.tenant_id = $3 AND e.id = te.employee_id AND e.tenant_id = te.tenant_id
+       ${user.role === 'manager' ? `AND e.location_id IN (
+          SELECT location_id FROM manager_locations
+          WHERE tenant_id = $3 AND manager_id = $4
+        )` : ''}
+       RETURNING te.*`,
+      user.role === 'manager' ? [newBreakHours, id, tenant.tenant_id, user.id] : [newBreakHours, id, tenant.tenant_id]
     )
 
     if (res.rows.length === 0) {

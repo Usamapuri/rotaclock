@@ -80,4 +80,15 @@ END$$;
 
 COMMIT;
 
+-- Optional cleanup: drop legacy tables if present and no longer used
+DO $$
+BEGIN
+  IF to_regclass('public.project_managers') IS NOT NULL THEN
+    EXECUTE 'DROP TABLE public.project_managers';
+  END IF;
+  IF to_regclass('public.team_leads') IS NOT NULL THEN
+    EXECUTE 'DROP TABLE public.team_leads';
+  END IF;
+END$$;
+
 
