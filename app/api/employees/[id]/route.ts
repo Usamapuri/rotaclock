@@ -38,10 +38,24 @@ export async function GET(
          e.is_active,
          e.is_online,
          e.last_online,
+         e.phone,
+         e.address,
+         e.emergency_contact,
+         e.emergency_phone,
+         e.notes,
          e.created_at,
-         e.updated_at
+         e.updated_at,
+         r.display_name as role_display_name,
+         r.description as role_description,
+         COUNT(DISTINCT sa.id) as total_assignments,
+         COUNT(DISTINCT te.id) as total_time_entries,
+         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
        FROM employees e
+       LEFT JOIN roles r ON e.role = r.name
+       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
+       LEFT JOIN time_entries te ON e.id = te.employee_id AND te.tenant_id = e.tenant_id
        WHERE e.id = $1 AND e.tenant_id = $2
+       GROUP BY e.id, e.employee_code, e.first_name, e.last_name, e.email, e.department, e.job_position, e.role, e.hire_date, e.manager_id, e.team_id, e.hourly_rate, e.max_hours_per_week, e.is_active, e.is_online, e.last_online, e.phone, e.address, e.emergency_contact, e.emergency_phone, e.notes, e.created_at, e.updated_at, r.display_name, r.description
       `,
       [id, tenant.tenant_id]
     )
@@ -69,6 +83,14 @@ const updateEmployeeSchema = z.object({
   hourly_rate: z.number().positive().optional(),
   is_active: z.boolean().optional(),
   max_hours_per_week: z.number().positive().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  emergency_contact: z.string().optional(),
+  emergency_phone: z.string().optional(),
+  notes: z.string().optional(),
+  role: z.enum(['admin', 'manager', 'lead', 'employee', 'agent']).optional(),
+  team_id: z.string().uuid().optional(),
+  manager_id: z.string().uuid().optional(),
 })
 
 export async function PUT(
@@ -83,7 +105,7 @@ export async function PUT(
     const validatedData = updateEmployeeSchema.parse(body)
     
       // Check if employee exists
-      const checkQuery = 'SELECT * FROM employees_new WHERE id = $1'
+      const checkQuery = 'SELECT * FROM employees WHERE id = $1'
       const checkResult = await query(checkQuery, [employeeId])
       
       if (checkResult.rows.length === 0) {
@@ -149,6 +171,54 @@ export async function PUT(
         paramCount++
       }
       
+      if (validatedData.phone !== undefined) {
+        updateFields.push(`phone = $${paramCount}`)
+        updateValues.push(validatedData.phone)
+        paramCount++
+      }
+      
+      if (validatedData.address !== undefined) {
+        updateFields.push(`address = $${paramCount}`)
+        updateValues.push(validatedData.address)
+        paramCount++
+      }
+      
+      if (validatedData.emergency_contact !== undefined) {
+        updateFields.push(`emergency_contact = $${paramCount}`)
+        updateValues.push(validatedData.emergency_contact)
+        paramCount++
+      }
+      
+      if (validatedData.emergency_phone !== undefined) {
+        updateFields.push(`emergency_phone = $${paramCount}`)
+        updateValues.push(validatedData.emergency_phone)
+        paramCount++
+      }
+      
+      if (validatedData.notes !== undefined) {
+        updateFields.push(`notes = $${paramCount}`)
+        updateValues.push(validatedData.notes)
+        paramCount++
+      }
+      
+      if (validatedData.role !== undefined) {
+        updateFields.push(`role = $${paramCount}`)
+        updateValues.push(validatedData.role)
+        paramCount++
+      }
+      
+      if (validatedData.team_id !== undefined) {
+        updateFields.push(`team_id = $${paramCount}`)
+        updateValues.push(validatedData.team_id)
+        paramCount++
+      }
+      
+      if (validatedData.manager_id !== undefined) {
+        updateFields.push(`manager_id = $${paramCount}`)
+        updateValues.push(validatedData.manager_id)
+        paramCount++
+      }
+      
       // Add updated_at timestamp
       updateFields.push(`updated_at = NOW()`)
       
@@ -191,69 +261,6 @@ export async function PUT(
       )
     }
     
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function LEGACY_GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const employeeIdParam = params.id
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeIdParam)
-    
-    const queryText = `
-      SELECT 
-        e.id,
-        e.employee_id,
-        e.first_name,
-        e.last_name,
-        e.email,
-        e.department,
-        e.position,
-        e.hire_date,
-        e.hourly_rate,
-        e.is_active,
-        e.is_online,
-        e.last_online,
-        e.role,
-        r.display_name as role_display_name,
-        r.description as role_description,
-        r.permissions as role_permissions,
-        r.dashboard_access as role_dashboard_access,
-        e.team_id,
-        e.manager_id,
-        e.max_hours_per_week,
-        e.created_at,
-        e.updated_at,
-        COUNT(DISTINCT sa.id) as total_assignments,
-        COUNT(DISTINCT te.id) as total_time_entries,
-        COALESCE(SUM(te.total_hours), 0) as total_hours_worked
-      FROM employees_new e
-      LEFT JOIN roles r ON e.role = r.name
-      LEFT JOIN shift_assignments sa ON e.id = sa.employee_id
-      LEFT JOIN time_entries te ON e.id = te.employee_id
-      WHERE ${isUuid ? 'e.id' : 'e.employee_id'} = $1
-      GROUP BY e.id, e.employee_id, e.first_name, e.last_name, e.email, e.department, e.position, e.hire_date, e.hourly_rate, e.is_active, e.is_online, e.last_online, e.role, r.display_name, r.description, r.permissions, r.dashboard_access, e.team_id, e.manager_id, e.max_hours_per_week, e.created_at, e.updated_at
-    `
-    
-    const result = await query(queryText, [employeeIdParam])
-    
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Employee not found' },
-        { status: 404 }
-      )
-    }
-    
-    return NextResponse.json({ data: result.rows[0] })
-    
-  } catch (error) {
-    console.error('Error fetching employee:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
