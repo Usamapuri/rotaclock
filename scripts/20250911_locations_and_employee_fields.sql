@@ -2,6 +2,9 @@
 -- Tenant isolation is enforced via tenant_id columns and composite uniques
 
 BEGIN;
+
+-- Ensure required extensions
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- Optional cleanup of legacy project-manager/team-lead artifacts (safe-drop)
 DO $$
 BEGIN
@@ -33,6 +36,16 @@ CREATE TABLE IF NOT EXISTS locations (
 
   UNIQUE(tenant_id, id),
   UNIQUE(tenant_id, name)
+);
+
+-- 1b) Tenant settings for approvals and pay periods
+CREATE TABLE IF NOT EXISTS tenant_settings (
+  tenant_id VARCHAR(80) PRIMARY KEY,
+  allow_manager_approvals BOOLEAN DEFAULT false,
+  pay_period_type VARCHAR(20) DEFAULT 'weekly', -- weekly | biweekly | custom
+  custom_period_days INTEGER,
+  week_start_day INTEGER DEFAULT 1, -- 1=Monday
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 2) Mapping managers to locations they manage

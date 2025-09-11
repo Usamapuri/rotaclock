@@ -3,6 +3,7 @@ import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 import { z } from 'zod'
+import { query as db } from '@/lib/database'
 
 // Validation schema for shift approval actions
 const approvalSchema = z.object({
@@ -31,7 +32,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Allow admins and managers; managers will be location-scoped per manager_locations
+    // Allow admins and managers; managers location-scoped when config permits
     if (!(authResult.user.role === 'admin' || authResult.user.role === 'manager')) {
       return NextResponse.json({ error: 'Access denied.' }, { status: 403 })
     }
@@ -39,6 +40,14 @@ export async function PATCH(
     const tenant = await getTenantContext(authResult.user.id)
     if (!tenant) {
       return NextResponse.json({ error: 'No tenant' }, { status: 403 })
+    }
+
+    // Settings gate for manager approvals
+    if (authResult.user.role === 'manager') {
+      const s = await db(`SELECT allow_manager_approvals FROM tenant_settings WHERE tenant_id = $1`, [tenant.tenant_id])
+      if (s.rows[0]?.allow_manager_approvals !== true) {
+        return NextResponse.json({ error: 'Manager approvals disabled by settings' }, { status: 403 })
+      }
     }
 
     const shiftId = params.id

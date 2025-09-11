@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface ShiftApproval {
   id: string
@@ -71,6 +72,10 @@ interface ShiftApproval {
   scheduled_end_time: string
   approver_first_name: string
   approver_last_name: string
+  missing_events?: boolean
+  is_late?: boolean
+  early_leave?: boolean
+  overtime?: boolean
 }
 
 interface ApprovalStats {
@@ -104,6 +109,12 @@ export default function ShiftApprovalsPage() {
     admin_notes: '',
     rejection_reason: ''
   })
+  const [editTimes, setEditTimes] = useState({ clock_in: '', clock_out: '', break_hours: '' })
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [tenantSettings, setTenantSettings] = useState<any>(null)
+  const [lastPeriodText, setLastPeriodText] = useState('')
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -139,12 +150,29 @@ export default function ShiftApprovalsPage() {
     if (!selectedApproval) return
 
     try {
+      if (approvalAction === 'edit') {
+        const cin = editTimes.clock_in ? new Date(editTimes.clock_in) : null
+        const cout = editTimes.clock_out ? new Date(editTimes.clock_out) : null
+        const bh = editTimes.break_hours ? parseFloat(editTimes.break_hours) : 0
+        if (cin && cout && cout <= cin) {
+          return toast.error('Clock-out must be after clock-in')
+        }
+        if (bh < 0) return toast.error('Break hours cannot be negative')
+        if (cin && cout) {
+          const diff = (cout.getTime() - cin.getTime()) / 3600000
+          if (bh > diff) return toast.error('Break hours cannot exceed total hours')
+        }
+      }
+
       const response = await fetch(`/api/admin/shift-approvals/${selectedApproval.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: approvalAction,
-          ...approvalData
+          ...approvalData,
+          clock_in: editTimes.clock_in || null,
+          clock_out: editTimes.clock_out || null,
+          break_hours: editTimes.break_hours ? parseFloat(editTimes.break_hours) : undefined
         })
       })
 
@@ -172,7 +200,109 @@ export default function ShiftApprovalsPage() {
       admin_notes: approval.admin_notes || '',
       rejection_reason: approval.rejection_reason || ''
     })
+    setEditTimes({
+      clock_in: approval.clock_in_time ? approval.clock_in_time.slice(0,16) : '',
+      clock_out: approval.clock_out_time ? approval.clock_out_time.slice(0,16) : '',
+      break_hours: String(approval.break_time_used ?? '')
+    })
     setShowApprovalDialog(true)
+  }
+
+  const setPreset = (type: 'last_week'|'last_period') => {
+    const today = new Date()
+    const d = new Date(today)
+    if (type === 'last_week') {
+      const day = today.getDay() || 7
+      d.setDate(today.getDate() - day - 6)
+      const start = new Date(d)
+      const end = new Date(start)
+      end.setDate(start.getDate() + 6)
+      setStartDate(start.toISOString().split('T')[0])
+      setEndDate(end.toISOString().split('T')[0])
+    } else {
+      // Use tenant settings to compute the last completed pay period
+      computeLastPayPeriod()
+    }
+  }
+
+  const handleBulkApprove = async () => {
+    if (!startDate || !endDate) return toast.error('Select a date range')
+    try {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string,string> = { 'Content-Type':'application/json' }
+      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+      const res = await fetch('/api/admin/shift-approvals/bulk', { method:'POST', headers, body: JSON.stringify({ start_date: startDate, end_date: endDate }) })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`Approved ${data.approved} entries`)
+        setBulkOpen(false)
+        loadApprovals()
+      } else {
+        toast.error(data.error || 'Bulk approval failed')
+      }
+    } catch (e) {
+      toast.error('Bulk approval failed')
+    }
+  }
+
+  // Load settings when opening bulk modal
+  useEffect(() => {
+    if (!bulkOpen) return
+    ;(async () => {
+      try {
+        const user = AuthService.getCurrentUser()
+        const headers: Record<string,string> = {}
+        if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+        const res = await fetch('/api/admin/settings/approvals', { headers })
+        if (res.ok) {
+          const data = await res.json()
+          setTenantSettings(data.data)
+          const r = computeLastPayPeriodRange(data.data)
+          if (r) setLastPeriodText(`${r.start} → ${r.end}`)
+        }
+      } catch {}
+    })()
+  }, [bulkOpen])
+
+  const computeLastPayPeriodRange = (settingsOverride?: any): { start: string, end: string } | null => {
+    const settings = settingsOverride || tenantSettings || {}
+    const type = (settings.pay_period_type || 'weekly') as 'weekly'|'biweekly'|'custom'
+    const weekStart = Number(settings.week_start_day ?? 1) // 0=Sunday,1=Monday
+    const customDays = Number(settings.custom_period_days || 0)
+
+    const today = new Date()
+    // Work with dates at midnight for consistency
+    const toMidnight = (dt: Date) => { const x = new Date(dt); x.setHours(0,0,0,0); return x }
+    const addDays = (dt: Date, n: number) => { const x = new Date(dt); x.setDate(x.getDate()+n); return x }
+
+    const getWeekStart = (dt: Date, startDay: number) => {
+      const x = toMidnight(dt)
+      // JS getDay: 0=Sunday..6=Saturday
+      const curr = x.getDay()
+      const diff = (curr - startDay + 7) % 7
+      return addDays(x, -diff)
+    }
+
+    if (type === 'weekly' || type === 'biweekly') {
+      const periodDays = type === 'weekly' ? 7 : 14
+      // Start of current period
+      const currentStart = getWeekStart(today, weekStart)
+      // Last period start/end
+      const lastStart = addDays(currentStart, -periodDays)
+      const lastEnd = addDays(currentStart, -1)
+      return { start: lastStart.toISOString().split('T')[0], end: lastEnd.toISOString().split('T')[0] }
+    }
+
+    // Custom: last N days ending yesterday
+    const n = customDays > 0 ? customDays : 14
+    const end = addDays(toMidnight(today), -1)
+    const start = addDays(end, -(n-1))
+    return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }
+  }
+
+  const computeLastPayPeriod = () => {
+    const r = computeLastPayPeriodRange()
+    if (r) { setStartDate(r.start); setEndDate(r.end) }
   }
 
   const formatDuration = (hours: number) => {
@@ -346,6 +476,10 @@ export default function ShiftApprovalsPage() {
                   className="pl-9"
                 />
               </div>
+              <Button variant="outline" onClick={() => setBulkOpen(true)}>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Approve Timesheets
+              </Button>
             </div>
 
             {/* Approvals List */}
@@ -380,7 +514,7 @@ export default function ShiftApprovalsPage() {
                             </Badge>
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
                             <div>
                               <p className="text-sm font-medium text-gray-600">Shift Date</p>
                               <p className="text-sm text-gray-900">{formatDateTime(approval.clock_in_time)}</p>
@@ -394,6 +528,44 @@ export default function ShiftApprovalsPage() {
                               <p className="text-sm text-gray-900">£{approval.hourly_rate}/hr</p>
                             </div>
                           </div>
+
+                          {/* Discrepancy Flags */}
+                          <TooltipProvider>
+                            <div className="flex items-center gap-3 mb-4 text-sm">
+                              {approval.missing_events && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help">🔴</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Missing clock-in or clock-out</TooltipContent>
+                                </Tooltip>
+                              )}
+                              {approval.is_late && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help">⏰</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Employee clocked in late</TooltipContent>
+                                </Tooltip>
+                              )}
+                              {approval.early_leave && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help">🏃‍♂️</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Employee left early</TooltipContent>
+                                </Tooltip>
+                              )}
+                              {approval.overtime && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help">➕</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Overtime beyond scheduled + 15m</TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </TooltipProvider>
                           
                           {approval.shift_remarks && (
                             <div className="mb-4">
@@ -493,6 +665,20 @@ export default function ShiftApprovalsPage() {
                       onChange={(e) => setApprovalData(prev => ({ ...prev, approved_rate: parseFloat(e.target.value) || 0 }))}
                     />
                   </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <Label>Clock In</Label>
+                      <Input type="datetime-local" value={editTimes.clock_in} onChange={e=>setEditTimes(prev=>({ ...prev, clock_in: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>Clock Out</Label>
+                      <Input type="datetime-local" value={editTimes.clock_out} onChange={e=>setEditTimes(prev=>({ ...prev, clock_out: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>Break Hours</Label>
+                      <Input type="number" step="0.25" value={editTimes.break_hours} onChange={e=>setEditTimes(prev=>({ ...prev, break_hours: e.target.value }))} />
+                    </div>
+                  </div>
                 </>
               )}
               
@@ -534,6 +720,41 @@ export default function ShiftApprovalsPage() {
               >
                 {approvalAction.charAt(0).toUpperCase() + approvalAction.slice(1)}
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Approve Dialog */}
+        <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Approve Timesheets</DialogTitle>
+              <DialogDescription>Select a date range to approve.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" onClick={() => setPreset('last_week')}>Last Week</Button>
+                <div className="space-y-1">
+                  <Button variant="outline" onClick={() => setPreset('last_period')}>Last Pay Period</Button>
+                  {lastPeriodText && (
+                    <div className="text-xs text-gray-500">{lastPeriodText}</div>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Start</Label>
+                  <Input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <Label>End</Label>
+                  <Input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={()=>setBulkOpen(false)}>Cancel</Button>
+              <Button onClick={handleBulkApprove}>Approve</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
