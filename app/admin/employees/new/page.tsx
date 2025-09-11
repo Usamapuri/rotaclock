@@ -34,6 +34,8 @@ interface EmployeeFormData {
 // Locations will be loaded from /api/locations
 
 const roles = ["agent","manager","admin"]
+const departments = ["Sales","Marketing","Operations","Support"]
+const positions = ["Agent","Senior Agent","Supervisor","Manager"]
 
 export default function NewEmployee() {
   const [formData, setFormData] = useState<EmployeeFormData>({
@@ -361,13 +363,9 @@ export default function NewEmployee() {
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                                                                         {roles.map((role) => (
+                        {roles.map((role) => (
                           <SelectItem key={role} value={role}>
-                            {role === 'employee' ? 'Agent' : 
-                             role === 'lead' ? 'Team Lead' :
-                             role === 'manager' ? 'Manager' :
-                             role === 'admin' ? 'Administrator' :
-                             role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
+                            {role === 'agent' ? 'Agent' : role === 'manager' ? 'Manager' : 'Administrator'}
                           </SelectItem>
                         ))}
                       </SelectContent>
