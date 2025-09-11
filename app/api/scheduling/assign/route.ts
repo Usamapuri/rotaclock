@@ -282,7 +282,7 @@ export async function PUT(request: NextRequest) {
 
         await query(
           `
-            INSERT INTO notifications (employee_id, title, message, type, is_read, action_url, tenant_id)
+            INSERT INTO notifications (user_id, title, message, type, read, action_url, tenant_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
           `,
           [

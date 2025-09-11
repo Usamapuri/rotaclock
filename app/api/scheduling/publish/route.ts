@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       ])
 
       await query(
-        `INSERT INTO notifications (tenant_id, employee_id, type, message, created_at)
+        `INSERT INTO notifications (tenant_id, user_id, type, message, created_at)
          VALUES ${notificationValues}
          ON CONFLICT DO NOTHING`,
         notificationParams
