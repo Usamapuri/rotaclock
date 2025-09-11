@@ -31,40 +31,9 @@ interface EmployeeFormData {
   notes?: string
 }
 
-const departments = [
-  "Engineering",
-  "Sales",
-  "Marketing",
-  "Human Resources",
-  "Finance",
-  "Operations",
-  "Customer Support",
-  "IT",
-  "Administration"
-]
+// Locations will be loaded from /api/locations
 
-const positions = [
-  "Manager",
-  "Senior Developer",
-  "Developer",
-  "Sales Representative",
-  "Marketing Specialist",
-  "HR Coordinator",
-  "Accountant",
-  "Operations Manager",
-  "Customer Support Representative",
-  "IT Support",
-  "Administrative Assistant",
-  "Intern"
-]
-
-const roles = [
-  "agent",
-  "employee",
-  "lead", 
-  "manager",
-  "admin"
-]
+const roles = ["agent","manager","admin"]
 
 export default function NewEmployee() {
   const [formData, setFormData] = useState<EmployeeFormData>({
@@ -103,6 +72,22 @@ export default function NewEmployee() {
       [field]: value
     }))
   }
+
+  const [locations, setLocations] = useState<{id:string,name:string}[]>([])
+
+  useEffect(() => {
+    const loadLocations = async () => {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string,string> = {}
+      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+      const res = await fetch('/api/locations', { headers })
+      if (res.ok) {
+        const data = await res.json()
+        setLocations((data.data||[]) as any)
+      }
+    }
+    loadLocations()
+  }, [])
 
   const generateEmployeeId = () => {
     const timestamp = Date.now().toString().slice(-6)

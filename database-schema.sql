@@ -62,12 +62,18 @@ CREATE TABLE IF NOT EXISTS employees (
     email VARCHAR(255) NOT NULL UNIQUE,
     phone VARCHAR(50),
     password_hash TEXT,
-    role VARCHAR(32) DEFAULT 'employee',
+    role VARCHAR(32) DEFAULT 'agent',
     department VARCHAR(120),
     job_position VARCHAR(120),
     hire_date DATE,
     manager_id UUID REFERENCES employees(id),
     team_id UUID,
+    -- New extended fields
+    address TEXT,
+    emergency_contact TEXT,
+    emergency_phone TEXT,
+    notes TEXT,
+    location_id UUID,
     is_active BOOLEAN DEFAULT true,
     is_email_verified BOOLEAN DEFAULT false,
     hourly_rate NUMERIC,
@@ -82,6 +88,31 @@ CREATE TABLE IF NOT EXISTS employees (
     UNIQUE(tenant_id, id),
     UNIQUE(tenant_id, employee_code),
     UNIQUE(tenant_id, email)
+);
+
+-- Locations table (tenant-scoped)
+CREATE TABLE IF NOT EXISTS locations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id VARCHAR(80) NOT NULL,
+    organization_id UUID,
+    name VARCHAR(120) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id, id),
+    UNIQUE(tenant_id, name)
+);
+
+-- Manager-to-location mapping
+CREATE TABLE IF NOT EXISTS manager_locations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id VARCHAR(80) NOT NULL,
+    manager_id UUID NOT NULL REFERENCES employees(id),
+    location_id UUID NOT NULL REFERENCES locations(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id, manager_id, location_id)
 );
 
 -- =====================================================

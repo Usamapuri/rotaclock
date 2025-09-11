@@ -11,16 +11,20 @@ const createEmployeeSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
   last_name: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
-  department: z.string().min(1, 'Department is required'),
-  job_position: z.string().min(1, 'Job position is required'),
-  // Include 'agent' to align with scheduling filters; default to 'agent'
-  role: z.enum(['admin', 'manager', 'lead', 'employee', 'agent']).default('agent'),
+  department: z.string().optional(),
+  job_position: z.string().optional(),
+  role: z.enum(['admin','manager','agent']).default('agent'),
   hire_date: z.string().optional(),
   manager_id: z.string().uuid().optional(),
   team_id: z.string().uuid().optional(),
   hourly_rate: z.number().positive().optional(),
   max_hours_per_week: z.number().positive().optional(),
   is_active: z.boolean().default(true),
+  address: z.string().optional(),
+  emergency_contact: z.string().optional(),
+  emergency_phone: z.string().optional(),
+  notes: z.string().optional(),
+  location_id: z.string().uuid().optional(),
   password: z.string().optional()
 })
 
@@ -226,8 +230,14 @@ export async function POST(request: NextRequest) {
     const insertQuery = `
       INSERT INTO employees (
         employee_code, first_name, last_name, email, department, job_position,
-        role, hire_date, manager_id, team_id, hourly_rate, max_hours_per_week, is_active, password_hash, tenant_id, organization_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        role, hire_date, manager_id, team_id, hourly_rate, max_hours_per_week,
+        is_active, password_hash, tenant_id, organization_id,
+        phone, address, emergency_contact, emergency_phone, notes, location_id
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
+        $13,$14,$15,$16,
+        $17,$18,$19,$20,$21,$22
+      )
       RETURNING *
     `
 
@@ -236,18 +246,24 @@ export async function POST(request: NextRequest) {
       validatedData.first_name,
       validatedData.last_name,
       validatedData.email,
-      validatedData.department,
-      validatedData.job_position,
+      validatedData.department || null,
+      validatedData.job_position || null,
       validatedData.role,
       validatedData.hire_date || new Date().toISOString().split('T')[0],
-      validatedData.manager_id,
-      validatedData.team_id,
-      validatedData.hourly_rate,
-      validatedData.max_hours_per_week,
+      validatedData.manager_id || null,
+      validatedData.team_id || null,
+      validatedData.hourly_rate || null,
+      validatedData.max_hours_per_week || 40,
       validatedData.is_active,
       passwordHash,
       tenantContext.tenant_id,
-      tenantContext.organization_id
+      tenantContext.organization_id,
+      validatedData.phone || null,
+      validatedData.address || null,
+      validatedData.emergency_contact || null,
+      validatedData.emergency_phone || null,
+      validatedData.notes || null,
+      validatedData.location_id || null
     ])
 
     const newEmployee = insertResult.rows[0]

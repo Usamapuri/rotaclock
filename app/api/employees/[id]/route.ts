@@ -43,19 +43,22 @@ export async function GET(
          e.emergency_contact,
          e.emergency_phone,
          e.notes,
+         e.location_id,
          e.created_at,
          e.updated_at,
          r.display_name as role_display_name,
          r.description as role_description,
+         l.name as location_name,
          COUNT(DISTINCT sa.id) as total_assignments,
          COUNT(DISTINCT te.id) as total_time_entries,
          COALESCE(SUM(te.total_hours), 0) as total_hours_worked
        FROM employees e
        LEFT JOIN roles r ON e.role = r.name
+       LEFT JOIN locations l ON e.location_id = l.id AND l.tenant_id = e.tenant_id
        LEFT JOIN shift_assignments sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
        LEFT JOIN time_entries te ON e.id = te.employee_id AND te.tenant_id = e.tenant_id
        WHERE e.id = $1 AND e.tenant_id = $2
-       GROUP BY e.id, e.employee_code, e.first_name, e.last_name, e.email, e.department, e.job_position, e.role, e.hire_date, e.manager_id, e.team_id, e.hourly_rate, e.max_hours_per_week, e.is_active, e.is_online, e.last_online, e.phone, e.address, e.emergency_contact, e.emergency_phone, e.notes, e.created_at, e.updated_at, r.display_name, r.description
+       GROUP BY e.id, e.employee_code, e.first_name, e.last_name, e.email, e.department, e.job_position, e.role, e.hire_date, e.manager_id, e.team_id, e.hourly_rate, e.max_hours_per_week, e.is_active, e.is_online, e.last_online, e.phone, e.address, e.emergency_contact, e.emergency_phone, e.notes, e.location_id, e.created_at, e.updated_at, r.display_name, r.description, l.name
       `,
       [id, tenant.tenant_id]
     )
@@ -84,13 +87,14 @@ const updateEmployeeSchema = z.object({
   is_active: z.boolean().optional(),
   max_hours_per_week: z.number().positive().optional(),
   phone: z.string().optional(),
+  role: z.enum(['admin','manager','agent']).optional(),
+  team_id: z.string().uuid().optional(),
+  manager_id: z.string().uuid().optional(),
   address: z.string().optional(),
   emergency_contact: z.string().optional(),
   emergency_phone: z.string().optional(),
   notes: z.string().optional(),
-  role: z.enum(['admin', 'manager', 'lead', 'employee', 'agent']).optional(),
-  team_id: z.string().uuid().optional(),
-  manager_id: z.string().uuid().optional(),
+  location_id: z.string().uuid().optional(),
 })
 
 export async function PUT(
@@ -216,6 +220,12 @@ export async function PUT(
       if (validatedData.manager_id !== undefined) {
         updateFields.push(`manager_id = $${paramCount}`)
         updateValues.push(validatedData.manager_id)
+        paramCount++
+      }
+
+      if (validatedData.location_id !== undefined) {
+        updateFields.push(`location_id = $${paramCount}`)
+        updateValues.push(validatedData.location_id)
         paramCount++
       }
       
