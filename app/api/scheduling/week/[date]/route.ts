@@ -45,7 +45,7 @@ export async function GET(
     let employeesQuery = `
       SELECT id, employee_code, first_name, last_name, email, department, job_position
       FROM employees
-      WHERE is_active = true AND tenant_id = $1 AND role = 'agent'
+      WHERE is_active = true AND tenant_id = $1 AND role IN ('agent','employee')
     `
     const employeesParams: any[] = [tenantContext.tenant_id]
 

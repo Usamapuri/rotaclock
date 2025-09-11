@@ -430,7 +430,7 @@ export default function AdminEmployees() {
           <CardHeader>
             <CardTitle>Agent Directory</CardTitle>
             <CardDescription>
-              Manage agent information, departments, and hourly rates
+              Manage agent information, roles, and hourly rates
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -438,8 +438,7 @@ export default function AdminEmployees() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Agent</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Position</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Hourly Rate</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Hours Worked</TableHead>
@@ -463,11 +462,8 @@ export default function AdminEmployees() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getDepartmentColor(employee.department)}>
-                        {employee.department}
-                      </Badge>
+                      <Badge variant="outline">{(employee as any).role || 'agent'}</Badge>
                     </TableCell>
-                    <TableCell>{employee.job_position || employee.position}</TableCell>
                     <TableCell>
                       <div className="flex items-center">
                         <DollarSign className="h-3 w-3 mr-1" />

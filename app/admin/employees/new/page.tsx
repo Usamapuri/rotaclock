@@ -18,8 +18,6 @@ interface EmployeeFormData {
   first_name: string
   last_name: string
   email: string
-  department: string
-  job_position: string
   role: string
   hire_date: string
   hourly_rate: number
@@ -34,8 +32,6 @@ interface EmployeeFormData {
 // Locations will be loaded from /api/locations
 
 const roles = ["agent","manager","admin"]
-const departments = ["Sales","Marketing","Operations","Support"]
-const positions = ["Agent","Senior Agent","Supervisor","Manager"]
 
 export default function NewEmployee() {
   const [formData, setFormData] = useState<EmployeeFormData>({
@@ -248,26 +244,7 @@ export default function NewEmployee() {
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                                    <div>
-                    <Label htmlFor="employee_code">Agent ID *</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        id="employee_code"
-                        value={formData.employee_code}
-                        onChange={(e) => handleInputChange('employee_code', e.target.value)}
-                        placeholder="EMP001"
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleGenerateId}
-                        className="whitespace-nowrap"
-                      >
-                        Generate
-                      </Button>
-                    </div>
-                  </div>
+                  {/* Agent ID removed - auto generated server-side */}
 
                   <div>
                     <Label htmlFor="first_name">First Name *</Label>
@@ -315,43 +292,7 @@ export default function NewEmployee() {
                 </div>
 
                 <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="department">Department *</Label>
-                    <Select
-                      value={formData.department}
-                      onValueChange={(value) => handleInputChange('department', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {departments.map((dept) => (
-                          <SelectItem key={dept} value={dept}>
-                            {dept}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="job_position">Position *</Label>
-                    <Select
-                      value={formData.job_position}
-                      onValueChange={(value) => handleInputChange('job_position', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select position" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {positions.map((pos) => (
-                          <SelectItem key={pos} value={pos}>
-                            {pos}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Department and Position removed */}
 
                   <div>
                     <Label htmlFor="role">Role *</Label>

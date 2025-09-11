@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs'
 
 // Validation schemas
 const createEmployeeSchema = z.object({
-  employee_code: z.string().min(1, 'Employee code is required'),
+  employee_code: z.string().optional(),
   first_name: z.string().min(1, 'First name is required'),
   last_name: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
@@ -190,6 +190,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createEmployeeSchema.parse(body)
 
+    // Auto-generate employee_code if missing: EMP+sequence
+    let employeeCode = validatedData.employee_code
+    if (!employeeCode) {
+      const seqRes = await query(`SELECT 'EMP' || LPAD(CAST(COALESCE(MAX(CAST(SUBSTRING(employee_code, 4) AS INTEGER)), 0) + 1 AS TEXT), 4, '0') AS next FROM employees WHERE tenant_id = $1`, [tenantContext.tenant_id])
+      employeeCode = seqRes.rows[0]?.next || `EMP${Date.now().toString().slice(-6)}`
+    }
+
     // Add tenant_id to the employee data
     const employeeData = {
       ...validatedData,
@@ -200,7 +207,7 @@ export async function POST(request: NextRequest) {
     // Check if employee_code already exists within this tenant
     const existingEmployeeResult = await query(
       'SELECT id FROM employees WHERE employee_code = $1 AND tenant_id = $2',
-      [validatedData.employee_code, tenantContext.tenant_id]
+      [employeeCode, tenantContext.tenant_id]
     )
 
     if (existingEmployeeResult.rows.length > 0) {
@@ -242,7 +249,7 @@ export async function POST(request: NextRequest) {
     `
 
     const insertResult = await query(insertQuery, [
-      validatedData.employee_code,
+      employeeCode,
       validatedData.first_name,
       validatedData.last_name,
       validatedData.email,
