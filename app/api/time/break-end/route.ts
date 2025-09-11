@@ -61,11 +61,25 @@ export async function POST(request: NextRequest) {
       WHERE id = $1 AND tenant_id = $2
     `, [target_employee_id, tenantContext.tenant_id])
 
+    // Normalize response to BreakLog shape expected by UI
+    const normalized = {
+      id: updatedBreak.id,
+      shift_log_id: updatedBreak.id,
+      employee_id: updatedBreak.employee_id,
+      break_start_time: updatedBreak.break_start,
+      break_end_time: updatedBreak.break_end,
+      break_duration: updatedBreak.break_hours,
+      break_type: 'lunch',
+      status: 'completed',
+      created_at: updatedBreak.created_at,
+      updated_at: updatedBreak.updated_at,
+    }
+
     return NextResponse.json({
       success: true,
-      data: updatedBreak,
+      data: normalized,
       message: 'Break ended successfully',
-      breakDuration: parseFloat(breakDuration.toFixed(2)), // Include break duration in response
+      breakDuration: parseFloat(breakDuration.toFixed(2)),
       totalBreakTimeUsed: parseFloat(totalBreakTimeUsed.toFixed(2))
     })
 
