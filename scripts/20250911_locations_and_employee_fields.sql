@@ -2,6 +2,22 @@
 -- Tenant isolation is enforced via tenant_id columns and composite uniques
 
 BEGIN;
+-- Optional cleanup of legacy project-manager/team-lead artifacts (safe-drop)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'team_reports') THEN
+    EXECUTE 'DROP TABLE IF EXISTS team_reports CASCADE';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'team_requests') THEN
+    EXECUTE 'DROP TABLE IF EXISTS team_requests CASCADE';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'team_assignments') THEN
+    EXECUTE 'DROP TABLE IF EXISTS team_assignments CASCADE';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'manager_teams') THEN
+    EXECUTE 'DROP TABLE IF EXISTS manager_teams CASCADE';
+  END IF;
+END$$;
 
 -- 1) Locations table
 CREATE TABLE IF NOT EXISTS locations (

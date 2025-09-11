@@ -943,34 +943,15 @@ export default function AdminDashboard() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${isPollingLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              <Button onClick={() => setShowBroadcastModal(true)} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                <Bell className="h-4 w-4 mr-2" />
-                Broadcast Message
-              </Button>
-              <Button onClick={() => router.push('/admin/reports')} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Reports
-              </Button>
-              <Button onClick={() => router.push('/admin/scheduling-new')} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                <Calendar className="h-4 w-4 mr-2" />
-                Create Shift
-              </Button>
-              <Button onClick={() => router.push('/admin/employees')} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Manage Agents
-              </Button>
-              <Button onClick={() => router.push('/admin/timesheet')} variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                <FileText className="h-4 w-4 mr-2" />
-                Timesheet
-              </Button>
+              {/* Reduced header actions to keep UI clean */}
             </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {/* Quick Actions - simplified */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
           <Button variant="outline" onClick={() => router.push('/admin/scheduling')}>
             <Calendar className="h-4 w-4 mr-2" /> Open Rota
           </Button>
@@ -979,9 +960,6 @@ export default function AdminDashboard() {
           </Button>
           <Button variant="outline" onClick={() => router.push('/admin/timesheet')}>
             <FileText className="h-4 w-4 mr-2" /> Timesheets
-          </Button>
-          <Button variant="outline" onClick={() => router.push('/admin/reports')}>
-            <BarChart3 className="h-4 w-4 mr-2" /> Reports
           </Button>
         </div>
 
@@ -1106,9 +1084,6 @@ export default function AdminDashboard() {
                       <CardTitle>Rota at a Glance</CardTitle>
                       <CardDescription>Current week's key figures</CardDescription>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => router.push('/admin/scheduling')}>
-                      <Calendar className="h-4 w-4 mr-2" /> Open Rota
-                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
