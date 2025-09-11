@@ -13,7 +13,8 @@ const createEmployeeSchema = z.object({
   email: z.string().email('Invalid email address'),
   department: z.string().min(1, 'Department is required'),
   job_position: z.string().min(1, 'Job position is required'),
-  role: z.enum(['admin', 'manager', 'lead', 'employee']).default('employee'),
+  // Include 'agent' to align with scheduling filters; default to 'agent'
+  role: z.enum(['admin', 'manager', 'lead', 'employee', 'agent']).default('agent'),
   hire_date: z.string().optional(),
   manager_id: z.string().uuid().optional(),
   team_id: z.string().uuid().optional(),
