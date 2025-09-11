@@ -189,8 +189,21 @@ export default function EmployeeDetailPage() {
   const loadEmployeeData = async () => {
     setIsLoading(true)
     try {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (user?.id) {
+        headers['authorization'] = `Bearer ${user.id}`
+      }
+      if (user?.tenant_id) {
+        headers['x-tenant-id'] = user.tenant_id
+      }
+
       // Load employee details
-      const employeeResponse = await fetch(`/api/employees/${employeeId}`)
+      const employeeResponse = await fetch(`/api/employees/${employeeId}`, {
+        headers
+      })
       console.log('Employee response status:', employeeResponse.status)
       if (employeeResponse.ok) {
         const employeeData = await employeeResponse.json()
@@ -209,7 +222,9 @@ export default function EmployeeDetailPage() {
       }
 
       // Load shift logs
-      const shiftLogsResponse = await fetch(`/api/shift-logs/employee?employee_id=${employeeId}`)
+      const shiftLogsResponse = await fetch(`/api/shift-logs/employee?employee_id=${employeeId}`, {
+        headers
+      })
       console.log('Shift logs response status:', shiftLogsResponse.status)
       if (shiftLogsResponse.ok) {
         const shiftLogsData = await shiftLogsResponse.json()
@@ -226,7 +241,9 @@ export default function EmployeeDetailPage() {
       }
 
       // Load projects
-      const projectsResponse = await fetch('/api/projects')
+      const projectsResponse = await fetch('/api/projects', {
+        headers
+      })
       console.log('Projects response status:', projectsResponse.status)
       if (projectsResponse.ok) {
         const projectsData = await projectsResponse.json()
@@ -243,7 +260,9 @@ export default function EmployeeDetailPage() {
       }
 
       // Load teams
-      const teamsResponse = await fetch('/api/teams')
+      const teamsResponse = await fetch('/api/teams', {
+        headers
+      })
       console.log('Teams response status:', teamsResponse.status)
       if (teamsResponse.ok) {
         const teamsData = await teamsResponse.json()
@@ -260,7 +279,9 @@ export default function EmployeeDetailPage() {
       }
 
       // Load team leads
-      const teamLeadsResponse = await fetch('/api/admin/team-leads')
+      const teamLeadsResponse = await fetch('/api/admin/team-leads', {
+        headers
+      })
       console.log('Team leads response status:', teamLeadsResponse.status)
       if (teamLeadsResponse.ok) {
         const teamLeadsData = await teamLeadsResponse.json()
@@ -279,7 +300,9 @@ export default function EmployeeDetailPage() {
       }
 
       // Load roles
-      const rolesResponse = await fetch('/api/admin/roles')
+      const rolesResponse = await fetch('/api/admin/roles', {
+        headers
+      })
       if (rolesResponse.ok) {
         const rolesData = await rolesResponse.json()
         setRoles(rolesData)
@@ -290,7 +313,9 @@ export default function EmployeeDetailPage() {
 
       // Load role history if employee exists
       if (employee) {
-        const roleHistoryResponse = await fetch(`/api/admin/employees/${employee.id}/role-history`)
+        const roleHistoryResponse = await fetch(`/api/admin/employees/${employee.id}/role-history`, {
+          headers
+        })
         if (roleHistoryResponse.ok) {
           const roleHistoryData = await roleHistoryResponse.json()
           setRoleHistory(roleHistoryData)
@@ -312,11 +337,20 @@ export default function EmployeeDetailPage() {
     if (!employee) return
 
     try {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (user?.id) {
+        headers['authorization'] = `Bearer ${user.id}`
+      }
+      if (user?.tenant_id) {
+        headers['x-tenant-id'] = user.tenant_id
+      }
+
       const response = await fetch(`/api/employees/${employee.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(editForm),
       })
 
@@ -339,11 +373,20 @@ export default function EmployeeDetailPage() {
     if (!employee) return
 
     try {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (user?.id) {
+        headers['authorization'] = `Bearer ${user.id}`
+      }
+      if (user?.tenant_id) {
+        headers['x-tenant-id'] = user.tenant_id
+      }
+
       const response = await fetch(`/api/admin/employees/${employee.id}/reset-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       })
 
       if (response.ok) {
@@ -363,8 +406,18 @@ export default function EmployeeDetailPage() {
     if (!employee) return
 
     try {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {}
+      if (user?.id) {
+        headers['authorization'] = `Bearer ${user.id}`
+      }
+      if (user?.tenant_id) {
+        headers['x-tenant-id'] = user.tenant_id
+      }
+
       const response = await fetch(`/api/admin/employees/${employee.id}/export-attendance`, {
         method: 'GET',
+        headers,
       })
 
       if (response.ok) {
@@ -391,11 +444,20 @@ export default function EmployeeDetailPage() {
     if (!employee || !selectedProject) return
 
     try {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (user?.id) {
+        headers['authorization'] = `Bearer ${user.id}`
+      }
+      if (user?.tenant_id) {
+        headers['x-tenant-id'] = user.tenant_id
+      }
+
       const response = await fetch('/api/admin/projects/assign-manager', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           project_id: selectedProject,
           employee_id: employee.id,
@@ -420,11 +482,20 @@ export default function EmployeeDetailPage() {
     if (!employee || !selectedTeam) return
 
     try {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (user?.id) {
+        headers['authorization'] = `Bearer ${user.id}`
+      }
+      if (user?.tenant_id) {
+        headers['x-tenant-id'] = user.tenant_id
+      }
+
       const response = await fetch(`/api/admin/teams/${selectedTeam}/assign-lead`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           employee_id: employee.id,
         }),
@@ -448,11 +519,20 @@ export default function EmployeeDetailPage() {
     if (!employee || !selectedRole) return
 
     try {
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (user?.id) {
+        headers['authorization'] = `Bearer ${user.id}`
+      }
+      if (user?.tenant_id) {
+        headers['x-tenant-id'] = user.tenant_id
+      }
+
       const response = await fetch(`/api/admin/employees/${employee.id}/role`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           new_role: selectedRole,
           reason: roleAssignmentReason || 'Role assignment',
