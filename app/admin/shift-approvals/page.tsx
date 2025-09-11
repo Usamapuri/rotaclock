@@ -23,7 +23,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   Settings,
-  RefreshCw
+  RefreshCw,
+  Lock,
+  Download
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -115,6 +117,11 @@ export default function ShiftApprovalsPage() {
   const [endDate, setEndDate] = useState('')
   const [tenantSettings, setTenantSettings] = useState<any>(null)
   const [lastPeriodText, setLastPeriodText] = useState('')
+  const [showPayrollDialog, setShowPayrollDialog] = useState(false)
+  const [payrollStartDate, setPayrollStartDate] = useState('')
+  const [payrollEndDate, setPayrollEndDate] = useState('')
+  const [isLockingPeriod, setIsLockingPeriod] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -305,6 +312,81 @@ export default function ShiftApprovalsPage() {
     if (r) { setStartDate(r.start); setEndDate(r.end) }
   }
 
+  const handleLockPayPeriod = async () => {
+    if (!payrollStartDate || !payrollEndDate) {
+      return toast.error('Please select a date range')
+    }
+
+    try {
+      setIsLockingPeriod(true)
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+
+      const response = await fetch('/api/admin/pay-periods', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          start_date: payrollStartDate,
+          end_date: payrollEndDate
+        })
+      })
+
+      const data = await response.json()
+      if (response.ok) {
+        toast.success(`Pay period locked successfully`)
+        setShowPayrollDialog(false)
+      } else {
+        toast.error(data.error || 'Failed to lock pay period')
+      }
+    } catch (error) {
+      console.error('Error locking pay period:', error)
+      toast.error('Failed to lock pay period')
+    } finally {
+      setIsLockingPeriod(false)
+    }
+  }
+
+  const handleExportPayroll = async () => {
+    if (!payrollStartDate || !payrollEndDate) {
+      return toast.error('Please select a date range')
+    }
+
+    try {
+      setIsExporting(true)
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {}
+      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+
+      const response = await fetch(
+        `/api/admin/payroll/export?start_date=${payrollStartDate}&end_date=${payrollEndDate}`,
+        { headers }
+      )
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `payroll-${payrollStartDate}-to-${payrollEndDate}.csv`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        toast.success('Payroll exported successfully')
+        setShowPayrollDialog(false)
+      } else {
+        const data = await response.json()
+        toast.error(data.error || 'Failed to export payroll')
+      }
+    } catch (error) {
+      console.error('Error exporting payroll:', error)
+      toast.error('Failed to export payroll')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const formatDuration = (hours: number) => {
     const wholeHours = Math.floor(hours)
     const minutes = Math.round((hours - wholeHours) * 60)
@@ -361,10 +443,28 @@ export default function ShiftApprovalsPage() {
               <h1 className="text-3xl font-bold text-gray-900">Shift Approvals</h1>
               <p className="text-gray-600">Review and approve employee shift submissions</p>
             </div>
-            <Button onClick={loadApprovals} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button 
+                onClick={() => setShowPayrollDialog(true)} 
+                variant="outline"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                <Lock className="h-4 w-4 mr-2" />
+                Lock Pay Period
+              </Button>
+              <Button 
+                onClick={() => setShowPayrollDialog(true)} 
+                variant="outline"
+                className="text-green-600 border-green-200 hover:bg-green-50"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Payroll
+              </Button>
+              <Button onClick={loadApprovals} variant="outline">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -755,6 +855,78 @@ export default function ShiftApprovalsPage() {
             <DialogFooter>
               <Button variant="outline" onClick={()=>setBulkOpen(false)}>Cancel</Button>
               <Button onClick={handleBulkApprove}>Approve</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Payroll Dialog */}
+        <Dialog open={showPayrollDialog} onOpenChange={setShowPayrollDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Payroll Management</DialogTitle>
+              <DialogDescription>Lock pay period or export payroll data.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" onClick={() => {
+                  const r = computeLastPayPeriodRange()
+                  if (r) { setPayrollStartDate(r.start); setPayrollEndDate(r.end) }
+                }}>
+                  Last Pay Period
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  const today = new Date()
+                  const lastWeek = new Date(today)
+                  lastWeek.setDate(today.getDate() - 7)
+                  setPayrollStartDate(lastWeek.toISOString().split('T')[0])
+                  setPayrollEndDate(today.toISOString().split('T')[0])
+                }}>
+                  Last 7 Days
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Start Date</Label>
+                  <Input 
+                    type="date" 
+                    value={payrollStartDate} 
+                    onChange={e => setPayrollStartDate(e.target.value)} 
+                  />
+                </div>
+                <div>
+                  <Label>End Date</Label>
+                  <Input 
+                    type="date" 
+                    value={payrollEndDate} 
+                    onChange={e => setPayrollEndDate(e.target.value)} 
+                  />
+                </div>
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> Locking a pay period prevents further edits to timesheets in that range. 
+                  Export generates a CSV file with all approved timesheets for payroll processing.
+                </p>
+              </div>
+            </div>
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowPayrollDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleLockPayPeriod}
+                disabled={isLockingPeriod || isExporting}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isLockingPeriod ? 'Locking...' : 'Lock Pay Period'}
+              </Button>
+              <Button 
+                onClick={handleExportPayroll}
+                disabled={isLockingPeriod || isExporting}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isExporting ? 'Exporting...' : 'Export Payroll'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
