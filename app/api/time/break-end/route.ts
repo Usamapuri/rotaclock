@@ -67,10 +67,12 @@ export async function POST(request: NextRequest) {
       shift_log_id: updatedBreak.id,
       employee_id: updatedBreak.employee_id,
       break_start_time: updatedBreak.break_start,
+      break_start: updatedBreak.break_start,
       break_end_time: updatedBreak.break_end,
       break_duration: updatedBreak.break_hours,
       break_type: 'lunch',
       status: 'completed',
+      legacy_status: 'in-progress',
       created_at: updatedBreak.created_at,
       updated_at: updatedBreak.updated_at,
     }

@@ -34,10 +34,12 @@ export async function GET(request: NextRequest) {
       shift_log_id: currentBreak.id,
       employee_id: currentBreak.employee_id,
       break_start_time: currentBreak.break_start,
+      break_start: currentBreak.break_start,
       break_end_time: currentBreak.break_end,
       break_duration: currentBreak.break_hours,
       break_type: 'lunch',
       status: 'active',
+      legacy_status: 'break',
       created_at: currentBreak.created_at,
       updated_at: currentBreak.updated_at,
     } : null

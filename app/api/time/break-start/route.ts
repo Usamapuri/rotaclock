@@ -63,10 +63,14 @@ export async function POST(request: NextRequest) {
       shift_log_id: breakLog.id,
       employee_id: breakLog.employee_id,
       break_start_time: breakLog.break_start,
+      // Legacy alias for UI fallbacks
+      break_start: breakLog.break_start,
       break_end_time: breakLog.break_end || null,
       break_duration: breakLog.break_hours || 0,
       break_type: 'lunch',
       status: 'active',
+      // Legacy status alias
+      legacy_status: 'break',
       created_at: breakLog.created_at,
       updated_at: breakLog.updated_at,
     }
