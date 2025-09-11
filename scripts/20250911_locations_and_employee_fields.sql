@@ -48,6 +48,17 @@ CREATE TABLE IF NOT EXISTS tenant_settings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 1c) Pay periods registry (locking)
+CREATE TABLE IF NOT EXISTS pay_periods (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id VARCHAR(80) NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'open', -- open | locked
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(tenant_id, start_date, end_date)
+);
+
 -- 2) Mapping managers to locations they manage
 CREATE TABLE IF NOT EXISTS manager_locations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
