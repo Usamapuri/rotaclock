@@ -19,6 +19,7 @@ import EnhancedTemplateLibrary from '@/components/scheduling/EnhancedTemplateLib
 import PublishedRotasView from '@/components/scheduling/PublishedRotasView'
 import CurrentWeekView from '@/components/scheduling/CurrentWeekView'
 import MasterCalendar from '@/components/scheduling/MasterCalendar'
+import LocationFilter from '@/components/admin/LocationFilter'
 
 interface Employee {
   id: string
@@ -28,6 +29,8 @@ interface Employee {
   email: string
   department: string
   job_position: string
+  location_id?: string
+  location_name?: string
   assignments: { [date: string]: any[] }
 }
 
@@ -53,6 +56,10 @@ export default function SchedulingPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false)
+  
+  // Location filtering state
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([])
 
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -128,6 +135,23 @@ export default function SchedulingPage() {
     setEmployees(data.data.employees.map((e: any) => ({ ...e, assignments: e.assignments || {} })))
     setRotas(data.data.rotas || [])
     setCurrentRota(data.data.currentRota || null)
+  }
+
+  // Filter employees based on selected location
+  useEffect(() => {
+    if (selectedLocationId) {
+      // Filter employees by location
+      const filtered = employees.filter(emp => emp.location_id === selectedLocationId)
+      setFilteredEmployees(filtered)
+    } else {
+      // Show all employees
+      setFilteredEmployees(employees)
+    }
+  }, [employees, selectedLocationId])
+
+  // Handle location filter change
+  const handleLocationChange = (locationId: string | null) => {
+    setSelectedLocationId(locationId)
   }
 
   const handleDateChange = async (date: string) => {
@@ -457,6 +481,23 @@ export default function SchedulingPage() {
           </Card>
         </div>
 
+        {/* Location Filter */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <LocationFilter
+              selectedLocationId={selectedLocationId}
+              onLocationChange={handleLocationChange}
+              showAllOption={true}
+              showRefresh={true}
+            />
+            {selectedLocationId && (
+              <div className="text-sm text-gray-600">
+                Showing {filteredEmployees.length} of {employees.length} employees
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Main Content */}
         <Tabs defaultValue="draft-rotas" className="space-y-6">
           <TabsList className="bg-white shadow-sm border">
@@ -479,7 +520,7 @@ export default function SchedulingPage() {
           
           <TabsContent value="draft-rotas" className="space-y-6">
             <ModernWeekGrid
-              employees={employees}
+              employees={filteredEmployees}
               templates={templates}
               selectedDate={selectedDate}
               viewMode={viewMode}
