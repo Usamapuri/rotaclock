@@ -26,6 +26,7 @@ interface EmployeeFormData {
   address?: string
   emergency_contact?: string
   emergency_phone?: string
+  location_id?: string
   notes?: string
 }
 
@@ -49,6 +50,7 @@ export default function NewEmployee() {
     address: "",
     emergency_contact: "",
     emergency_phone: "",
+    location_id: "",
     notes: ""
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -123,6 +125,11 @@ export default function NewEmployee() {
     }
     if (formData.hourly_rate <= 0) {
       toast.error("Hourly rate must be greater than 0")
+      return false
+    }
+    // Require location selection if multiple locations exist
+    if (locations.length > 1 && !formData.location_id) {
+      toast.error("Location selection is required when multiple locations exist")
       return false
     }
     return true
@@ -301,6 +308,35 @@ export default function NewEmployee() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Location Selection - only show if multiple locations exist */}
+                  {locations.length > 1 && (
+                    <div>
+                      <Label htmlFor="location_id">Location *</Label>
+                      <Select
+                        value={formData.location_id}
+                        onValueChange={(value) => handleInputChange('location_id', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Show message if only one location exists */}
+                  {locations.length === 1 && (
+                    <div className="text-sm text-gray-600">
+                      Employee will be assigned to: <strong>{locations[0].name}</strong>
+                    </div>
+                  )}
 
                   <div>
                     <Label htmlFor="hire_date">Hire Date *</Label>

@@ -83,6 +83,8 @@ interface Employee {
   team_id?: string
   manager_id?: string
   max_hours_per_week?: number
+  location_id?: string
+  location_name?: string
   created_at: string
   updated_at: string
 }

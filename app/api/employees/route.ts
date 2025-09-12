@@ -197,16 +197,39 @@ export async function POST(request: NextRequest) {
       employeeCode = seqRes.rows[0]?.next || `EMP${Date.now().toString().slice(-6)}`
     }
 
-    // Auto-assign default location if no location specified
+    // Get available locations for validation
+    const locationsRes = await query(`
+      SELECT id FROM locations 
+      WHERE tenant_id = $1 AND is_active = true 
+      ORDER BY created_at ASC
+    `, [tenantContext.tenant_id])
+    
+    const availableLocations = locationsRes.rows
     let locationId = validatedData.location_id
+    
+    // If no location specified, check if we can auto-assign
     if (!locationId) {
-      const defaultLocationRes = await query(`
-        SELECT id FROM locations 
-        WHERE tenant_id = $1 AND is_active = true 
-        ORDER BY created_at ASC 
-        LIMIT 1
-      `, [tenantContext.tenant_id])
-      locationId = defaultLocationRes.rows[0]?.id || null
+      if (availableLocations.length === 1) {
+        // Only one location exists, auto-assign it
+        locationId = availableLocations[0].id
+      } else if (availableLocations.length > 1) {
+        // Multiple locations exist, require admin to select
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Location selection required when multiple locations exist',
+          available_locations: availableLocations.map(l => l.id)
+        }, { status: 400 })
+      }
+      // No locations exist - locationId remains null
+    } else {
+      // Validate that the selected location exists and belongs to the tenant
+      const validLocation = availableLocations.find(l => l.id === locationId)
+      if (!validLocation) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Invalid location selected' 
+        }, { status: 400 })
+      }
     }
 
     // Add tenant_id to the employee data
