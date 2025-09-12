@@ -33,7 +33,7 @@ export function createApiAuthMiddleware() {
       if (res.rows.length > 0) {
         const e = res.rows[0]
         const role = (e.role as string) || 'employee'
-        user = { id: e.id, email: e.email, role: (role === 'team_lead' || role === 'project_manager') ? role : (role as any), employeeId: e.employee_code }
+        user = { id: e.id, email: e.email, role: role as any, employeeId: e.employee_code }
         
         // Check if this user is being impersonated
         // For now, we'll rely on the client-side impersonation state
