@@ -197,6 +197,18 @@ export async function POST(request: NextRequest) {
       employeeCode = seqRes.rows[0]?.next || `EMP${Date.now().toString().slice(-6)}`
     }
 
+    // Auto-assign default location if no location specified
+    let locationId = validatedData.location_id
+    if (!locationId) {
+      const defaultLocationRes = await query(`
+        SELECT id FROM locations 
+        WHERE tenant_id = $1 AND is_active = true 
+        ORDER BY created_at ASC 
+        LIMIT 1
+      `, [tenantContext.tenant_id])
+      locationId = defaultLocationRes.rows[0]?.id || null
+    }
+
     // Add tenant_id to the employee data
     const employeeData = {
       ...validatedData,
@@ -270,7 +282,7 @@ export async function POST(request: NextRequest) {
       validatedData.emergency_contact || null,
       validatedData.emergency_phone || null,
       validatedData.notes || null,
-      validatedData.location_id || null
+      locationId
     ])
 
     const newEmployee = insertResult.rows[0]

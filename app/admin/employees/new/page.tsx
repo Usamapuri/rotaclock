@@ -101,10 +101,6 @@ export default function NewEmployee() {
   }
 
   const validateForm = (): boolean => {
-    if (!formData.employee_code.trim()) {
-      toast.error("Employee ID is required")
-      return false
-    }
     if (!formData.first_name.trim()) {
       toast.error("First name is required")
       return false
@@ -115,14 +111,6 @@ export default function NewEmployee() {
     }
     if (!formData.email.trim()) {
       toast.error("Email is required")
-      return false
-    }
-    if (!formData.department) {
-      toast.error("Department is required")
-      return false
-    }
-    if (!formData.job_position) {
-      toast.error("Position is required")
       return false
     }
     if (!formData.role) {
@@ -165,6 +153,7 @@ export default function NewEmployee() {
         headers,
         body: JSON.stringify({
           ...formData,
+          employee_code: formData.employee_code.trim() || undefined, // Only send if provided
           is_active: true,
           password: 'password123'
         }),
