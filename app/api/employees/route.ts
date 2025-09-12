@@ -24,7 +24,7 @@ const createEmployeeSchema = z.object({
   emergency_contact: z.string().optional(),
   emergency_phone: z.string().optional(),
   notes: z.string().optional(),
-  location_id: z.string().uuid().optional(),
+  location_id: z.string().uuid().optional().or(z.literal("")),
   password: z.string().optional()
 })
 
@@ -188,6 +188,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    
+    // Convert empty string to undefined for location_id to handle form submissions
+    if (body.location_id === "") {
+      body.location_id = undefined
+    }
+    
     const validatedData = createEmployeeSchema.parse(body)
 
     // Auto-generate employee_code if missing: EMP+sequence

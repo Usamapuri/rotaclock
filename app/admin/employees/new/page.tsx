@@ -161,6 +161,7 @@ export default function NewEmployee() {
         body: JSON.stringify({
           ...formData,
           employee_code: formData.employee_code.trim() || undefined, // Only send if provided
+          location_id: formData.location_id || undefined, // Convert empty string to undefined
           is_active: true,
           password: 'password123'
         }),
