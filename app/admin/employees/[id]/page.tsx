@@ -165,6 +165,7 @@ export default function EmployeeDetailPage() {
   const [teamLeads, setTeamLeads] = useState<TeamLead[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [roleHistory, setRoleHistory] = useState<RoleAssignment[]>([])
+  const [locations, setLocations] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState<Partial<Employee>>({})
@@ -278,6 +279,25 @@ export default function EmployeeDetailPage() {
       } else {
         console.error('Failed to load teams:', teamsResponse.status)
         setTeams([])
+      }
+
+      // Load locations
+      const locationsResponse = await fetch('/api/locations', {
+        headers
+      })
+      console.log('Locations response status:', locationsResponse.status)
+      if (locationsResponse.ok) {
+        const locationsData = await locationsResponse.json()
+        console.log('Locations API response:', locationsData)
+        if (locationsData && locationsData.success && Array.isArray(locationsData.data)) {
+          setLocations(locationsData.data)
+        } else {
+          console.error('Invalid locations data format:', locationsData)
+          setLocations([])
+        }
+      } else {
+        console.error('Failed to load locations:', locationsResponse.status)
+        setLocations([])
       }
 
       // Load team leads
@@ -1055,6 +1075,25 @@ export default function EmployeeDetailPage() {
                         onChange={(e) => setEditForm({...editForm, max_hours_per_week: parseInt(e.target.value)})}
                       />
                     </div>
+                    <div>
+                      <Label htmlFor="location_id">Location</Label>
+                      <Select 
+                        value={editForm.location_id || ""} 
+                        onValueChange={(value) => setEditForm({...editForm, location_id: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">No Location</SelectItem>
+                          {locations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1073,6 +1112,10 @@ export default function EmployeeDetailPage() {
                     <div>
                       <Label className="text-sm font-medium text-gray-500">Max Hours/Week</Label>
                       <p>{employee.max_hours_per_week || 40} hours</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Location</Label>
+                      <p>{employee.location_name || 'No location assigned'}</p>
                     </div>
                   </div>
                 )}
