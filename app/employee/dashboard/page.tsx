@@ -417,7 +417,7 @@ export default function EmployeeDashboard() {
     const today = new Date().toISOString().split('T')[0]
     try {
       const user = AuthService.getCurrentUser()
-      const res = await fetch(`/api/scheduling/week/${today}?employee_id=${userId}`, { headers: user?.id ? { authorization: `Bearer ${user.id}` } : {} })
+      const res = await fetch(`/api/scheduling/week/${today}?employee_id=${userId}&published_only=true`, { headers: user?.id ? { authorization: `Bearer ${user.id}` } : {} })
       if (!res.ok) {
         setTodayShifts([])
         return

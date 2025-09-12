@@ -109,7 +109,7 @@ export default function EmployeeSchedulingPage() {
   }
 
   const loadWeek = async (employeeId: string, date: string) => {
-    const res = await fetch(`/api/scheduling/week/${date}?employee_id=${employeeId}`)
+    const res = await fetch(`/api/scheduling/week/${date}?employee_id=${employeeId}&published_only=true`)
     if (!res.ok) return
     const data = await res.json()
     if (!data.success) return
