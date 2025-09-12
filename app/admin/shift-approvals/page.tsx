@@ -136,14 +136,19 @@ export default function ShiftApprovalsPage() {
   const loadApprovals = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/admin/shift-approvals?status=${selectedStatus}`)
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+      if (user?.tenant_id) headers['x-tenant-id'] = user.tenant_id
+      
+      const response = await fetch(`/api/admin/shift-approvals?status=${selectedStatus}`, { headers })
       const data = await response.json()
       
       if (data.success) {
         setApprovals(data.data.approvals)
         setStats(data.data.stats)
       } else {
-        toast.error('Failed to load shift approvals')
+        toast.error(data.error || 'Failed to load shift approvals')
       }
     } catch (error) {
       console.error('Error loading approvals:', error)
@@ -171,9 +176,14 @@ export default function ShiftApprovalsPage() {
         }
       }
 
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+      if (user?.tenant_id) headers['x-tenant-id'] = user.tenant_id
+      
       const response = await fetch(`/api/admin/shift-approvals/${selectedApproval.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: approvalAction,
           ...approvalData,

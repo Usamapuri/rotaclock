@@ -134,36 +134,42 @@ export default function AdminReports() {
       const departmentParam = selectedDepartment === 'all' ? '' : selectedDepartment
       const locationParam = selectedLocationId ? `&location_id=${selectedLocationId}` : ''
 
+      // Get user and build headers
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+      if (user?.tenant_id) headers['x-tenant-id'] = user.tenant_id
+
       // Load overview report
-      const overviewResponse = await fetch(`/api/reports?type=overview&start_date=${startDate}&end_date=${endDate}&department=${departmentParam}${locationParam}`)
+      const overviewResponse = await fetch(`/api/reports?type=overview&start_date=${startDate}&end_date=${endDate}&department=${departmentParam}${locationParam}`, { headers })
       if (overviewResponse.ok) {
         const overviewData = await overviewResponse.json()
         setReportData(overviewData.data)
       }
 
       // Load employee performance report
-      const performanceResponse = await fetch(`/api/reports?type=employees&start_date=${startDate}&end_date=${endDate}&department=${departmentParam}${locationParam}`)
+      const performanceResponse = await fetch(`/api/reports?type=employees&start_date=${startDate}&end_date=${endDate}&department=${departmentParam}${locationParam}`, { headers })
       if (performanceResponse.ok) {
         const performanceData = await performanceResponse.json()
         setEmployeePerformance(performanceData.data.employeePerformance)
       }
 
       // Load department report
-      const departmentResponse = await fetch(`/api/reports?type=departments&start_date=${startDate}&end_date=${endDate}${locationParam}`)
+      const departmentResponse = await fetch(`/api/reports?type=departments&start_date=${startDate}&end_date=${endDate}${locationParam}`, { headers })
       if (departmentResponse.ok) {
         const departmentData = await departmentResponse.json()
         setDepartmentData(departmentData.data.departmentStats)
       }
 
       // Load attendance report for daily breakdown
-      const attendanceResponse = await fetch(`/api/reports?type=attendance&start_date=${startDate}&end_date=${endDate}&department=${departmentParam}${locationParam}`)
+      const attendanceResponse = await fetch(`/api/reports?type=attendance&start_date=${startDate}&end_date=${endDate}&department=${departmentParam}${locationParam}`, { headers })
       if (attendanceResponse.ok) {
         const attendanceData = await attendanceResponse.json()
         setAttendanceData(attendanceData.data.dailyBreakdown)
       }
 
       // Load payroll report for cost breakdown
-      const payrollResponse = await fetch(`/api/reports?type=payroll&start_date=${startDate}&end_date=${endDate}&department=${departmentParam}${locationParam}`)
+      const payrollResponse = await fetch(`/api/reports?type=payroll&start_date=${startDate}&end_date=${endDate}&department=${departmentParam}${locationParam}`, { headers })
       if (payrollResponse.ok) {
         const payrollData = await payrollResponse.json()
         setCostBreakdown(payrollData.data.costBreakdown)
