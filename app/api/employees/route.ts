@@ -199,8 +199,21 @@ export async function POST(request: NextRequest) {
     // Auto-generate employee_code if missing: EMP+sequence
     let employeeCode = validatedData.employee_code
     if (!employeeCode) {
-      const seqRes = await query(`SELECT 'EMP' || LPAD(CAST(COALESCE(MAX(CAST(SUBSTRING(employee_code, 4) AS INTEGER)), 0) + 1 AS TEXT), 4, '0') AS next FROM employees WHERE tenant_id = $1`, [tenantContext.tenant_id])
-      employeeCode = seqRes.rows[0]?.next || `EMP${Date.now().toString().slice(-6)}`
+      // Get the highest numeric sequence from existing EMP codes
+      const seqRes = await query(`
+        SELECT COALESCE(MAX(
+          CASE 
+            WHEN employee_code LIKE 'EMP%' AND SUBSTRING(employee_code, 4) ~ '^[0-9]+$'
+            THEN CAST(SUBSTRING(employee_code, 4) AS INTEGER)
+            ELSE 0
+          END
+        ), 0) + 1 AS next_seq 
+        FROM employees 
+        WHERE tenant_id = $1
+      `, [tenantContext.tenant_id])
+      
+      const nextSeq = seqRes.rows[0]?.next_seq || 1
+      employeeCode = `EMP${String(nextSeq).padStart(4, '0')}`
     }
 
     // Get available locations for validation
