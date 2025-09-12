@@ -61,12 +61,12 @@ export async function PATCH(
     // Log the validated data
     console.log('Validated approval data:', validatedData)
 
-    // Get the current shift log
+    // Get the current time entry
     const shiftResult = await query(
-      `SELECT sl.*
-       FROM shift_logs sl
-       JOIN employees e ON e.id = sl.employee_id AND e.tenant_id = sl.tenant_id
-       WHERE sl.id = $1 AND sl.tenant_id = $2
+      `SELECT te.*
+       FROM time_entries te
+       JOIN employees e ON e.id = te.employee_id AND e.tenant_id = te.tenant_id
+       WHERE te.id = $1 AND te.tenant_id = $2
        ${authResult.user.role === 'manager' ? `AND e.location_id IN (
           SELECT location_id FROM manager_locations
           WHERE tenant_id = $2 AND manager_id = $3
@@ -96,7 +96,7 @@ export async function PATCH(
 
     if (validatedData.action === 'approve') {
       approvalStatus = 'approved'
-      approvedHours = validatedData.approved_hours || shift.total_shift_hours
+      approvedHours = validatedData.approved_hours || shift.total_hours
       approvedRate = validatedData.approved_rate || defaultRate
       totalPay = approvedHours * approvedRate
     } else if (validatedData.action === 'reject') {
@@ -106,14 +106,14 @@ export async function PATCH(
       }
     } else if (validatedData.action === 'edit') {
       approvalStatus = 'edited'
-      approvedHours = validatedData.approved_hours || shift.total_shift_hours
+      approvedHours = validatedData.approved_hours || shift.total_hours
       approvedRate = validatedData.approved_rate || defaultRate
       totalPay = approvedHours * approvedRate
     }
 
-    // Update the shift log
+    // Update the time entry
     const updateResult = await query(
-      `UPDATE shift_logs SET 
+      `UPDATE time_entries SET 
         approval_status = $1,
         approved_by = $2,
         approved_at = $3,
@@ -141,22 +141,17 @@ export async function PATCH(
 
     // Create approval history record
     await query(
-      `INSERT INTO shift_approvals (
-        shift_log_id, employee_id, approver_id, action,
-        original_hours, approved_hours, original_rate, approved_rate,
-        notes, rejection_reason
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      `INSERT INTO time_entry_approvals (
+        time_entry_id, employee_id, approver_id, status,
+        decision_notes, approved_at
+      ) VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         shiftId,
         shift.employee_id,
         authResult.user.id,
-        validatedData.action,
-        shift.total_shift_hours,
-        approvedHours,
-        defaultRate,
-        approvedRate,
-        validatedData.admin_notes || null,
-        validatedData.rejection_reason || null
+        approvalStatus,
+        validatedData.admin_notes || validatedData.rejection_reason || null,
+        now
       ]
     )
 
@@ -165,21 +160,22 @@ export async function PATCH(
     let notificationType = ''
 
     if (validatedData.action === 'approve') {
-      notificationMessage = `Your shift on ${new Date(shift.clock_in_time).toLocaleDateString()} has been approved. Hours: ${approvedHours}, Rate: £${approvedRate}/hr, Total: £${totalPay.toFixed(2)}`
+      notificationMessage = `Your shift on ${new Date(shift.clock_in).toLocaleDateString()} has been approved. Hours: ${approvedHours}, Rate: £${approvedRate}/hr, Total: £${totalPay.toFixed(2)}`
       notificationType = 'success'
     } else if (validatedData.action === 'reject') {
-      notificationMessage = `Your shift on ${new Date(shift.clock_in_time).toLocaleDateString()} has been rejected. Reason: ${validatedData.rejection_reason}`
+      notificationMessage = `Your shift on ${new Date(shift.clock_in).toLocaleDateString()} has been rejected. Reason: ${validatedData.rejection_reason}`
       notificationType = 'error'
     } else if (validatedData.action === 'edit') {
-      notificationMessage = `Your shift on ${new Date(shift.clock_in_time).toLocaleDateString()} has been edited. Hours: ${approvedHours}, Rate: £${approvedRate}/hr, Total: £${totalPay.toFixed(2)}`
+      notificationMessage = `Your shift on ${new Date(shift.clock_in).toLocaleDateString()} has been edited. Hours: ${approvedHours}, Rate: £${approvedRate}/hr, Total: £${totalPay.toFixed(2)}`
       notificationType = 'info'
     }
 
     if (notificationMessage) {
       await query(
-        `INSERT INTO notifications (user_id, title, message, type, read, action_url)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+        `INSERT INTO notifications (tenant_id, employee_id, title, message, type, is_read, action_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
+          tenant.tenant_id,
           shift.employee_id,
           `Shift ${validatedData.action.charAt(0).toUpperCase() + validatedData.action.slice(1)}`,
           notificationMessage,

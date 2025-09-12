@@ -56,10 +56,10 @@ interface ShiftApproval {
   department: string
   job_position: string
   hourly_rate: number
-  clock_in_time: string
-  clock_out_time: string
-  total_shift_hours: number
-  break_time_used: number
+  clock_in: string
+  clock_out: string
+  total_hours: number
+  break_hours: number
   total_calls_taken: number
   leads_generated: number
   shift_remarks: string
@@ -202,15 +202,15 @@ export default function ShiftApprovalsPage() {
     setSelectedApproval(approval)
     setApprovalAction(action)
     setApprovalData({
-      approved_hours: Number(approval.total_shift_hours) || 0,
+      approved_hours: Number(approval.total_hours) || 0,
       approved_rate: Number(approval.hourly_rate) || 0,
       admin_notes: approval.admin_notes || '',
       rejection_reason: approval.rejection_reason || ''
     })
     setEditTimes({
-      clock_in: approval.clock_in_time ? approval.clock_in_time.slice(0,16) : '',
-      clock_out: approval.clock_out_time ? approval.clock_out_time.slice(0,16) : '',
-      break_hours: String(approval.break_time_used ?? '')
+      clock_in: approval.clock_in ? approval.clock_in.slice(0,16) : '',
+      clock_out: approval.clock_out ? approval.clock_out.slice(0,16) : '',
+      break_hours: String(approval.break_hours ?? '')
     })
     setShowApprovalDialog(true)
   }
@@ -617,11 +617,11 @@ export default function ShiftApprovalsPage() {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
                             <div>
                               <p className="text-sm font-medium text-gray-600">Shift Date</p>
-                              <p className="text-sm text-gray-900">{formatDateTime(approval.clock_in_time)}</p>
+                              <p className="text-sm text-gray-900">{formatDateTime(approval.clock_in)}</p>
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-600">Duration</p>
-                              <p className="text-sm text-gray-900">{formatDuration(approval.total_shift_hours)}</p>
+                              <p className="text-sm text-gray-900">{formatDuration(approval.total_hours)}</p>
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-600">Rate</p>
@@ -735,8 +735,8 @@ export default function ShiftApprovalsPage() {
                 {selectedApproval && (
                   <div className="space-y-2">
                     <p><strong>Employee:</strong> {selectedApproval.first_name} {selectedApproval.last_name}</p>
-                    <p><strong>Date:</strong> {formatDateTime(selectedApproval.clock_in_time)}</p>
-                    <p><strong>Duration:</strong> {formatDuration(selectedApproval.total_shift_hours)}</p>
+                    <p><strong>Date:</strong> {formatDateTime(selectedApproval.clock_in)}</p>
+                    <p><strong>Duration:</strong> {formatDuration(selectedApproval.total_hours)}</p>
                   </div>
                 )}
               </DialogDescription>
