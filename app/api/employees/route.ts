@@ -86,14 +86,17 @@ export async function GET(request: NextRequest) {
         e.is_active,
         e.is_online,
         e.last_online,
+        e.location_id,
         t.name as team_name,
         m.first_name || ' ' || m.last_name as manager_name,
+        l.name as location_name,
         COUNT(sa.id) as total_assignments,
         COUNT(te.id) as total_time_entries,
         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
       FROM employees e
       LEFT JOIN teams t ON e.team_id = t.id AND t.tenant_id = e.tenant_id
       LEFT JOIN employees m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
+      LEFT JOIN locations l ON e.location_id = l.id AND l.tenant_id = e.tenant_id
       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
       LEFT JOIN time_entries te ON e.id = te.employee_id AND te.tenant_id = e.tenant_id
       WHERE e.tenant_id = $1
@@ -129,7 +132,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Add grouping and ordering
-    queryText += ` GROUP BY e.id, e.employee_code, e.first_name, e.last_name, e.email, e.department, e.job_position, e.role, e.hire_date, e.manager_id, e.team_id, e.hourly_rate, e.max_hours_per_week, e.is_active, e.is_online, e.last_online, t.name, m.first_name, m.last_name`
+    queryText += ` GROUP BY e.id, e.employee_code, e.first_name, e.last_name, e.email, e.department, e.job_position, e.role, e.hire_date, e.manager_id, e.team_id, e.hourly_rate, e.max_hours_per_week, e.is_active, e.is_online, e.last_online, e.location_id, t.name, m.first_name, m.last_name, l.name`
     queryText += ` ORDER BY e.first_name, e.last_name`
 
     // Get total count with tenant filtering

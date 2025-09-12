@@ -58,6 +58,9 @@ interface Employee {
   total_assignments: number
   total_time_entries: number
   total_hours_worked: number
+  location_id?: string
+  location_name?: string
+  role?: string
 }
 
 interface EditEmployeeData {
@@ -437,8 +440,9 @@ export default function AdminEmployees() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Agent</TableHead>
+                  <TableHead>Employee</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Hourly Rate</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Hours Worked</TableHead>
@@ -462,7 +466,15 @@ export default function AdminEmployees() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{(employee as any).role || 'agent'}</Badge>
+                      <Badge variant={employee.role === 'manager' ? 'default' : employee.role === 'admin' ? 'destructive' : 'secondary'}>
+                        {employee.role || 'employee'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Building className="h-3 w-3 text-gray-400" />
+                        {employee.location_name || 'No location'}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
