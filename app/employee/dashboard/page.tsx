@@ -477,12 +477,18 @@ export default function EmployeeDashboard() {
 
   const loadLeaveRequests = async (userId: string) => {
     try {
-      const response = await fetch(`/api/leave-requests?employee_id=${userId}`)
+      const user = AuthService.getCurrentUser()
+      const headers: Record<string, string> = {}
+      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+
+      const response = await fetch(`/api/leave-requests?employee_id=${userId}`, { headers })
       if (response.ok) {
         const data = await response.json()
         if (data.data) {
           setLeaveRequests(data.data)
         }
+      } else {
+        console.error('Failed to load leave requests:', response.status, response.statusText)
       }
     } catch (error) {
       console.error('Error loading leave requests:', error)
@@ -720,11 +726,14 @@ export default function EmployeeDashboard() {
         reason: leaveForm.reason
       }
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
+
       const response = await fetch('/api/leave-requests', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(requestData)
       })
 
