@@ -28,7 +28,35 @@ const createEmployeeSchema = z.object({
   password: z.string().optional()
 })
 
-const updateEmployeeSchema = createEmployeeSchema.partial()
+const updateEmployeeSchema = z.object({
+  employee_code: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  first_name: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
+  last_name: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
+  email: z.string().email().nullable().optional().transform(val => val === null ? undefined : val),
+  department: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  job_position: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  role: z.enum(['admin','manager','agent']).optional(),
+  hire_date: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  manager_id: z.string().uuid().nullable().optional().transform(val => val === null ? undefined : val),
+  team_id: z.string().uuid().nullable().optional().transform(val => val === null ? undefined : val),
+  hourly_rate: z.union([z.string(), z.number()]).transform((val) => {
+    if (val === null || val === undefined || val === '') return undefined
+    const num = typeof val === 'string' ? parseFloat(val) : val
+    return isNaN(num) ? undefined : num
+  }).pipe(z.number().positive()).optional(),
+  max_hours_per_week: z.union([z.string(), z.number()]).transform((val) => {
+    if (val === null || val === undefined || val === '') return undefined
+    const num = typeof val === 'string' ? parseFloat(val) : val
+    return isNaN(num) ? undefined : num
+  }).pipe(z.number().positive()).optional(),
+  is_active: z.boolean().optional(),
+  address: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  emergency_contact: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  emergency_phone: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  notes: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  location_id: z.string().uuid().nullable().optional().transform(val => val === null ? undefined : val),
+  password: z.string().nullable().optional().transform(val => val === null ? undefined : val)
+})
 
 /**
  * GET /api/employees
@@ -370,6 +398,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { id, ...updateData } = body
 
@@ -384,14 +417,14 @@ export async function PUT(request: NextRequest) {
     // Inline update implementation to avoid missing helper
     const fields = Object.keys(validatedData)
     const values = Object.values(validatedData)
-    const setClauses = fields.map((field, idx) => `${field} = $${idx + 2}`).join(', ')
+    const setClauses = fields.map((field, idx) => `${field} = $${idx + 3}`).join(', ')
     const updateQuery = `
       UPDATE employees
       SET ${setClauses}, updated_at = NOW()
-      WHERE id = $1::uuid
+      WHERE id = $1::uuid AND tenant_id = $2
       RETURNING *
     `
-    const updateResult = await query(updateQuery, [id, ...values])
+    const updateResult = await query(updateQuery, [id, tenantContext.tenant_id, ...values])
     const employee = updateResult.rows[0]
 
     return NextResponse.json({ 

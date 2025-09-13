@@ -78,23 +78,31 @@ import { z } from 'zod'
 
 // Validation schema for employee updates
 const updateEmployeeSchema = z.object({
-  first_name: z.string().min(1).optional(),
-  last_name: z.string().min(1).optional(),
-  email: z.string().email().optional(),
-  department: z.string().min(1).optional(),
-  position: z.string().min(1).optional(),
-  hourly_rate: z.number().positive().optional(),
+  first_name: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
+  last_name: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
+  email: z.string().email().nullable().optional().transform(val => val === null ? undefined : val),
+  department: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
+  position: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
+  hourly_rate: z.union([z.string(), z.number()]).transform((val) => {
+    if (val === null || val === undefined || val === '') return undefined
+    const num = typeof val === 'string' ? parseFloat(val) : val
+    return isNaN(num) ? undefined : num
+  }).pipe(z.number().positive()).optional(),
   is_active: z.boolean().optional(),
-  max_hours_per_week: z.number().positive().optional(),
-  phone: z.string().optional(),
+  max_hours_per_week: z.union([z.string(), z.number()]).transform((val) => {
+    if (val === null || val === undefined || val === '') return undefined
+    const num = typeof val === 'string' ? parseFloat(val) : val
+    return isNaN(num) ? undefined : num
+  }).pipe(z.number().positive()).optional(),
+  phone: z.string().nullable().optional().transform(val => val === null ? undefined : val),
   role: z.enum(['admin','manager','agent']).optional(),
-  team_id: z.string().uuid().optional(),
-  manager_id: z.string().uuid().optional(),
-  address: z.string().optional(),
-  emergency_contact: z.string().optional(),
-  emergency_phone: z.string().optional(),
-  notes: z.string().optional(),
-  location_id: z.string().uuid().optional(),
+  team_id: z.string().uuid().nullable().optional().transform(val => val === null ? undefined : val),
+  manager_id: z.string().uuid().nullable().optional().transform(val => val === null ? undefined : val),
+  address: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  emergency_contact: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  emergency_phone: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  notes: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  location_id: z.string().uuid().nullable().optional().transform(val => val === null ? undefined : val),
 })
 
 export async function PUT(
@@ -102,15 +110,26 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const authMiddleware = createApiAuthMiddleware()
+    const { user, isAuthenticated } = await authMiddleware(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
+
     const employeeId = params.id
     const body = await request.json()
     
     // Validate the request body
     const validatedData = updateEmployeeSchema.parse(body)
     
-      // Check if employee exists
-      const checkQuery = 'SELECT * FROM employees WHERE id = $1'
-      const checkResult = await query(checkQuery, [employeeId])
+    // Check if employee exists within tenant
+    const checkQuery = 'SELECT * FROM employees WHERE id = $1 AND tenant_id = $2'
+    const checkResult = await query(checkQuery, [employeeId, tenantContext.tenant_id])
       
       if (checkResult.rows.length === 0) {
         return NextResponse.json(
