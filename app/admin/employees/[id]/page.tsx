@@ -377,13 +377,15 @@ export default function EmployeeDetailPage() {
       })
 
       if (response.ok) {
-        const updatedEmployee = await response.json()
+        const result = await response.json()
+        const updatedEmployee = result.data || result
         setEmployee(updatedEmployee)
         setEditForm(updatedEmployee)
         setIsEditing(false)
-        toast.success('Employee updated successfully')
+        toast.success(result.message || 'Employee updated successfully')
       } else {
-        toast.error('Failed to update employee')
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Failed to update employee')
       }
     } catch (error) {
       console.error('Error updating employee:', error)
