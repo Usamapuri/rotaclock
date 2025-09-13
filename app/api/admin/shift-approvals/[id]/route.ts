@@ -17,7 +17,14 @@ const approvalSchema = z.object({
     return isNaN(num) ? 0 : num
   }).pipe(z.number().min(0)).optional(),
   admin_notes: z.string().optional(),
-  rejection_reason: z.string().optional()
+  rejection_reason: z.string().optional(),
+  // Additional fields for edit action
+  clock_in: z.string().optional(),
+  clock_out: z.string().optional(),
+  break_hours: z.union([z.string(), z.number()]).transform((val) => {
+    const num = typeof val === 'string' ? parseFloat(val) : val
+    return isNaN(num) ? 0 : num
+  }).pipe(z.number().min(0)).optional()
 })
 
 export async function PATCH(
@@ -94,6 +101,12 @@ export async function PATCH(
     let approvedRate = 0
     let totalPay = 0
 
+    // Calculate new values based on action
+    let newClockIn = shift.clock_in
+    let newClockOut = shift.clock_out
+    let newBreakHours = shift.break_hours || 0
+    let newTotalHours = shift.total_hours
+
     if (validatedData.action === 'approve') {
       approvalStatus = 'approved'
       approvedHours = validatedData.approved_hours || shift.total_hours
@@ -106,7 +119,26 @@ export async function PATCH(
       }
     } else if (validatedData.action === 'edit') {
       approvalStatus = 'edited'
-      approvedHours = validatedData.approved_hours || shift.total_hours
+      
+      // Handle time edits
+      if (validatedData.clock_in) {
+        newClockIn = validatedData.clock_in
+      }
+      if (validatedData.clock_out) {
+        newClockOut = validatedData.clock_out
+      }
+      if (validatedData.break_hours !== undefined) {
+        newBreakHours = validatedData.break_hours
+      }
+      
+      // Recalculate total hours if times were edited
+      if (validatedData.clock_in && validatedData.clock_out) {
+        const clockInTime = new Date(validatedData.clock_in)
+        const clockOutTime = new Date(validatedData.clock_out)
+        newTotalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60) - newBreakHours
+      }
+      
+      approvedHours = validatedData.approved_hours || newTotalHours
       approvedRate = validatedData.approved_rate || defaultRate
       totalPay = approvedHours * approvedRate
     }
@@ -122,8 +154,12 @@ export async function PATCH(
         total_pay = $6,
         admin_notes = $7,
         rejection_reason = $8,
+        clock_in = $9,
+        clock_out = $10,
+        break_hours = $11,
+        total_hours = $12,
         updated_at = NOW()
-      WHERE id = $9 RETURNING *`,
+      WHERE id = $13 RETURNING *`,
       [
         approvalStatus,
         authResult.user.id,
@@ -133,6 +169,10 @@ export async function PATCH(
         totalPay,
         validatedData.admin_notes || null,
         validatedData.rejection_reason || null,
+        newClockIn,
+        newClockOut,
+        newBreakHours,
+        newTotalHours,
         shiftId
       ]
     )
