@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     // Check if employee exists and is active
     const employeeResult = await query(
-      'SELECT id FROM employees_new WHERE id = $1 AND is_active = true',
+      'SELECT id FROM employees WHERE id = $1 AND is_active = true',
       [validatedData.employee_id]
     )
 

@@ -142,11 +142,12 @@ export async function PATCH(
     // Create approval history record
     await query(
       `INSERT INTO time_entry_approvals (
-        time_entry_id, employee_id, approver_id, status,
+        time_entry_id, tenant_id, employee_id, approver_id, status,
         decision_notes, approved_at
-      ) VALUES ($1, $2, $3, $4, $5, $6)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         shiftId,
+        tenant.tenant_id,
         shift.employee_id,
         authResult.user.id,
         approvalStatus,
@@ -172,7 +173,7 @@ export async function PATCH(
 
     if (notificationMessage) {
       await query(
-        `INSERT INTO notifications (tenant_id, employee_id, title, message, type, is_read, action_url)
+        `INSERT INTO notifications (tenant_id, user_id, title, message, type, read, action_url)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           tenant.tenant_id,
