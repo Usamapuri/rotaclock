@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         last_name: employee.last_name,
         email: employee.email,
         department: employee.department,
-        position: employee.position,
+        position: employee.job_position,
         role: employee.role === 'team_lead' ? 'team_lead' : (employee.role === 'project_manager' ? 'project_manager' : 'employee'),
         tenant_id: employee.tenant_id,
         organization_id: employee.organization_id,

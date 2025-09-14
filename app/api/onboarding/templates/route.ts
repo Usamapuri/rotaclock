@@ -40,17 +40,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const { name, description, department, position, steps } = body
+    const { name, description, department, steps } = body
 
     // Calculate total estimated time
     const totalEstimatedTime = steps?.reduce((total: number, step: any) => total + (step.estimated_time || 0), 0) || 0
 
     // Insert template
     const templateResult = await query(`
-      INSERT INTO onboarding_templates (name, description, department, position, total_estimated_time, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO onboarding_templates (name, description, is_active)
+      VALUES ($1, $2, $3)
       RETURNING *
-    `, [name, description, department, position, totalEstimatedTime, true])
+    `, [name, description, true])
 
     const template = templateResult.rows[0]
 

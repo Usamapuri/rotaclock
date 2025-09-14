@@ -123,7 +123,7 @@ export interface Employee {
   last_name: string
   email: string
   department?: string
-  position?: string
+  job_position?: string
   hire_date?: string
   manager_id?: string
   is_active: boolean
@@ -416,7 +416,7 @@ export async function getCurrentEmployee() {
  */
 export async function isAdmin() {
   const employee = await getCurrentEmployee()
-  return employee?.position?.toLowerCase().includes('admin') || false
+  return employee?.job_position?.toLowerCase().includes('admin') || false
 }
 
 /**
@@ -424,8 +424,8 @@ export async function isAdmin() {
  */
 export async function isManager() {
   const employee = await getCurrentEmployee()
-  return employee?.position?.toLowerCase().includes('manager') || 
-         employee?.position?.toLowerCase().includes('lead') || false
+  return employee?.job_position?.toLowerCase().includes('manager') || 
+         employee?.job_position?.toLowerCase().includes('lead') || false
 }
 
 /**
@@ -456,7 +456,7 @@ export async function getEmployee(id: string) {
 export async function getEmployees(filters?: {
   department?: string
   is_active?: boolean
-  position?: string
+  job_position?: string
 }) {
   let queryText = `
     SELECT 
@@ -480,9 +480,9 @@ export async function getEmployees(filters?: {
     params.push(filters.is_active)
     paramIndex++
   }
-  if (filters?.position) {
-    queryText += (filters?.department || filters?.is_active !== undefined) ? ` AND e.position = $${paramIndex}` : ` WHERE e.position = $${paramIndex}`
-    params.push(filters.position)
+  if (filters?.job_position) {
+    queryText += (filters?.department || filters?.is_active !== undefined) ? ` AND e.job_position = $${paramIndex}` : ` WHERE e.job_position = $${paramIndex}`
+    params.push(filters.job_position)
   }
 
   queryText += ' ORDER BY e.first_name'
@@ -575,7 +575,7 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
   
   const result = await query(`
     INSERT INTO employees (
-      employee_code, first_name, last_name, email, department, position, role,
+      employee_code, first_name, last_name, email, department, job_position, role,
       hire_date, manager_id, is_active, hourly_rate, max_hours_per_week, password_hash
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *
@@ -585,7 +585,7 @@ export async function createEmployee(employeeData: Omit<Employee, 'id' | 'create
     employeeData.last_name,
     employeeData.email,
     employeeData.department,
-    employeeData.position,
+    employeeData.job_position,
     employeeData.role || 'agent',
     employeeData.hire_date,
     employeeData.manager_id,
@@ -984,7 +984,7 @@ export async function getAttendanceStats(filters: {
       e.first_name,
       e.last_name,
       e.department,
-      e.position,
+      e.job_position,
       COUNT(te.id) as total_entries,
       COUNT(CASE WHEN te.status = 'completed' THEN 1 END) as completed_entries,
       SUM(te.total_hours) as total_hours,
@@ -1012,7 +1012,7 @@ export async function getAttendanceStats(filters: {
   }
 
   queryText += `
-    GROUP BY e.id, e.first_name, e.last_name, e.department, e.position
+    GROUP BY e.id, e.first_name, e.last_name, e.department, e.job_position
     ORDER BY e.first_name
   `
 

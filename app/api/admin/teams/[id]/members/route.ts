@@ -25,7 +25,7 @@ export async function GET(
     const { id: teamId } = params
 
     const result = await query(`
-      SELECT e.id, e.first_name, e.last_name, e.email, e.position, e.employee_code as employee_id, e.created_at as joined_date, 'member' as role
+      SELECT e.id, e.first_name, e.last_name, e.email, e.job_position as position, e.employee_code as employee_id, e.created_at as joined_date, 'member' as role
       FROM employees e
       WHERE e.team_id = $1 AND e.is_active = true AND e.tenant_id = $2
       ORDER BY e.first_name, e.last_name

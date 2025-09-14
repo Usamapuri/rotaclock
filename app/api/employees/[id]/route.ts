@@ -82,7 +82,7 @@ const updateEmployeeSchema = z.object({
   last_name: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
   email: z.string().email().nullable().optional().transform(val => val === null ? undefined : val),
   department: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
-  position: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
+  job_position: z.string().min(1).nullable().optional().transform(val => val === null ? undefined : val),
   hourly_rate: z.union([z.string(), z.number()]).transform((val) => {
     if (val === null || val === undefined || val === '') return undefined
     const num = typeof val === 'string' ? parseFloat(val) : val
@@ -170,9 +170,9 @@ export async function PUT(
         paramCount++
       }
       
-      if (validatedData.position !== undefined) {
-        updateFields.push(`position = $${paramCount}`)
-        updateValues.push(validatedData.position)
+      if (validatedData.job_position !== undefined) {
+        updateFields.push(`job_position = $${paramCount}`)
+        updateValues.push(validatedData.job_position)
         paramCount++
       }
       
