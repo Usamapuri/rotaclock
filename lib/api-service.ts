@@ -214,7 +214,7 @@ export interface AttendanceStats {
   first_name: string
   last_name: string
   department: string
-  position: string
+  job_position: string
   total_entries: number
   completed_entries: number
   total_hours: number

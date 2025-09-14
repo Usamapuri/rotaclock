@@ -400,7 +400,7 @@ export async function getCurrentEmployee() {
       last_name: 'Doe',
       email: 'john.doe@company.com',
       department: 'Sales',
-      position: 'Sales Representative',
+      job_position: 'Sales Representative',
       is_active: true,
       hourly_rate: 18.50,
       created_at: new Date().toISOString(),
