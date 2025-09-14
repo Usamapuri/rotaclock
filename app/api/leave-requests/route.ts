@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
  * Create a new leave request
  */
 export async function POST(request: NextRequest) {
-  try {
+  try { {
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
     if (!isAuthenticated || !user) {

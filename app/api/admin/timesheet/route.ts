@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
         sa.start_time as scheduled_start,
         sa.end_time as scheduled_end,
         CASE 
-          WHEN sa.start_time AND sa.end_time 
+          WHEN sa.start_time IS NOT NULL AND sa.end_time IS NOT NULL 
           THEN EXTRACT(EPOCH FROM (sa.end_time::time - sa.start_time::time)) / 3600
           ELSE NULL 
         END as scheduled_hours,
