@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     // Verify all entries exist and belong to the tenant
     const entriesResult = await query(`
-      SELECT id, employee_id, date, clock_in, clock_out, total_hours, break_hours, notes
+      SELECT id, employee_id, date, clock_in, clock_out, total_hours, break_hours, notes, approval_status
       FROM time_entries 
       WHERE id = ANY($1) AND tenant_id = $2
     `, [validatedData.entry_ids, tenantContext.tenant_id])
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         const updateResult = await query(`
           UPDATE time_entries 
           SET 
-            is_approved = true,
+            approval_status = 'approved',
             approved_by = $1,
             approved_at = $2,
             notes = CASE 

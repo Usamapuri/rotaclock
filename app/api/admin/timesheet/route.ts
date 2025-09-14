@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
         te.total_hours as actual_hours,
         te.total_hours - te.break_hours as total_approved_hours,
         te.status,
-        te.is_approved,
+        te.approval_status as is_approved,
         te.approved_by,
         te.approved_at,
         te.notes,
@@ -141,7 +141,11 @@ export async function GET(request: NextRequest) {
           THEN EXTRACT(EPOCH FROM (sa.end_time::time - sa.start_time::time)) / 3600
           ELSE NULL 
         END as scheduled_hours,
-        COALESCE(bl.breaks, '[]'::json) as breaks
+        json_build_object(
+          'break_start', te.break_start,
+          'break_end', te.break_end,
+          'break_hours', te.break_hours
+        ) as break_info
       FROM time_entries te
       JOIN employees e ON te.employee_id = e.id AND e.tenant_id = $1
       LEFT JOIN locations l ON e.location_id = l.id AND l.tenant_id = $1
@@ -149,23 +153,6 @@ export async function GET(request: NextRequest) {
         AND te.date = sa.date 
         AND sa.tenant_id = $1
         AND sa.status IN ('scheduled', 'assigned')
-      LEFT JOIN (
-        SELECT 
-          time_entry_id,
-          json_agg(
-            json_build_object(
-              'id', id,
-              'break_start', break_start,
-              'break_end', break_end,
-              'break_duration', break_duration,
-              'break_type', break_type,
-              'status', status
-            )
-          ) as breaks
-        FROM break_logs 
-        WHERE tenant_id = $1
-        GROUP BY time_entry_id
-      ) bl ON te.id = bl.time_entry_id
       WHERE te.tenant_id = $1
         AND te.date BETWEEN $2 AND $3
       ORDER BY te.date DESC, e.first_name, e.last_name
@@ -182,6 +169,22 @@ export async function GET(request: NextRequest) {
 
       const discrepancies = detectDiscrepancies(row, shiftAssignment)
       
+      // Convert break_info to breaks array format
+      const breaks = []
+      if (row.break_info && row.break_info.break_start) {
+        breaks.push({
+          id: 'break_1',
+          time_entry_id: row.id,
+          employee_id: row.employee_id,
+          break_start: row.break_info.break_start,
+          break_end: row.break_info.break_end,
+          break_duration: row.break_info.break_hours,
+          break_type: 'lunch',
+          status: row.break_info.break_end ? 'completed' : 'active',
+          created_at: row.break_info.break_start
+        })
+      }
+      
       return {
         id: row.id,
         employee_id: row.employee_id,
@@ -195,15 +198,15 @@ export async function GET(request: NextRequest) {
         actual_clock_in: row.clock_in,
         actual_clock_out: row.clock_out,
         scheduled_hours: row.scheduled_hours,
-        actual_hours: row.actual_hours,
-        break_hours: row.break_hours,
-        total_approved_hours: row.total_approved_hours,
+        actual_hours: row.actual_hours || 0,
+        break_hours: row.break_hours || 0,
+        total_approved_hours: row.total_approved_hours || 0,
         discrepancies,
-        is_approved: row.is_approved,
+        is_approved: row.is_approved === 'approved' || row.is_approved === true,
         approved_by: row.approved_by,
         approved_at: row.approved_at,
         notes: row.notes,
-        breaks: row.breaks || []
+        breaks
       }
     })
 

@@ -98,7 +98,7 @@ export async function PATCH(
 
     // If any time fields were updated, reset approval status
     if (validatedData.clock_in !== undefined || validatedData.clock_out !== undefined || validatedData.break_hours !== undefined) {
-      updateFields.push(`is_approved = false`)
+      updateFields.push(`approval_status = 'pending'`)
       updateFields.push(`approved_by = NULL`)
       updateFields.push(`approved_at = NULL`)
     }
