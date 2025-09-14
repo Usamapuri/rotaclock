@@ -233,8 +233,8 @@ export default function ManagerReports() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-green-800">Total Hours</p>
-                    <p className="text-2xl font-bold text-green-900">{reportData.totalHours.toFixed(1)}h</p>
-                    <p className="text-xs text-green-700">{reportData.overtimeHours.toFixed(1)}h overtime</p>
+                    <p className="text-2xl font-bold text-green-900">{(Number(reportData.totalHours) || 0).toFixed(1)}h</p>
+                    <p className="text-xs text-green-700">{(Number(reportData.overtimeHours) || 0).toFixed(1)}h overtime</p>
                   </div>
                   <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center shadow-lg">
                     <Clock className="h-6 w-6 text-white" />
@@ -248,8 +248,8 @@ export default function ManagerReports() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-purple-800">Total Payroll</p>
-                    <p className="text-2xl font-bold text-purple-900">£{reportData.totalPayroll.toFixed(2)}</p>
-                    <p className="text-xs text-purple-700">{reportData.efficiency.toFixed(1)}% efficiency</p>
+                    <p className="text-2xl font-bold text-purple-900">£{(Number(reportData.totalPayroll) || 0).toFixed(2)}</p>
+                    <p className="text-xs text-purple-700">{(Number(reportData.efficiency) || 0).toFixed(1)}% efficiency</p>
                   </div>
                   <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-700 rounded-full flex items-center justify-center shadow-lg">
                     <DollarSign className="h-6 w-6 text-white" />
@@ -263,7 +263,7 @@ export default function ManagerReports() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-orange-800">Attendance Rate</p>
-                    <p className="text-2xl font-bold text-orange-900">{reportData.attendanceRate.toFixed(1)}%</p>
+                    <p className="text-2xl font-bold text-orange-900">{(Number(reportData.attendanceRate) || 0).toFixed(1)}%</p>
                     <p className="text-xs text-orange-700 flex items-center">
                       {reportData.performance === 'excellent' ? (
                         <TrendingUp className="h-3 w-3 mr-1" />
@@ -345,10 +345,10 @@ export default function ManagerReports() {
                                 {employee.location_name}
                               </div>
                             </td>
-                            <td className="p-3 text-right">{employee.total_hours.toFixed(1)}h</td>
-                            <td className="p-3 text-right">£{employee.total_pay.toFixed(2)}</td>
-                            <td className="p-3 text-right">{employee.attendance_rate.toFixed(1)}%</td>
-                            <td className="p-3 text-right">{employee.overtimeHours.toFixed(1)}h</td>
+                            <td className="p-3 text-right">{(Number(employee.total_hours) || 0).toFixed(1)}h</td>
+                            <td className="p-3 text-right">£{(Number(employee.total_pay) || 0).toFixed(2)}</td>
+                            <td className="p-3 text-right">{(Number(employee.attendance_rate) || 0).toFixed(1)}%</td>
+                            <td className="p-3 text-right">{(Number(employee.overtimeHours) || 0).toFixed(1)}h</td>
                             <td className="p-3 text-center">
                               <Badge 
                                 variant={employee.performance === 'excellent' ? 'default' : 

@@ -384,7 +384,7 @@ export default function Timesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">Total Hours</p>
-                  <p className="text-2xl font-bold">{summary.totalHours.toFixed(1)}h</p>
+                  <p className="text-2xl font-bold">{(Number(summary.totalHours) || 0).toFixed(1)}h</p>
                 </div>
                 <Clock className="h-8 w-8 opacity-80" />
               </div>
@@ -660,7 +660,7 @@ export default function Timesheet() {
                       <div className="text-sm text-blue-700">Total Shifts</div>
                     </div>
                     <div className="text-center p-4 bg-green-50 rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">{summary.totalHours.toFixed(1)}h</div>
+                      <div className="text-2xl font-bold text-green-600">{(Number(summary.totalHours) || 0).toFixed(1)}h</div>
                       <div className="text-sm text-green-700">Total Hours</div>
                     </div>
                     <div className="text-center p-4 bg-orange-50 rounded-lg">

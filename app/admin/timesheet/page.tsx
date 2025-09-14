@@ -247,8 +247,8 @@ export default function AdminTimesheet() {
     const uniqueEmployees = new Set(entries.map(entry => entry.employee_id))
     const totalEmployees = uniqueEmployees.size
     const totalShifts = entries.length
-    const totalHours = entries.reduce((sum, entry) => sum + entry.total_approved_hours, 0)
-    const totalBreaks = entries.reduce((sum, entry) => sum + entry.break_hours, 0)
+    const totalHours = entries.reduce((sum, entry) => sum + (Number(entry.total_approved_hours) || 0), 0)
+    const totalBreaks = entries.reduce((sum, entry) => sum + (Number(entry.break_hours) || 0), 0)
     const averageShiftLength = totalShifts > 0 ? totalHours / totalShifts : 0
     
     const onTimeEntries = entries.filter(entry => entry.discrepancies.length === 0).length
@@ -655,7 +655,7 @@ export default function AdminTimesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">Total Hours</p>
-                  <p className="text-2xl font-bold">{summary.totalHours.toFixed(1)}h</p>
+                  <p className="text-2xl font-bold">{(Number(summary.totalHours) || 0).toFixed(1)}h</p>
                 </div>
                 <Clock className="h-8 w-8 opacity-80" />
               </div>
@@ -667,7 +667,7 @@ export default function AdminTimesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">Total Breaks</p>
-                  <p className="text-2xl font-bold">{summary.totalBreaks.toFixed(1)}h</p>
+                  <p className="text-2xl font-bold">{(Number(summary.totalBreaks) || 0).toFixed(1)}h</p>
                 </div>
                 <Coffee className="h-8 w-8 opacity-80" />
               </div>
@@ -679,7 +679,7 @@ export default function AdminTimesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">Avg Shift</p>
-                  <p className="text-2xl font-bold">{summary.averageShiftLength.toFixed(1)}h</p>
+                  <p className="text-2xl font-bold">{(Number(summary.averageShiftLength) || 0).toFixed(1)}h</p>
                 </div>
                 <Timer className="h-8 w-8 opacity-80" />
               </div>
@@ -691,7 +691,7 @@ export default function AdminTimesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">On Time</p>
-                  <p className="text-2xl font-bold">{summary.onTimePercentage.toFixed(0)}%</p>
+                  <p className="text-2xl font-bold">{(Number(summary.onTimePercentage) || 0).toFixed(0)}%</p>
                 </div>
                 <TrendingUp className="h-8 w-8 opacity-80" />
               </div>
