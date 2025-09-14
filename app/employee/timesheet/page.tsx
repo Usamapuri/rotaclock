@@ -408,7 +408,7 @@ export default function Timesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">Avg Shift</p>
-                  <p className="text-2xl font-bold">{summary.averageShiftLength.toFixed(1)}h</p>
+                  <p className="text-2xl font-bold">{(Number(summary.averageShiftLength) || 0).toFixed(1)}h</p>
                 </div>
                 <Timer className="h-8 w-8 opacity-80" />
               </div>
@@ -420,7 +420,7 @@ export default function Timesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">On Time</p>
-                  <p className="text-2xl font-bold">{summary.onTimePercentage.toFixed(0)}%</p>
+                  <p className="text-2xl font-bold">{(Number(summary.onTimePercentage) || 0).toFixed(0)}%</p>
                 </div>
                 <TrendingUp className="h-8 w-8 opacity-80" />
               </div>
@@ -432,7 +432,7 @@ export default function Timesheet() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-90">Overtime</p>
-                  <p className="text-2xl font-bold">{summary.overtimeHours.toFixed(1)}h</p>
+                  <p className="text-2xl font-bold">{(Number(summary.overtimeHours) || 0).toFixed(1)}h</p>
                 </div>
                 <Activity className="h-8 w-8 opacity-80" />
               </div>
@@ -519,7 +519,7 @@ export default function Timesheet() {
                                     </div>
                                     {breakLog.break_duration && typeof breakLog.break_duration === 'number' && (
                                       <div className="text-orange-700">
-                                        {breakLog.break_duration.toFixed(1)}h
+                                        {(Number(breakLog.break_duration) || 0).toFixed(1)}h
                                       </div>
                                     )}
                                   </div>
@@ -668,7 +668,7 @@ export default function Timesheet() {
                       <div className="text-sm text-orange-700">Total Breaks</div>
                     </div>
                     <div className="text-center p-4 bg-purple-50 rounded-lg">
-                      <div className="text-2xl font-bold text-purple-600">{summary.averageShiftLength.toFixed(1)}h</div>
+                      <div className="text-2xl font-bold text-purple-600">{(Number(summary.averageShiftLength) || 0).toFixed(1)}h</div>
                       <div className="text-sm text-purple-700">Avg Shift</div>
                     </div>
                   </div>
@@ -696,19 +696,19 @@ export default function Timesheet() {
                             style={{ width: `${summary.onTimePercentage}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm font-medium">{summary.onTimePercentage.toFixed(0)}%</span>
+                        <span className="text-sm font-medium">{(Number(summary.onTimePercentage) || 0).toFixed(0)}%</span>
                       </div>
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Overtime Hours</span>
-                      <span className="text-sm font-medium text-red-600">{summary.overtimeHours.toFixed(1)}h</span>
+                      <span className="text-sm font-medium text-red-600">{(Number(summary.overtimeHours) || 0).toFixed(1)}h</span>
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Break Efficiency</span>
                       <span className="text-sm font-medium text-blue-600">
-                        {summary.totalBreaks > 0 ? (summary.totalBreaks / summary.totalShifts).toFixed(1) : 0} per shift
+                        {summary.totalBreaks > 0 ? ((Number(summary.totalBreaks) || 0) / (Number(summary.totalShifts) || 1)).toFixed(1) : 0} per shift
                       </span>
                     </div>
                   </div>

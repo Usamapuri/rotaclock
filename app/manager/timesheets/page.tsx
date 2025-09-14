@@ -275,7 +275,7 @@ export default function ManagerTimesheets() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-purple-800">Total Pay</p>
-                    <p className="text-2xl font-bold text-purple-900">£{summary.total_pay.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-purple-900">£{(Number(summary.total_pay) || 0).toFixed(2)}</p>
                   </div>
                   <Users className="h-8 w-8 text-purple-600" />
                 </div>
@@ -332,8 +332,8 @@ export default function ManagerTimesheets() {
                         <TableCell>{formatDateTime(entry.clock_in)}</TableCell>
                         <TableCell>{entry.clock_out ? formatDateTime(entry.clock_out) : '-'}</TableCell>
                         <TableCell>{formatDuration(entry.total_hours)}</TableCell>
-                        <TableCell>£{entry.hourly_rate.toFixed(2)}</TableCell>
-                        <TableCell>£{entry.total_pay.toFixed(2)}</TableCell>
+                        <TableCell>£{(Number(entry.hourly_rate) || 0).toFixed(2)}</TableCell>
+                        <TableCell>£{(Number(entry.total_pay) || 0).toFixed(2)}</TableCell>
                         <TableCell>{getStatusBadge(entry.approval_status)}</TableCell>
                         <TableCell>
                           {entry.approval_status === 'pending' && (

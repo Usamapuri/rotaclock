@@ -888,7 +888,7 @@ export default function AdminTimesheet() {
                               <div className="font-medium">{formatTime(entry.scheduled_start)}</div>
                               <div className="text-gray-500">{formatTime(entry.scheduled_end || '')}</div>
                               <div className="text-xs text-gray-400">
-                                {entry.scheduled_hours?.toFixed(1)}h scheduled
+                                {(Number(entry.scheduled_hours) || 0).toFixed(1)}h scheduled
                               </div>
                             </>
                           ) : (
@@ -903,14 +903,14 @@ export default function AdminTimesheet() {
                             {entry.actual_clock_out ? formatTime(entry.actual_clock_out) : 'Ongoing'}
                           </div>
                           <div className="text-xs text-gray-400">
-                            {entry.actual_hours.toFixed(1)}h worked
+                            {(Number(entry.actual_hours) || 0).toFixed(1)}h worked
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
                           <div className="font-medium text-green-600">
-                            {entry.total_approved_hours.toFixed(1)}h
+                            {(Number(entry.total_approved_hours) || 0).toFixed(1)}h
                           </div>
                           <div className="text-xs text-gray-400">
                             Approved hours
@@ -919,7 +919,7 @@ export default function AdminTimesheet() {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div className="font-medium">{entry.break_hours.toFixed(1)}h</div>
+                          <div className="font-medium">{(Number(entry.break_hours) || 0).toFixed(1)}h</div>
                           {entry.breaks.length > 0 && (
                             <div className="text-xs text-gray-400">
                               {entry.breaks.length} break{entry.breaks.length > 1 ? 's' : ''}
