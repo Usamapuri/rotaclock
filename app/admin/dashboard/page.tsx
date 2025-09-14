@@ -696,7 +696,9 @@ export default function AdminDashboard() {
       // Check if on break using break_logs table
       // We need to check if there's an active break for this employee
       try {
-        const breakResponse = await fetch(`/api/time/break-status?employee_id=${employeeId}`)
+        const user = AuthService.getCurrentUser()
+        const authHeaders = user?.id ? { authorization: `Bearer ${user.id}` } : {}
+        const breakResponse = await fetch(`/api/time/break-status?employee_id=${employeeId}`, { headers: authHeaders })
         if (breakResponse.ok) {
           const breakData = await breakResponse.json()
           if (breakData.data && breakData.data.status === 'active') {
