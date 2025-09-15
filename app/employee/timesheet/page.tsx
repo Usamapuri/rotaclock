@@ -45,9 +45,9 @@ interface TimesheetEntry {
   date: string
   clock_in?: string
   clock_out?: string
-  break_hours: number
-  actual_hours: number
-  total_approved_hours: number
+  break_hours: number | string
+  actual_hours: number | string
+  total_approved_hours: number | string
   status: string
   is_approved: 'pending' | 'approved' | 'rejected'
   approved_by?: string
@@ -65,7 +65,7 @@ interface TimesheetEntry {
   break_info: {
     break_start?: string
     break_end?: string
-    break_hours: number
+    break_hours: number | string
   }
   discrepancies: Discrepancy[]
   hasDiscrepancies: boolean
@@ -290,7 +290,7 @@ export default function EmployeeTimesheet() {
         entry.clock_in ? formatTime(entry.clock_in) : 'N/A',
         entry.clock_out ? formatTime(entry.clock_out) : 'Ongoing',
         calculateShiftDuration(entry),
-        entry.break_hours.toString(),
+        (Number(entry.break_hours) || 0).toString(),
         entry.is_approved,
         entry.discrepancies.length > 0 ? entry.discrepancies.map(d => d.message).join('; ') : 'None'
       ])
@@ -666,11 +666,11 @@ export default function EmployeeTimesheet() {
                         </div>
                         <div>
                           <div className="text-gray-500">Break Time</div>
-                          <div className="font-medium">{entry.break_hours.toFixed(1)}h</div>
+                          <div className="font-medium">{(Number(entry.break_hours) || 0).toFixed(1)}h</div>
                         </div>
                         <div>
                           <div className="text-gray-500">Total Hours</div>
-                          <div className="font-medium">{entry.actual_hours.toFixed(1)}h</div>
+                          <div className="font-medium">{(Number(entry.actual_hours) || 0).toFixed(1)}h</div>
                         </div>
                       </div>
 
@@ -894,15 +894,15 @@ export default function EmployeeTimesheet() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm text-gray-500">Total Hours</label>
-                  <div className="font-medium">{selectedEntry.actual_hours.toFixed(1)}h</div>
+                  <div className="font-medium">{(Number(selectedEntry.actual_hours) || 0).toFixed(1)}h</div>
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">Break Hours</label>
-                  <div className="font-medium">{selectedEntry.break_hours.toFixed(1)}h</div>
+                  <div className="font-medium">{(Number(selectedEntry.break_hours) || 0).toFixed(1)}h</div>
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">Work Hours</label>
-                  <div className="font-medium">{selectedEntry.total_approved_hours.toFixed(1)}h</div>
+                  <div className="font-medium">{(Number(selectedEntry.total_approved_hours) || 0).toFixed(1)}h</div>
                 </div>
               </div>
 
