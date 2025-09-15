@@ -44,23 +44,30 @@ export default function SignupPage() {
   const plans = [
     {
       id: 'starter',
-      name: 'Starter',
-      price: '$2',
-      description: 'Perfect for small teams',
+      name: 'Free Trial',
+      price: 'Free',
+      description: 'Perfect to test our services for one whole month',
       features: ['Up to 10 employees', 'Basic features', 'Email support']
     },
     {
       id: 'professional',
-      name: 'Professional',
-      price: '$5',
+      name: 'Basic',
+      price: '$2/employee/month',
       description: 'Ideal for growing businesses',
       features: ['Up to 50 employees', 'Advanced features', 'Priority support']
     },
     {
       id: 'enterprise',
       name: 'Enterprise',
-      price: '$10',
+      price: '$5/employee/month',
       description: 'For large organizations',
+      features: ['Unlimited employees', 'All features', 'Dedicated support']
+    },
+    {
+      id: 'enterprisepro',
+      name: 'Enterprise Premium',
+      price: '$10/employee/month',
+      description: 'Custom Branding, Dedicated Support, and more',
       features: ['Unlimited employees', 'All features', 'Dedicated support']
     }
   ]
