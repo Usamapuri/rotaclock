@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT CASE WHEN te.clock_out IS NULL AND te.clock_in IS NOT NULL THEN te.employee_id END) as clocked_in_now
       FROM employees e
       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id 
-        AND sa.start_date >= $1 AND sa.end_date <= $2
+        AND sa.date >= $1 AND sa.date <= $2
       LEFT JOIN time_entries te ON e.id = te.employee_id 
         AND te.clock_in >= $1 AND te.clock_in <= $3
       WHERE e.tenant_id = $4 AND e.is_active = true
@@ -128,16 +128,16 @@ export async function GET(request: NextRequest) {
       
       SELECT 
         'shift_swap' as type,
-        ssr.id,
-        CONCAT('Shift Swap Request - ', e.first_name, ' ', e.last_name) as title,
-        CONCAT('Wants to swap shift on ', ssr.original_shift_date) as description,
+        ss.id,
+        CONCAT('Shift Swap Request - ', req.first_name, ' ', req.last_name) as title,
+        'Shift swap pending approval' as description,
         'high' as priority,
-        ssr.created_at,
-        CONCAT(e.first_name, ' ', e.last_name) as employee_name
-      FROM shift_swap_requests ssr
-      JOIN employees e ON ssr.employee_id = e.id
-      WHERE ssr.tenant_id = $1 AND ssr.status = 'pending'
-      ${locationFilter}
+        ss.created_at,
+        CONCAT(req.first_name, ' ', req.last_name) as employee_name
+      FROM shift_swaps ss
+      JOIN employees req ON ss.requester_id = req.id
+      WHERE ss.tenant_id = $1 AND ss.status = 'pending'
+      ${locationFilter.replaceAll('e.', 'req.')}
       
       UNION ALL
       
