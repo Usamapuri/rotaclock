@@ -2,7 +2,7 @@
 export interface AuthUser {
   id: string
   email: string
-  role: 'admin' | 'team_lead' | 'project_manager' | 'employee'
+  role: 'admin' | 'manager' | 'team_lead' | 'project_manager' | 'employee'
   employeeId?: string // legacy: human-readable employee code
   organization_id?: string
   organization_name?: string
@@ -261,6 +261,11 @@ export class AuthService {
   static isProjectManager(): boolean {
     const user = this.getCurrentUser()
     return user?.role === 'project_manager'
+  }
+
+  static isManager(): boolean {
+    const user = this.getCurrentUser()
+    return user?.role === 'manager'
   }
 
   static logout(): void {

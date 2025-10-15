@@ -34,11 +34,31 @@ export async function POST(request: NextRequest) {
     }
 
     const employeeResult = await query(
-      'SELECT id FROM employees WHERE id = $1 AND is_active = true AND tenant_id = $2',
+      'SELECT id, location_id FROM employees WHERE id = $1 AND is_active = true AND tenant_id = $2',
       [employee_id, tenantContext.tenant_id]
     )
     if (employeeResult.rows.length === 0) {
       return NextResponse.json({ success: false, error: 'Employee not found or inactive' }, { status: 404 })
+    }
+
+    // Manager location validation
+    if (user.role === 'manager') {
+      const employeeLocationId = employeeResult.rows[0].location_id
+      if (!employeeLocationId) {
+        return NextResponse.json({ success: false, error: 'Employee has no location assigned' }, { status: 400 })
+      }
+
+      const managerLocationCheck = await query(`
+        SELECT 1 FROM manager_locations ml
+        WHERE ml.tenant_id = $1 AND ml.manager_id = $2 AND ml.location_id = $3
+      `, [tenantContext.tenant_id, user.id, employeeLocationId])
+
+      if (managerLocationCheck.rows.length === 0) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Access denied. You can only assign shifts to employees in your assigned locations.' 
+        }, { status: 403 })
+      }
     }
 
     if (hasTemplate) {
@@ -186,11 +206,34 @@ export async function DELETE(request: NextRequest) {
     }
 
     const existingAssignment = await query(
-      'SELECT id FROM shift_assignments WHERE id = $1 AND tenant_id = $2',
+      `SELECT sa.id, sa.employee_id, e.location_id 
+       FROM shift_assignments sa
+       JOIN employees e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
+       WHERE sa.id = $1 AND sa.tenant_id = $2`,
       [assignmentId, tenantContext.tenant_id]
     )
     if (existingAssignment.rows.length === 0) {
       return NextResponse.json({ success: false, error: 'Assignment not found' }, { status: 404 })
+    }
+
+    // Manager location validation
+    if (user.role === 'manager') {
+      const employeeLocationId = existingAssignment.rows[0].location_id
+      if (!employeeLocationId) {
+        return NextResponse.json({ success: false, error: 'Employee has no location assigned' }, { status: 400 })
+      }
+
+      const managerLocationCheck = await query(`
+        SELECT 1 FROM manager_locations ml
+        WHERE ml.tenant_id = $1 AND ml.manager_id = $2 AND ml.location_id = $3
+      `, [tenantContext.tenant_id, user.id, employeeLocationId])
+
+      if (managerLocationCheck.rows.length === 0) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Access denied. You can only delete shifts for employees in your assigned locations.' 
+        }, { status: 403 })
+      }
     }
 
     await query('DELETE FROM shift_assignments WHERE id = $1 AND tenant_id = $2', [assignmentId, tenantContext.tenant_id])
@@ -246,7 +289,7 @@ export async function PUT(request: NextRequest) {
 
     // First, get the current assignment to check if it's published
     const currentAssignment = await query(
-      `SELECT sa.*, e.first_name, e.last_name, e.email, r.status as rota_status
+      `SELECT sa.*, e.first_name, e.last_name, e.email, e.location_id, r.status as rota_status
        FROM shift_assignments sa
        JOIN employees e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
        LEFT JOIN rotas r ON sa.rota_id = r.id
@@ -259,6 +302,27 @@ export async function PUT(request: NextRequest) {
     }
 
     const current = currentAssignment.rows[0]
+
+    // Manager location validation
+    if (user.role === 'manager') {
+      const employeeLocationId = current.location_id
+      if (!employeeLocationId) {
+        return NextResponse.json({ success: false, error: 'Employee has no location assigned' }, { status: 400 })
+      }
+
+      const managerLocationCheck = await query(`
+        SELECT 1 FROM manager_locations ml
+        WHERE ml.tenant_id = $1 AND ml.manager_id = $2 AND ml.location_id = $3
+      `, [tenantContext.tenant_id, user.id, employeeLocationId])
+
+      if (managerLocationCheck.rows.length === 0) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Access denied. You can only update shifts for employees in your assigned locations.' 
+        }, { status: 403 })
+      }
+    }
+
     const isPublished = current.is_published || current.rota_status === 'published'
 
     const updateQuery = `

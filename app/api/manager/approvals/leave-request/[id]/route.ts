@@ -6,15 +6,15 @@ import { z } from 'zod'
 
 const approveLeaveRequestSchema = z.object({
   action: z.enum(['approve', 'reject']),
-  manager_notes: z.string().optional()
+  admin_notes: z.string().optional()
 })
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: leaveRequestId } = params
+    const { id: leaveRequestId } = await params
     
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -45,12 +45,15 @@ export async function PATCH(
     const body = await request.json()
     const validatedData = approveLeaveRequestSchema.parse(body)
 
-    // Get the leave request with location info
+    // Get leave request details with employee location
     const leaveRequestQuery = `
-      SELECT lr.*, e.location_id, l.name as location_name
+      SELECT 
+        lr.*, 
+        e.location_id,
+        CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+        e.email as employee_email
       FROM leave_requests lr
       JOIN employees e ON lr.employee_id = e.id
-      LEFT JOIN locations l ON e.location_id = l.id
       WHERE lr.id = $1 AND lr.tenant_id = $2
     `
     const leaveRequestResult = await query(leaveRequestQuery, [leaveRequestId, tenantContext.tenant_id])
@@ -64,64 +67,58 @@ export async function PATCH(
 
     const leaveRequest = leaveRequestResult.rows[0]
 
-    // Check if manager has access to this location
-    const managerLocationQuery = `
+    // Check if manager has access to employee's location
+    const managerLocationCheck = await query(`
       SELECT 1 FROM manager_locations 
       WHERE tenant_id = $1 AND manager_id = $2 AND location_id = $3
-    `
-    const managerLocationResult = await query(managerLocationQuery, [
-      tenantContext.tenant_id,
-      user.id,
-      leaveRequest.location_id
-    ])
+    `, [tenantContext.tenant_id, user.id, leaveRequest.location_id])
 
-    if (managerLocationResult.rows.length === 0) {
+    if (managerLocationCheck.rows.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Access denied. You can only approve leave requests for your assigned locations.' },
+        { success: false, error: 'Access denied. You can only approve leave requests for employees in your assigned locations.' },
         { status: 403 }
       )
     }
 
     const now = new Date().toISOString()
-    const newStatus = validatedData.action === 'approve' ? 'approved' : 'rejected'
-
+    const approvalStatus = validatedData.action === 'approve' ? 'approved' : 'rejected'
+    
     // Update the leave request
     const updateQuery = `
       UPDATE leave_requests SET
         status = $1,
-        manager_notes = $2,
-        processed_at = $3,
-        processed_by = $4,
+        approved_by = $2,
+        approved_at = $3,
+        admin_notes = $4,
         updated_at = NOW()
       WHERE id = $5
       RETURNING *
     `
     const updateResult = await query(updateQuery, [
-      newStatus,
-      validatedData.manager_notes || null,
-      now,
+      approvalStatus,
       user.id,
+      now,
+      validatedData.admin_notes || null,
       leaveRequestId
     ])
 
     // Create notification for employee
-    const notificationType = validatedData.action === 'approve' ? 'success' : 'warning'
-    const daysRequested = Math.ceil((new Date(leaveRequest.end_date).getTime() - new Date(leaveRequest.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1
-    const notificationMessage = validatedData.action === 'approve'
-      ? `Your leave request has been approved. ${leaveRequest.leave_type} from ${leaveRequest.start_date} to ${leaveRequest.end_date} (${daysRequested} days)`
-      : `Your leave request has been rejected. Reason: ${validatedData.manager_notes || 'No reason provided'}`
+    const notificationType = approvalStatus === 'approved' ? 'success' : 'warning'
+    const notificationMessage = approvalStatus === 'approved'
+      ? `Your leave request from ${new Date(leaveRequest.start_date).toLocaleDateString()} to ${new Date(leaveRequest.end_date).toLocaleDateString()} has been approved.`
+      : `Your leave request from ${new Date(leaveRequest.start_date).toLocaleDateString()} to ${new Date(leaveRequest.end_date).toLocaleDateString()} has been rejected. Reason: ${validatedData.admin_notes || 'Not specified'}`
 
     await query(`
-      INSERT INTO notifications (tenant_id, employee_id, title, message, type, is_read, action_url)
+      INSERT INTO notifications (tenant_id, user_id, title, message, type, read, action_url)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [
       tenantContext.tenant_id,
       leaveRequest.employee_id,
-      `Leave Request ${validatedData.action.charAt(0).toUpperCase() + validatedData.action.slice(1)}`,
+      `Leave Request ${validatedData.action.charAt(0).toUpperCase() + validatedData.action.slice(1)}d`,
       notificationMessage,
       notificationType,
       false,
-      '/employee/leave'
+      '/employee/profile'
     ])
 
     return NextResponse.json({

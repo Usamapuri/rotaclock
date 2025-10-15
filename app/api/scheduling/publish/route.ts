@@ -27,6 +27,17 @@ export async function POST(request: NextRequest) {
     let params: any[] = [tenantContext.tenant_id]
     let paramIndex = 2
 
+    // Manager location filtering - managers can only publish shifts for their assigned locations
+    if (user.role === 'manager') {
+      whereClause += ` AND EXISTS (
+        SELECT 1 FROM employees e
+        JOIN manager_locations ml ON ml.location_id = e.location_id AND ml.tenant_id = e.tenant_id
+        WHERE e.id = sa.employee_id AND ml.manager_id = $${paramIndex}
+      )`
+      params.push(user.id)
+      paramIndex++
+    }
+
     // If specific shift IDs are provided, publish only those
     if (shift_ids && Array.isArray(shift_ids) && shift_ids.length > 0) {
       const placeholders = shift_ids.map((_, i) => `$${paramIndex + i}`).join(',')
@@ -133,10 +144,23 @@ export async function GET(request: NextRequest) {
 
     let whereClause = 'WHERE sa.tenant_id = $1 AND sa.is_published = FALSE'
     let params: any[] = [tenantContext.tenant_id]
+    let paramIndex = 2
+
+    // Manager location filtering - managers can only see draft shifts for their assigned locations
+    if (user.role === 'manager') {
+      whereClause += ` AND EXISTS (
+        SELECT 1 FROM employees e
+        JOIN manager_locations ml ON ml.location_id = e.location_id AND ml.tenant_id = e.tenant_id
+        WHERE e.id = sa.employee_id AND ml.manager_id = $${paramIndex}
+      )`
+      params.push(user.id)
+      paramIndex++
+    }
 
     if (start_date && end_date) {
-      whereClause += ' AND sa.date >= $2 AND sa.date <= $3'
+      whereClause += ` AND sa.date >= $${paramIndex} AND sa.date <= $${paramIndex + 1}`
       params.push(start_date, end_date)
+      paramIndex += 2
     }
 
     const draftShifts = await query(

@@ -67,3 +67,18 @@ export function isEmployee(user: ApiUser | null): boolean {
 export function isProjectManager(user: ApiUser | null): boolean {
   return !!user && user.role === 'project_manager'
 }
+
+export function isManager(user: ApiUser | null): boolean {
+  return !!user && user.role === 'manager'
+}
+
+export async function getManagerLocations(userId: string, tenantId: string): Promise<string[] | null> {
+  const result = await query(`
+    SELECT l.id 
+    FROM locations l
+    JOIN manager_locations ml ON l.id = ml.location_id
+    WHERE ml.tenant_id = $1 AND ml.manager_id = $2 AND l.is_active = true
+  `, [tenantId, userId])
+  
+  return result.rows.length > 0 ? result.rows.map(r => r.id) : null
+}
