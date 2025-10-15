@@ -2,12 +2,13 @@
 
 import { ReactNode, useMemo } from "react"
 import { DashboardShell } from "@/components/layouts/DashboardShell"
-import { LayoutDashboard, Calendar, BarChart3, User } from "lucide-react"
+import { LayoutDashboard, Calendar, BarChart3, User, Clock } from "lucide-react"
 
 export default function EmployeeLayout({ children }: { children: ReactNode }) {
   const links = useMemo(() => [
     { href: '/employee/dashboard', label: 'Dashboard', icon: <LayoutDashboard /> },
     { href: '/employee/scheduling', label: 'Scheduling', icon: <Calendar /> },
+    { href: '/employee/timesheet', label: 'Timesheet', icon: <Clock /> },
     { href: '/employee/time-history', label: 'Time History', icon: <BarChart3 /> },
     { href: '/employee/profile', label: 'Profile', icon: <User /> },
   ], [])

@@ -9,7 +9,7 @@ const updateProfileSchema = z.object({
   last_name: z.string().min(1, 'Last name is required').optional(),
   email: z.string().email('Invalid email address').optional(),
   department: z.string().optional(),
-  position: z.string().optional(),
+  job_position: z.string().optional(),
   hourly_rate: z.number().positive('Hourly rate must be positive').optional(),
   max_hours_per_week: z.number().positive('Max hours must be positive').optional(),
   // Add more fields as needed for profile management
@@ -47,14 +47,14 @@ export async function GET(
         last_name,
         email,
         department,
-        position,
+        job_position,
         hire_date,
         hourly_rate,
         max_hours_per_week,
         is_active,
         created_at,
         updated_at
-      FROM employees_new
+      FROM employees
       WHERE id = $1
     `, [id])
 
@@ -109,7 +109,7 @@ export async function PUT(
 
     // Check if employee exists
     const existingEmployeeResult = await query(`
-      SELECT id FROM employees_new WHERE id = $1
+      SELECT id FROM employees WHERE id = $1
     `, [id])
 
     if (existingEmployeeResult.rows.length === 0) {
@@ -137,7 +137,7 @@ export async function PUT(
         last_name,
         email,
         department,
-        position,
+        job_position,
         hire_date,
         hourly_rate,
         max_hours_per_week,

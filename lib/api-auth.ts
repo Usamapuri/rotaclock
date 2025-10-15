@@ -4,7 +4,7 @@ import { query } from '@/lib/database'
 type ApiUser = {
   id: string
   email?: string
-  role: 'admin' | 'team_lead' | 'project_manager' | 'employee'
+  role: 'admin' | 'manager' | 'employee' | 'team_lead' | 'project_manager'
   employeeId?: string
   isImpersonating?: boolean
   originalUser?: { id: string, email: string, role: string }
@@ -32,7 +32,8 @@ export function createApiAuthMiddleware() {
       const res = await query(sql, [employeeIdOrUuid])
       if (res.rows.length > 0) {
         const e = res.rows[0]
-        user = { id: e.id, email: e.email, role: e.role || 'employee', employeeId: e.employee_code }
+        const role = (e.role as string) || 'employee'
+        user = { id: e.id, email: e.email, role: role as any, employeeId: e.employee_code }
         
         // Check if this user is being impersonated
         // For now, we'll rely on the client-side impersonation state
@@ -65,4 +66,19 @@ export function isEmployee(user: ApiUser | null): boolean {
 
 export function isProjectManager(user: ApiUser | null): boolean {
   return !!user && user.role === 'project_manager'
+}
+
+export function isManager(user: ApiUser | null): boolean {
+  return !!user && user.role === 'manager'
+}
+
+export async function getManagerLocations(userId: string, tenantId: string): Promise<string[] | null> {
+  const result = await query(`
+    SELECT l.id 
+    FROM locations l
+    JOIN manager_locations ml ON l.id = ml.location_id
+    WHERE ml.tenant_id = $1 AND ml.manager_id = $2 AND l.is_active = true
+  `, [tenantId, userId])
+  
+  return result.rows.length > 0 ? result.rows.map(r => r.id) : null
 }
