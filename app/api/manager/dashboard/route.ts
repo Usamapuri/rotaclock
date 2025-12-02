@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
-    
+
     if (!isAuthenticated || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -35,6 +35,13 @@ export async function GET(request: NextRequest) {
     const locationId = searchParams.get('location_id')
 
     // Get manager's assigned locations
+    console.log('Manager Dashboard Debug:', {
+      tenantId: tenantContext.tenant_id,
+      userId: user.id,
+      role: user.role
+    })
+
+    // Get manager's assigned locations
     const assignedLocationsQuery = `
       SELECT l.id, l.name, l.description
       FROM locations l
@@ -47,13 +54,22 @@ export async function GET(request: NextRequest) {
       user.id
     ])
 
+    console.log('Assigned Locations Result:', assignedLocationsResult.rows)
+
     const assignedLocations = assignedLocationsResult.rows
 
     // If no locations assigned, return error
     if (assignedLocations.length === 0) {
+      console.log('No locations found for manager:', user.id)
       return NextResponse.json({
         success: false,
-        error: 'No locations assigned to this manager'
+        error: 'No locations assigned to this manager',
+        debug: {
+          userId: user.id,
+          tenantId: tenantContext.tenant_id,
+          role: user.role,
+          query: assignedLocationsQuery.replace(/\s+/g, ' ').trim()
+        }
       }, { status: 403 })
     }
 
@@ -71,7 +87,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build location filter for queries
-    const locationFilter = validLocationId 
+    const locationFilter = validLocationId
       ? `AND e.location_id = '${validLocationId}'`
       : `AND e.location_id IN (${assignedLocations.map(loc => `'${loc.id}'`).join(', ')})`
 
