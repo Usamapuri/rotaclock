@@ -20,6 +20,7 @@ import PublishedRotasView from '@/components/scheduling/PublishedRotasView'
 import CurrentWeekView from '@/components/scheduling/CurrentWeekView'
 import MasterCalendar from '@/components/scheduling/MasterCalendar'
 import LocationFilter from '@/components/admin/LocationFilter'
+import CreateRotaModal from '@/components/scheduling/CreateRotaModal'
 
 interface Employee {
   id: string
@@ -31,16 +32,20 @@ interface Employee {
   job_position: string
   location_id?: string
   location_name?: string
+  is_active?: boolean
   assignments: { [date: string]: any[] }
 }
 
 interface ShiftTemplate {
   id: string
   name: string
+  description?: string
   start_time: string
   end_time: string
-  hourly_rate: number
+  department: string
   required_staff: number
+  hourly_rate?: number
+  color: string
   is_active?: boolean
 }
 
@@ -55,7 +60,7 @@ export default function ManagerSchedulingPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false)
-  
+
   // Location filtering state - managers can only see their assigned locations
   const [assignedLocations, setAssignedLocations] = useState<any[]>([])
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
@@ -68,6 +73,7 @@ export default function ManagerSchedulingPage() {
   const [editingAssignment, setEditingAssignment] = useState<any | null>(null)
   const [assignmentEmployeeId, setAssignmentEmployeeId] = useState('')
   const [assignmentDate, setAssignmentDate] = useState('')
+  const [showCreateRotaModal, setShowCreateRotaModal] = useState(false)
 
   // Rota management state
   const [rotas, setRotas] = useState<any[]>([])
@@ -104,7 +110,7 @@ export default function ManagerSchedulingPage() {
       if (response.ok) {
         const data = await response.json()
         setAssignedLocations(data.data.assignedLocations || [])
-        
+
         // Auto-select first location if only one assigned
         if (data.data.assignedLocations.length === 1) {
           setSelectedLocationId(data.data.assignedLocations[0].id)
@@ -140,10 +146,10 @@ export default function ManagerSchedulingPage() {
 
   const loadWeek = async (dateOverride?: string, rotaId?: string | null) => {
     if (!selectedLocationId) return // Don't load if no location selected
-    
+
     const dateToLoad = dateOverride || selectedDate
     const user = AuthService.getCurrentUser()
-    
+
     // Build URL with rota filter and location scope
     let url = `/api/scheduling/week/${dateToLoad}`
     const params = new URLSearchParams()
@@ -151,7 +157,7 @@ export default function ManagerSchedulingPage() {
       params.append('rota_id', rotaId)
     }
     params.append('location_id', selectedLocationId) // Add location filter for manager scope
-    
+
     if (params.toString()) {
       url += `?${params.toString()}`
     }
@@ -164,7 +170,7 @@ export default function ManagerSchedulingPage() {
       console.error('Failed to load week data:', data.error)
       return
     }
-    
+
     console.log('Week data loaded:', data.data) // Debug log
     setEmployees(data.data.employees.map((e: any) => ({ ...e, assignments: e.assignments || {} })))
     setRotas(data.data.rotas || [])
@@ -228,19 +234,67 @@ export default function ManagerSchedulingPage() {
   }
 
   const handleCreateRota = () => {
-    // Create new rota for current location
-    console.log('Create rota for location:', selectedLocationId)
-    // Implementation would go here
+    setShowCreateRotaModal(true)
   }
 
-  const handlePublishRota = (rotaId: string) => {
-    console.log('Publish rota:', rotaId)
-    // Implementation would go here
-  }
-
-  const handleSelectRota = (rotaId: string) => {
+  const handleRotaCreated = (rotaId: string) => {
     setCurrentRotaId(rotaId)
     loadWeek(selectedDate, rotaId)
+  }
+
+  const handlePublishRota = async (rotaId: string) => {
+    try {
+      if (!confirm('Are you sure you want to publish this rota? This will notify all affected employees.')) return
+
+      const user = AuthService.getCurrentUser()
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(user?.id ? { authorization: `Bearer ${user.id}` } : {})
+      }
+
+      // We publish by date range of the rota, scoped to manager's location (handled by API)
+      // First get the rota details to know the dates
+      // Or we can just call publish with the rota_id if the API supported it, but the API supports date range or shift_ids
+      // Let's use the current view's date range for now, assuming the rota matches the view
+
+      // Better approach: Get the rota details from the state
+      const rota = rotas.find(r => r.id === rotaId)
+      if (!rota) {
+        toast.error('Rota details not found')
+        return
+      }
+
+      const startDate = rota.week_start_date.split('T')[0]
+      const endDate = new Date(new Date(startDate).setDate(new Date(startDate).getDate() + 6)).toISOString().split('T')[0]
+
+      const response = await fetch('/api/scheduling/publish', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          start_date: startDate,
+          end_date: endDate
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to publish rota')
+
+      const data = await response.json()
+      toast.success(data.message || 'Rota published successfully')
+      loadWeek(selectedDate, rotaId)
+    } catch (error) {
+      console.error('Error publishing rota:', error)
+      toast.error('Failed to publish rota')
+    }
+  }
+
+  const handleSelectRota = (rotaId: string | null) => {
+    if (rotaId) {
+      setCurrentRotaId(rotaId)
+      loadWeek(selectedDate, rotaId)
+    } else {
+      setCurrentRotaId(null)
+      loadWeek(selectedDate)
+    }
   }
 
   const handleRefresh = () => {
@@ -252,8 +306,8 @@ export default function ManagerSchedulingPage() {
     const totalAssignments = filteredEmployees.reduce((acc, emp) => {
       return acc + Object.values(emp.assignments).flat().length
     }, 0)
-    
-    const coverageRate = filteredEmployees.length > 0 
+
+    const coverageRate = filteredEmployees.length > 0
       ? Math.round((totalAssignments / (filteredEmployees.length * 7)) * 100)
       : 0
 
@@ -347,7 +401,7 @@ export default function ManagerSchedulingPage() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card className="bg-white shadow-sm border-0">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -361,7 +415,7 @@ export default function ManagerSchedulingPage() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card className="bg-white shadow-sm border-0">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -375,7 +429,7 @@ export default function ManagerSchedulingPage() {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card className="bg-white shadow-sm border-0">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -409,7 +463,7 @@ export default function ManagerSchedulingPage() {
                 Shift Templates
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="draft-rotas" className="space-y-6">
               <ModernWeekGrid
                 employees={filteredEmployees}
@@ -430,9 +484,9 @@ export default function ManagerSchedulingPage() {
                 onSelectRota={handleSelectRota}
               />
             </TabsContent>
-            
+
             <TabsContent value="published-rotas" className="space-y-6">
-              <PublishedRotasView 
+              <PublishedRotasView
                 onViewRota={(rotaId) => {
                   setCurrentRotaId(rotaId)
                 }}
@@ -440,12 +494,12 @@ export default function ManagerSchedulingPage() {
             </TabsContent>
 
             <TabsContent value="current-week" className="space-y-6">
-              <CurrentWeekView 
+              <CurrentWeekView
                 selectedDate={selectedDate}
                 onDateChange={handleDateChange}
               />
             </TabsContent>
-            
+
             <TabsContent value="templates" className="space-y-6">
               <EnhancedTemplateLibrary
                 templates={templates}
@@ -463,17 +517,20 @@ export default function ManagerSchedulingPage() {
         <ShiftAssignmentModal
           isOpen={showAssignmentModal}
           onClose={() => setShowAssignmentModal(false)}
-          employeeId={assignmentEmployeeId}
+          employee={employees.find(e => e.id === assignmentEmployeeId) || null}
           date={assignmentDate}
           onAssignmentCreated={handleAssignmentCreated}
           templates={templates}
+          currentRotaId={currentRotaId}
         />
 
         <ShiftEditModal
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           assignment={editingAssignment}
+          employee={editingAssignment ? employees.find(e => e.id === editingAssignment.employee_id) || null : null}
           onAssignmentUpdated={handleAssignmentCreated}
+          onAssignmentDeleted={handleAssignmentDeleted}
           templates={templates}
         />
 
@@ -482,6 +539,12 @@ export default function ManagerSchedulingPage() {
           onClose={() => setShowTemplateModal(false)}
           template={editingTemplate}
           onTemplateSaved={loadTemplates}
+        />
+
+        <CreateRotaModal
+          isOpen={showCreateRotaModal}
+          onClose={() => setShowCreateRotaModal(false)}
+          onRotaCreated={handleRotaCreated}
         />
       </div>
     </div>

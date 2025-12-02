@@ -33,7 +33,8 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
     const base = [
       { href: "/manager/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
       { href: "/manager/scheduling", label: "Rota", icon: <Calendar /> },
-      { href: "/manager/employees", label: "Team", icon: <Users /> },
+      { href: "/manager/teams", label: "Teams", icon: <Users /> },
+      { href: "/manager/employees", label: "Employees", icon: <Users /> },
       { href: "/manager/timesheets", label: "Timesheets", icon: <Clock /> },
       { href: "/manager/approvals", label: "Approvals", icon: <CheckCircle /> },
       { href: "/manager/reports", label: "Reports", icon: <BarChart3 /> },
@@ -46,10 +47,10 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
   const crumbs = useMemo(() => {
     const parts = pathname.split('/').filter(Boolean)
     const breadcrumbs = []
-    
+
     if (parts[0] === 'manager') {
       breadcrumbs.push({ label: 'Manager', href: '/manager/dashboard' })
-      
+
       if (parts[1]) {
         const section = parts[1]
         const link = links.find(l => l.href.includes(section))
@@ -58,7 +59,7 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
         }
       }
     }
-    
+
     return breadcrumbs
   }, [pathname, links])
 

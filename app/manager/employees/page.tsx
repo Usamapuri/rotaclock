@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { 
-  Users, 
-  Search, 
+import {
+  Users,
+  Search,
   RefreshCw,
   MapPin,
   Clock,
@@ -20,6 +20,7 @@ import {
 import { AuthService } from "@/lib/auth"
 import { toast } from "sonner"
 import LocationFilter from "@/components/admin/LocationFilter"
+import EmployeeEditModal from "@/components/manager/EmployeeEditModal"
 
 interface Employee {
   id: string
@@ -45,6 +46,9 @@ export default function ManagerEmployees() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
+  const [assignedLocations, setAssignedLocations] = useState<any[]>([])
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -88,6 +92,15 @@ export default function ManagerEmployees() {
 
       const data = await response.json()
       setEmployees(data.data.employees || [])
+
+      // Also load locations for the modal if not loaded
+      if (assignedLocations.length === 0) {
+        const locResponse = await fetch('/api/manager/dashboard', { headers })
+        if (locResponse.ok) {
+          const locData = await locResponse.json()
+          setAssignedLocations(locData.data.assignedLocations || [])
+        }
+      }
     } catch (error) {
       console.error('Error loading employees:', error)
       toast.error('Failed to load employees')
@@ -227,7 +240,7 @@ export default function ManagerEmployees() {
                 <div>
                   <p className="text-sm font-medium text-orange-800">Currently Online</p>
                   <p className="text-2xl font-bold text-orange-900">
-                    {employees.filter(emp => emp.last_clock_in && 
+                    {employees.filter(emp => emp.last_clock_in &&
                       new Date(emp.last_clock_in) > new Date(Date.now() - 24 * 60 * 60 * 1000)
                     ).length}
                   </p>
@@ -262,7 +275,7 @@ export default function ManagerEmployees() {
               Team Members ({filteredEmployees.length})
             </CardTitle>
             <CardDescription>
-              {selectedLocationId 
+              {selectedLocationId
                 ? 'Team members in the selected location'
                 : 'All team members across your assigned locations'
               }
@@ -317,7 +330,7 @@ export default function ManagerEmployees() {
                           {employee.last_clock_in ? formatDateTime(employee.last_clock_in) : 'Never'}
                         </TableCell>
                         <TableCell>
-                          {employee.total_hours_this_week 
+                          {employee.total_hours_this_week
                             ? formatDuration(employee.total_hours_this_week)
                             : '0h 0m'
                           }
@@ -326,6 +339,18 @@ export default function ManagerEmployees() {
                           <Badge variant={employee.is_active ? 'default' : 'secondary'}>
                             {employee.is_active ? 'Active' : 'Inactive'}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedEmployee(employee)
+                              setShowEditModal(true)
+                            }}
+                          >
+                            Edit
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -337,9 +362,9 @@ export default function ManagerEmployees() {
                 <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No team members found</h3>
                 <p className="text-gray-600">
-                  {searchTerm 
+                  {searchTerm
                     ? 'No team members match your search criteria.'
-                    : selectedLocationId 
+                    : selectedLocationId
                       ? 'No team members found for the selected location.'
                       : 'Please select a location to view team members.'
                   }
@@ -348,6 +373,14 @@ export default function ManagerEmployees() {
             )}
           </CardContent>
         </Card>
+
+        <EmployeeEditModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          employee={selectedEmployee}
+          locations={assignedLocations}
+          onEmployeeUpdated={loadEmployees}
+        />
       </div>
     </div>
   )
