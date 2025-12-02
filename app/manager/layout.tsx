@@ -65,11 +65,10 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
 
   return (
     <DashboardShell
-      title="Manager Portal"
+      headerLabel="Manager Portal"
       links={links}
-      breadcrumbs={crumbs}
-      userRole={role}
-      isImpersonating={isImpersonating}
-    />
+    >
+      {children}
+    </DashboardShell>
   )
 }
