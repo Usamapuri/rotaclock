@@ -106,6 +106,11 @@ export default function ManagerSchedulingPage() {
         headers['x-tenant-id'] = user.tenant_id
       }
 
+      console.log('Client Side Auth Debug:', {
+        user,
+        headers
+      })
+
       const response = await fetch('/api/manager/dashboard', { headers })
       if (response.ok) {
         const data = await response.json()
