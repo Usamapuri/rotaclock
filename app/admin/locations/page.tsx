@@ -12,12 +12,12 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  MapPin, 
-  Plus, 
-  Edit, 
-  Users, 
-  UserCheck, 
+import {
+  MapPin,
+  Plus,
+  Edit,
+  Users,
+  UserCheck,
   Building,
   RefreshCw,
   Search,
@@ -26,7 +26,7 @@ import {
 import { AuthService } from "@/lib/auth"
 import { toast } from "sonner"
 
-interface Location { 
+interface Location {
   id: string
   name: string
   description?: string
@@ -84,7 +84,7 @@ export default function LocationsAdmin() {
 
   const headers = () => {
     const user = AuthService.getCurrentUser()
-    const h: Record<string,string> = { 'Content-Type': 'application/json' }
+    const h: Record<string, string> = { 'Content-Type': 'application/json' }
     if (user?.id) h['authorization'] = `Bearer ${user.id}`
     if (user?.tenant_id) h['x-tenant-id'] = user.tenant_id
     return h
@@ -124,10 +124,10 @@ export default function LocationsAdmin() {
   const createLocation = async () => {
     if (!name.trim()) return
     try {
-      const res = await fetch('/api/locations', { 
-        method: 'POST', 
-        headers: headers(), 
-        body: JSON.stringify({ name, description }) 
+      const res = await fetch('/api/locations', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ name, description })
       })
       if (res.ok) {
         toast.success('Location created successfully')
@@ -147,10 +147,10 @@ export default function LocationsAdmin() {
   const updateLocation = async () => {
     if (!selectedLocation || !name.trim()) return
     try {
-      const res = await fetch(`/api/locations/${selectedLocation.id}`, { 
-        method: 'PUT', 
-        headers: headers(), 
-        body: JSON.stringify({ name, description }) 
+      const res = await fetch(`/api/locations/${selectedLocation.id}`, {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ name, description })
       })
       if (res.ok) {
         toast.success('Location updated successfully')
@@ -169,13 +169,13 @@ export default function LocationsAdmin() {
   const assignManager = async () => {
     if (!selectedLocation || !selectedManager) return
     try {
-      const res = await fetch('/api/manager-locations', { 
-        method: 'POST', 
-        headers: headers(), 
-        body: JSON.stringify({ 
-          manager_id: selectedManager, 
-          location_id: selectedLocation.id 
-        }) 
+      const res = await fetch('/api/manager-locations', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({
+          manager_id: selectedManager,
+          location_id: selectedLocation.id
+        })
       })
       if (res.ok) {
         toast.success('Manager assigned successfully')
@@ -194,17 +194,18 @@ export default function LocationsAdmin() {
   const assignEmployee = async () => {
     if (!selectedEmployee || !selectedEmployeeLocation) return
     try {
-      const res = await fetch(`/api/employees/${selectedEmployee}`, { 
-        method: 'PUT', 
-        headers: headers(), 
-        body: JSON.stringify({ location_id: selectedEmployeeLocation }) 
+      const res = await fetch(`/api/employees/${selectedEmployee}`, {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ location_id: selectedEmployeeLocation })
       })
       if (res.ok) {
         toast.success('Employee location updated successfully')
         setShowEmployeeDialog(false)
         setSelectedEmployee("")
         setSelectedEmployeeLocation("")
-        loadData()
+        // Force a hard reload to ensure the employee list updates
+        window.location.reload()
       } else {
         const error = await res.json()
         toast.error(error.error || 'Failed to update employee location')
@@ -639,8 +640,8 @@ export default function LocationsAdmin() {
               <Button variant="outline" onClick={() => setShowEmployeeDialog(false)}>
                 Cancel
               </Button>
-              <Button 
-                onClick={assignEmployee} 
+              <Button
+                onClick={assignEmployee}
                 disabled={!selectedEmployee || !selectedEmployeeLocation}
               >
                 Assign Employee
