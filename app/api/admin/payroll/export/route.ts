@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         CONCAT(e.first_name, ' ', e.last_name) as employee_name,
         e.email,
         e.department,
-        e.position,
+        e.job_position as position,
         pr.base_salary,
         pr.hours_worked,
         pr.hourly_pay,

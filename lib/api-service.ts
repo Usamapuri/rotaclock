@@ -24,7 +24,7 @@ export interface Employee {
   last_name: string
   email: string
   department?: string
-  position?: string
+  job_position?: string
   hire_date?: string
   manager_id?: string
   is_active: boolean
@@ -214,7 +214,7 @@ export interface AttendanceStats {
   first_name: string
   last_name: string
   department: string
-  position: string
+  job_position: string
   total_entries: number
   completed_entries: number
   total_hours: number
@@ -305,14 +305,14 @@ class ApiService {
   async getEmployees(filters?: {
     department?: string
     is_active?: boolean
-    position?: string
+    job_position?: string
     page?: number
     limit?: number
   }): Promise<ApiResponse<Employee[]>> {
     const params = new URLSearchParams()
     if (filters?.department) params.append('department', filters.department)
     if (filters?.is_active !== undefined) params.append('is_active', filters.is_active.toString())
-    if (filters?.position) params.append('position', filters.position)
+    if (filters?.job_position) params.append('job_position', filters.job_position)
     if (filters?.page) params.append('page', filters.page.toString())
     if (filters?.limit) params.append('limit', filters.limit.toString())
 

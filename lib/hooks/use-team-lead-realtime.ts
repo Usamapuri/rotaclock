@@ -9,7 +9,7 @@ interface TeamMember {
   last_name: string
   email: string
   department: string
-  position: string
+  job_position: string
   is_active: boolean
   status: 'online' | 'offline' | 'break'
 }

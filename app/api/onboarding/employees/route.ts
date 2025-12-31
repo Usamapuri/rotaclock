@@ -4,7 +4,7 @@ import { query } from "@/lib/database"
 export async function GET() {
   try {
     const employeesResult = await query(`
-      SELECT * FROM employees_new
+      SELECT * FROM employees
       WHERE is_active = true
       ORDER BY created_at DESC
     `)
@@ -20,13 +20,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const { employee_id, first_name, last_name, email, department, position, hire_date, manager_id } = body
+    const { employee_id, first_name, last_name, email, department, job_position, hire_date, manager_id } = body
 
     const employeeResult = await query(`
-      INSERT INTO employees (employee_id, first_name, last_name, email, department, position, hire_date, manager_id, is_active)
+      INSERT INTO employees (employee_id, first_name, last_name, email, department, job_position, hire_date, manager_id, is_active)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
-    `, [employee_id, first_name, last_name, email, department, position, hire_date, manager_id, true])
+    `, [employee_id, first_name, last_name, email, department, job_position, hire_date, manager_id, true])
 
     return NextResponse.json({ employee: employeeResult.rows[0] })
   } catch (error) {

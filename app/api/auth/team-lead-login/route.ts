@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     // Ensure role is team_lead. Fallback: if position includes 'lead'
     const role = (employee.role || '').toLowerCase()
-    const position = (employee.position || '').toLowerCase()
+    const position = (employee.job_position || '').toLowerCase()
     const isLead = role === 'team_lead' || position.includes('lead')
     if (!isLead) {
       return NextResponse.json({ error: 'Access denied. Team lead privileges required.' }, { status: 403 })
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         last_name: employee.last_name,
         email: employee.email,
         department: employee.department,
-        position: employee.position,
+        position: employee.job_position,
         role: 'team_lead',
         team_id: employee.team_id || null,
         tenant_id: employee.tenant_id,
