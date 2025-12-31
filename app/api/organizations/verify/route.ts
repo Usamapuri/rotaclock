@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Pool } from 'pg'
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:QlUXSBsWFuwjhodaivUXTUXDuQhWigHL@metro.proxy.rlwy.net:36516/railway',
-  ssl: { rejectUnauthorized: false }
-})
+import { query } from '@/lib/database'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +10,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing tenant_id' }, { status: 400 })
     }
 
-    const result = await pool.query(
+    const result = await query(
       'UPDATE organizations SET is_verified = true WHERE tenant_id = $1 RETURNING id, name, tenant_id, is_verified',
       [tenantId]
     )

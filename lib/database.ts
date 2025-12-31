@@ -1,11 +1,21 @@
 import { Pool, PoolClient } from 'pg'
 import bcrypt from 'bcryptjs'
 
+// Get database URL from environment
+const databaseUrl = process.env.DATABASE_URL
+
+// Validate database URL is set
+if (!databaseUrl) {
+  throw new Error(
+    '❌ DATABASE_URL environment variable is not set!\n' +
+    'Please ensure DATABASE_URL is configured in Railway environment variables.\n' +
+    'For local development, create a .env.local file with DATABASE_URL=your_database_url'
+  )
+}
+
 // Connection pool configuration for high concurrency and performance
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || (process.env.NODE_ENV === 'production' 
-    ? 'postgresql://postgres:IImsWCOMgonNsYLXSDBUGsrpbGNbbsoZ@hopper.proxy.rlwy.net:48063/railway'
-    : 'postgresql://postgres:QlUXSBsWFuwjhodaivUXTUXDuQhWigHL@metro.proxy.rlwy.net:36516/railway'),
+  connectionString: databaseUrl,
   max: 20, // Increased for better concurrency
   min: 2, // Keep minimum connections ready
   idleTimeoutMillis: 30000, // Reduced idle timeout for better resource management

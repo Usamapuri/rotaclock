@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Pool } from 'pg'
 import bcrypt from 'bcryptjs'
 import { v4 as uuidv4 } from 'uuid'
 import { sendEmail, buildOrgVerificationEmail, buildWelcomeEmail } from '@/lib/email'
-
-// Database configuration
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:QlUXSBsWFuwjhodaivUXTUXDuQhWigHL@metro.proxy.rlwy.net:36516/railway',
-  ssl: { rejectUnauthorized: false }
-})
+import { query, transaction } from '@/lib/database'
 
 interface OrganizationSignupData {
   organizationName: string
@@ -49,12 +43,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Password must be at least 8 characters long' }, { status: 400 })
     }
 
-    const existingOrg = await pool.query('SELECT id FROM organizations WHERE email = $1', [body.organizationEmail])
+    const existingOrg = await query('SELECT id FROM organizations WHERE email = $1', [body.organizationEmail])
     if (existingOrg.rows.length > 0) {
       return NextResponse.json({ success: false, error: 'Organization with this email already exists' }, { status: 409 })
     }
 
-    const existingAdmin = await pool.query('SELECT id FROM employees WHERE email = $1', [body.adminEmail])
+    const existingAdmin = await query('SELECT id FROM employees WHERE email = $1', [body.adminEmail])
     if (existingAdmin.rows.length > 0) {
       return NextResponse.json({ success: false, error: 'Admin user with this email already exists' }, { status: 409 })
     }
@@ -62,10 +56,7 @@ export async function POST(request: NextRequest) {
     const tenantId = generateTenantId(body.organizationName)
     const slug = generateSlug(body.organizationName)
 
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
-
+    const result = await transaction(async (client) => {
       const organizationResult = await client.query(`
         INSERT INTO organizations (
           tenant_id,name,slug,email,phone,address,city,state,country,industry,company_size,subscription_status,subscription_plan,trial_start_date,trial_end_date,is_verified,is_active
@@ -145,34 +136,30 @@ export async function POST(request: NextRequest) {
         VALUES ($1, $2, $3, 'active', $4, $5)
       `, [`${currentDate.toLocaleString('default', { month: 'long' })} ${currentDate.getFullYear()}`, startOfMonth, endOfMonth, tenantId, organization.id])
 
-      await client.query('COMMIT')
+      // Return data from transaction
+      return { organization, admin, defaultLocation }
+    })
 
-      // Send verification and welcome emails (best-effort)
-      try {
-        const verifyUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://app.rotaclock.com'}/api/organizations/verify?tenant_id=${encodeURIComponent(tenantId)}`
-        const v = buildOrgVerificationEmail({ orgName: body.organizationName, verifyUrl })
-        await sendEmail({ to: body.organizationEmail, subject: v.subject, html: v.html })
+    // Send verification and welcome emails (best-effort, after transaction)
+    try {
+      const verifyUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://app.rotaclock.com'}/api/organizations/verify?tenant_id=${encodeURIComponent(tenantId)}`
+      const v = buildOrgVerificationEmail({ orgName: body.organizationName, verifyUrl })
+      await sendEmail({ to: body.organizationEmail, subject: v.subject, html: v.html })
 
-        const w = buildWelcomeEmail({ orgName: body.organizationName, email: body.adminEmail, loginUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://app.rotaclock.com'}/login` })
-        await sendEmail({ to: body.adminEmail, subject: w.subject, html: w.html })
-      } catch (e) {
-        console.warn('Email sending failed', e)
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Organization created successfully. Verification email sent.',
-        data: {
-          organization: { id: organization.id, tenant_id: organization.tenant_id, name: body.organizationName, slug, email: body.organizationEmail, subscription_status: 'trial', subscription_plan: body.selectedPlan },
-          admin: { id: admin.id, employee_code: admin.employee_code, first_name: admin.first_name, last_name: admin.last_name, email: admin.email, role: admin.role },
-        },
-      })
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
+      const w = buildWelcomeEmail({ orgName: body.organizationName, email: body.adminEmail, loginUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://app.rotaclock.com'}/login` })
+      await sendEmail({ to: body.adminEmail, subject: w.subject, html: w.html })
+    } catch (e) {
+      console.warn('Email sending failed', e)
     }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Organization created successfully. Verification email sent.',
+      data: {
+        organization: { id: result.organization.id, tenant_id: result.organization.tenant_id, name: body.organizationName, slug, email: body.organizationEmail, subscription_status: 'trial', subscription_plan: body.selectedPlan },
+        admin: { id: result.admin.id, employee_code: result.admin.employee_code, first_name: result.admin.first_name, last_name: result.admin.last_name, email: result.admin.email, role: result.admin.role },
+      },
+    })
   } catch (error) {
     console.error('Organization signup error:', error)
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
