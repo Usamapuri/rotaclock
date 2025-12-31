@@ -45,8 +45,7 @@ export async function GET(request: NextRequest) {
     const assignedLocationsQuery = `
       SELECT l.id, l.name, l.description
       FROM locations l
-      JOIN manager_locations ml ON l.id = ml.location_id
-      WHERE ml.tenant_id = $1 AND ml.manager_id = $2 AND l.is_active = true
+      WHERE l.tenant_id = $1 AND l.manager_id = $2 AND l.is_active = true
       ORDER BY l.name
     `
     const assignedLocationsResult = await query(assignedLocationsQuery, [
@@ -182,14 +181,14 @@ export async function GET(request: NextRequest) {
         CONCAT(e.first_name, ' ', e.last_name) as employee_name,
         l.name as location_name,
         CASE 
+          WHEN te.clock_out IS NULL AND te.clock_in IS NOT NULL AND te.break_start IS NOT NULL AND te.break_end IS NULL THEN 'on_break'
           WHEN te.clock_out IS NULL AND te.clock_in IS NOT NULL THEN 'clocked_in'
-          WHEN bl.id IS NOT NULL AND bl.break_end IS NULL THEN 'on_break'
           WHEN lr.id IS NOT NULL AND CURRENT_DATE BETWEEN lr.start_date AND lr.end_date THEN 'on_leave'
           ELSE 'clocked_out'
         END as status,
         COALESCE(
           te.clock_in::text,
-          bl.break_start::text,
+          te.break_start::text,
           lr.start_date::text,
           'No recent activity'
         ) as last_activity
@@ -198,9 +197,6 @@ export async function GET(request: NextRequest) {
       LEFT JOIN time_entries te ON e.id = te.employee_id 
         AND te.clock_in >= CURRENT_DATE 
         AND (te.clock_out IS NULL OR te.clock_out >= CURRENT_DATE)
-      LEFT JOIN break_logs bl ON e.id = bl.employee_id 
-        AND bl.break_start >= CURRENT_DATE 
-        AND bl.break_end IS NULL
       LEFT JOIN leave_requests lr ON e.id = lr.employee_id 
         AND lr.status = 'approved'
         AND CURRENT_DATE BETWEEN lr.start_date AND lr.end_date
