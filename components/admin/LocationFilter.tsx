@@ -12,6 +12,7 @@ interface LocationFilterProps {
   onLocationChange?: (locationId: string | null) => void
   showAllOption?: boolean
   showRefresh?: boolean
+  disabled?: boolean
   className?: string
   placeholder?: string
 }
@@ -21,6 +22,7 @@ export default function LocationFilter({
   onLocationChange,
   showAllOption = true,
   showRefresh = true,
+  disabled = false,
   className,
   placeholder = "Select location..."
 }: LocationFilterProps) {
@@ -78,7 +80,7 @@ export default function LocationFilter({
         <Select
           value={currentSelection || 'all'}
           onValueChange={handleLocationChange}
-          disabled={isLoading}
+          disabled={isLoading || disabled}
         >
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder={placeholder} />

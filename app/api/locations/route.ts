@@ -13,10 +13,24 @@ export async function GET(request: NextRequest) {
     const tenant = await getTenantContext(user.id)
     if (!tenant) return NextResponse.json({ error: 'No tenant' }, { status: 403 })
 
-    const result = await query(`
-      SELECT id, name, description, is_active, created_at, updated_at
-      FROM locations WHERE tenant_id = $1 ORDER BY name
-    `, [tenant.tenant_id])
+    const { searchParams } = new URL(request.url)
+    const managerId = searchParams.get('manager_id')
+
+    let queryText = `
+      SELECT id, name, description, is_active, manager_id, created_at, updated_at
+      FROM locations WHERE tenant_id = $1
+    `
+    const params: any[] = [tenant.tenant_id]
+
+    // Filter by manager_id if provided
+    if (managerId) {
+      queryText += ` AND manager_id = $2`
+      params.push(managerId)
+    }
+
+    queryText += ` ORDER BY name`
+
+    const result = await query(queryText, params)
     return NextResponse.json({ success: true, data: result.rows })
   } catch (e) {
     return NextResponse.json({ error: 'Failed to load locations' }, { status: 500 })

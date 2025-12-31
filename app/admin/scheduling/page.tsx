@@ -76,13 +76,36 @@ export default function SchedulingPage() {
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
-    if (!user || user.role !== 'admin') {
+    if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
       router.push('/login')
       return
     }
     setCurrentUser(user)
+    
+    // If user is a manager, fetch and set their assigned location
+    if (user.role === 'manager') {
+      fetchManagerLocation(user.id)
+    }
+    
     loadAll()
   }, [router])
+
+  const fetchManagerLocation = async (managerId: string) => {
+    try {
+      const user = AuthService.getCurrentUser()
+      const res = await fetch(`/api/locations?manager_id=${managerId}`, {
+        headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
+      })
+      const data = await res.json()
+      if (data.success && data.data && data.data.length > 0) {
+        // Manager should only have one location assigned
+        setSelectedLocationId(data.data[0].id)
+      }
+    } catch (error) {
+      console.error('Failed to fetch manager location:', error)
+      toast.error('Failed to load your assigned location')
+    }
+  }
 
   const loadAll = async () => {
     try {
@@ -110,11 +133,15 @@ export default function SchedulingPage() {
     const dateToLoad = dateOverride || selectedDate
     const user = AuthService.getCurrentUser()
     
-    // Build URL with rota filter if specified
+    // Build URL with rota and location filters
     let url = `/api/scheduling/week/${dateToLoad}`
     const params = new URLSearchParams()
     if (rotaId) {
       params.append('rota_id', rotaId)
+    }
+    // Add location filter if selected
+    if (selectedLocationId) {
+      params.append('location_id', selectedLocationId)
     }
     // Note: Don't add show_drafts_only by default - let it load all data initially
     // The draft/published filtering will be handled by the rota selection
@@ -137,17 +164,12 @@ export default function SchedulingPage() {
     setCurrentRota(data.data.currentRota || null)
   }
 
-  // Filter employees based on selected location
+  // Reload data when location changes
   useEffect(() => {
-    if (selectedLocationId) {
-      // Filter employees by location
-      const filtered = employees.filter(emp => emp.location_id === selectedLocationId)
-      setFilteredEmployees(filtered)
-    } else {
-      // Show all employees
-      setFilteredEmployees(employees)
+    if (currentUser) {
+      loadWeek(selectedDate, currentRotaId)
     }
-  }, [employees, selectedLocationId])
+  }, [selectedLocationId])
 
   // Handle location filter change
   const handleLocationChange = (locationId: string | null) => {
@@ -487,8 +509,9 @@ export default function SchedulingPage() {
             <LocationFilter
               selectedLocationId={selectedLocationId}
               onLocationChange={handleLocationChange}
-              showAllOption={true}
+              showAllOption={currentUser?.role === 'admin'}
               showRefresh={true}
+              disabled={currentUser?.role === 'manager'}
             />
             {selectedLocationId && (
               <div className="text-sm text-gray-600">
