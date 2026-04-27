@@ -85,10 +85,10 @@ export function DashboardShell({ headerLabel, links, children }: DashboardShellP
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <div className="flex items-center justify-between gap-2 px-4 py-2 border-b">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 bg-gradient-to-r from-slate-50/90 via-white to-slate-50/80 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
-            <div className="text-sm text-muted-foreground">{headerLabel} Panel</div>
+            <div className="text-sm font-medium text-slate-700">{headerLabel} panel</div>
           </div>
           <div className="flex items-center gap-2">
             <Breadcrumb>
@@ -113,7 +113,9 @@ export function DashboardShell({ headerLabel, links, children }: DashboardShellP
             </Button>
           </div>
         </div>
-        <div className="p-4">{children}</div>
+        <div className="min-h-[calc(100vh-3.5rem)] bg-gradient-to-b from-slate-50/50 to-slate-100/30 p-4 md:p-6">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )

@@ -115,6 +115,10 @@ export default function EmployeeTimesheet() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEntry, setSelectedEntry] = useState<TimesheetEntry | null>(null)
   const [showEntryDetails, setShowEntryDetails] = useState(false)
+  const [scheduledShifts, setScheduledShifts] = useState<
+    { id: string; date: string; template_name: string; start_time: string; end_time: string; rota_name?: string; scheduled_hours?: number | null }[]
+  >([])
+  const [scheduledSummary, setScheduledSummary] = useState({ totalShifts: 0, totalScheduledHours: 0 })
   const router = useRouter()
 
   useEffect(() => {
@@ -126,6 +130,14 @@ export default function EmployeeTimesheet() {
       loadTimesheetData()
     }
   }, [router, selectedMonth])
+
+  useEffect(() => {
+    if (!currentUser) return
+    const id = window.setInterval(() => {
+      loadTimesheetData()
+    }, 90_000)
+    return () => clearInterval(id)
+  }, [currentUser, selectedMonth])
 
   const loadTimesheetData = async () => {
     try {
@@ -146,6 +158,10 @@ export default function EmployeeTimesheet() {
         if (data.success) {
           setTimesheetEntries(data.data || [])
           setSummary(data.summary || summary)
+          setScheduledShifts(data.scheduledShifts || [])
+          setScheduledSummary(
+            data.scheduledSummary || { totalShifts: 0, totalScheduledHours: 0 }
+          )
         }
       } else {
         console.error('Failed to load timesheet data:', response.status)
@@ -447,6 +463,43 @@ export default function EmployeeTimesheet() {
             </CardContent>
           </Card>
         </div>
+
+        {scheduledShifts.length > 0 && (
+          <Card className="border-indigo-200/60 bg-gradient-to-br from-indigo-50/80 to-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-indigo-950">
+                <CalendarDays className="h-5 w-5 text-indigo-600" />
+                Published schedule
+              </CardTitle>
+              <CardDescription>
+                Shifts from your published rota for this month ({scheduledSummary.totalShifts} days,{' '}
+                {Number(scheduledSummary.totalScheduledHours || 0).toFixed(1)}h scheduled)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {scheduledShifts.slice(0, 12).map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex flex-col rounded-lg border border-indigo-100 bg-white/90 p-3 text-sm shadow-sm"
+                  >
+                    <span className="font-medium text-slate-900">{formatDate(s.date)}</span>
+                    <span className="text-slate-600">
+                      {s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}
+                    </span>
+                    <span className="mt-1 text-slate-800">{s.template_name || 'Shift'}</span>
+                    {s.rota_name && <span className="text-xs text-slate-500">{s.rota_name}</span>}
+                  </div>
+                ))}
+              </div>
+              {scheduledShifts.length > 12 && (
+                <p className="mt-3 text-center text-sm text-slate-500">
+                  +{scheduledShifts.length - 12} more scheduled days this month
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Main Content Tabs */}
         <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)} className="space-y-6">

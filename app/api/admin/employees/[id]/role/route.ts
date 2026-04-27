@@ -5,7 +5,7 @@ import { getTenantContext } from '@/lib/tenant'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -15,7 +15,7 @@ export async function GET(
     const tenant = await getTenantContext(user!.id)
     if (!tenant) return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
 
-    const { id } = params
+    const { id } = await params
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
     const result = await query(
@@ -40,7 +40,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -50,7 +50,7 @@ export async function PUT(
     const tenant = await getTenantContext(user!.id)
     if (!tenant) return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
 
-    const { id } = params
+    const { id } = await params
     const { new_role, reason, assigned_by } = await request.json()
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 

@@ -10,7 +10,7 @@ const addMemberSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -22,7 +22,7 @@ export async function GET(
     const tenant = await getTenantContext(user!.id)
     if (!tenant) return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
 
-    const { id: teamId } = params
+    const { id: teamId } = await params
 
     const result = await query(`
       SELECT e.id, e.first_name, e.last_name, e.email, e.job_position as position, e.employee_code as employee_id, e.created_at as joined_date, 'member' as role
@@ -40,7 +40,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -52,7 +52,7 @@ export async function POST(
     const tenant = await getTenantContext(user!.id)
     if (!tenant) return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
 
-    const { id: teamId } = params
+    const { id: teamId } = await params
     const body = await request.json()
     const { employee_id } = addMemberSchema.parse(body)
 

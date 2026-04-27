@@ -21,10 +21,10 @@ const updateAvailabilitySchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -68,10 +68,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()

@@ -4,7 +4,7 @@ import { createApiAuthMiddleware, isAdmin } from '@/lib/api-auth'
 
 export async function GET(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
 		const auth = createApiAuthMiddleware()
@@ -13,7 +13,7 @@ export async function GET(
 			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 		}
 
-		const teamId = params.id
+		const { id: teamId } = await params
 		const result = await query(
 			`SELECT t.*, e.first_name as team_lead_first_name, e.last_name as team_lead_last_name, e.email as team_lead_email,
 				(SELECT COUNT(*) FROM employees m WHERE m.team_id = t.id AND m.is_active = true) as member_count
@@ -32,7 +32,7 @@ export async function GET(
 
 export async function PUT(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
 		const auth = createApiAuthMiddleware()
@@ -41,7 +41,7 @@ export async function PUT(
 			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 		}
 
-		const teamId = params.id
+		const { id: teamId } = await params
 		const body = await request.json()
 		const { name, department, team_lead_id, description, is_active } = body
 
@@ -68,7 +68,7 @@ export async function PUT(
 
 export async function DELETE(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
 		const auth = createApiAuthMiddleware()
@@ -77,7 +77,7 @@ export async function DELETE(
 			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 		}
 
-		const teamId = params.id
+		const { id: teamId } = await params
 		const result = await query(`UPDATE teams SET is_active = false, updated_at = NOW() WHERE id = $1 RETURNING id`, [teamId])
 		if (result.rows.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 		return NextResponse.json({ success: true })

@@ -13,7 +13,7 @@ const editTimesheetSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authMiddleware = createApiAuthMiddleware()
@@ -32,7 +32,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
     const validatedData = editTimesheetSchema.parse(body)
 

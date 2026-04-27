@@ -427,8 +427,14 @@ export default function EmployeeDashboard() {
         setTodayShifts([])
         return
       }
-      const me = (data.data.employees as any[]).find(e => e.id === userId)
-      const todays = me?.assignments?.[today] || []
+      const sched = data.data
+      const me = (sched.employees as any[]).find((e: any) => e.id === userId)
+      let todays = me?.assignments?.[today] || []
+      if (!todays.length && Array.isArray(sched.assignments)) {
+        todays = (sched.assignments as any[]).filter(
+          (a: any) => a.employee_id === userId && String(a.date).split('T')[0] === today
+        )
+      }
       const transformed = todays.map((a: any) => ({
         id: a.id,
         name: a.template_name || 'Scheduled Shift',

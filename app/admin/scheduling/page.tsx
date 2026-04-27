@@ -211,11 +211,12 @@ export default function SchedulingPage() {
     try {
       const user = AuthService.getCurrentUser()
       
-      // Calculate week start and end dates
-      const selectedDateObj = new Date(selectedDate)
+      // Monday–Sunday week (matches GET /api/scheduling/week/[date])
+      const selectedDateObj = new Date(`${selectedDate}T12:00:00`)
       const dayOfWeek = selectedDateObj.getDay()
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
       const weekStart = new Date(selectedDateObj)
-      weekStart.setDate(selectedDateObj.getDate() - dayOfWeek)
+      weekStart.setDate(selectedDateObj.getDate() - daysToMonday)
       const weekEnd = new Date(weekStart)
       weekEnd.setDate(weekStart.getDate() + 6)
       

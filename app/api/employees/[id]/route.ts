@@ -5,7 +5,7 @@ import { getTenantContext } from '@/lib/tenant'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -18,7 +18,7 @@ export async function GET(
       return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     const result = await query(
       `SELECT 
@@ -107,7 +107,7 @@ const updateEmployeeSchema = z.object({
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authMiddleware = createApiAuthMiddleware()
@@ -121,7 +121,7 @@ export async function PUT(
       return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
-    const employeeId = params.id
+    const { id: employeeId } = await params
     const body = await request.json()
     
     // Validate the request body

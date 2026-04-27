@@ -4,7 +4,7 @@ import { createApiAuthMiddleware, isAdmin } from '@/lib/api-auth'
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; memberId: string } }
+  { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -13,7 +13,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: teamId, memberId } = params
+    const { id: teamId, memberId } = await params
 
     // Verify the team exists
     const teamCheck = await query(

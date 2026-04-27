@@ -5,7 +5,7 @@ import { getTenantContext } from '@/lib/tenant'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -21,7 +21,7 @@ export async function PUT(
       return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
 
-    const { id } = params
+    const { id } = await params
     const { break_hours } = await request.json()
     const newBreakHours = Number(break_hours)
     if (isNaN(newBreakHours) || newBreakHours < 0) {

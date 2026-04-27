@@ -127,8 +127,21 @@ export default function EmployeeSchedulingPage() {
       console.error('API returned error:', data.error)
       return
     }
-    const me = (data.data.employees as any[]).find((e: any) => e.id === employeeId)
-    setAssignmentsByDate(me?.assignments || {})
+    const schedule = data.data
+    const me = (schedule.employees as any[]).find((e: any) => e.id === employeeId)
+    let byDate: Record<string, Assignment[]> = me?.assignments || {}
+    if (Object.keys(byDate).length === 0 && Array.isArray(schedule.assignments)) {
+      const mine = (schedule.assignments as any[]).filter((a: any) => a.employee_id === employeeId)
+      const built: Record<string, Assignment[]> = {}
+      for (const a of mine) {
+        const dv = a.date as string
+        const dateKey = typeof dv === 'string' ? dv.split('T')[0] : new Date(dv).toISOString().split('T')[0]
+        if (!built[dateKey]) built[dateKey] = []
+        built[dateKey].push(a as Assignment)
+      }
+      byDate = built
+    }
+    setAssignmentsByDate(byDate)
   }
 
   const goPrev = async () => {
@@ -243,12 +256,17 @@ export default function EmployeeSchedulingPage() {
     )
   }
 
+  const hasAnyShift = useMemo(
+    () => weekDays.some((d) => (assignmentsByDate[d] || []).length > 0),
+    [weekDays, assignmentsByDate]
+  )
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto max-w-7xl p-6 space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">My Weekly Schedule</h1>
-          <p className="text-gray-600">Review shifts and submit requests</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">My weekly schedule</h1>
+          <p className="text-slate-600">Published shifts for the week (Mon–Sun)</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
@@ -261,11 +279,11 @@ export default function EmployeeSchedulingPage() {
         </div>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden border-slate-200/80 shadow-sm transition-shadow duration-300 hover:shadow-md">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" /> Week of {weekDays[0]} - {weekDays[6]}
+            <CardTitle className="flex items-center gap-2 text-slate-900">
+              <Calendar className="h-5 w-5 text-primary" /> Week of {weekDays[0]} – {weekDays[6]}
             </CardTitle>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={goPrev}>
@@ -278,15 +296,25 @@ export default function EmployeeSchedulingPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+        <CardContent className="animate-in fade-in duration-300">
+          {!hasAnyShift && (
+            <p className="mb-4 rounded-md border border-amber-200/80 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              No published shifts this week. If your manager has just published a rota, tap Refresh — otherwise you may be off the schedule for these dates.
+            </p>
+          )}
+          <div className="grid grid-cols-1 gap-3 transition-all duration-300 md:grid-cols-7">
             {weekDays.map((day) => (
-              <div key={day} className={`border rounded-lg p-3 ${day === todayStr ? 'bg-blue-25' : ''}`}>
+              <div
+                key={day}
+                className={`rounded-xl border p-3 transition-colors duration-200 ${
+                  day === todayStr ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20' : 'border-slate-200 bg-white'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-medium">{new Date(day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                  <div className="text-sm font-medium">{new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
                 </div>
                 {(assignmentsByDate[day] || []).length === 0 ? (
-                  <div className="text-sm text-gray-500">No shift</div>
+                  <div className="text-sm text-slate-500">No shift</div>
                 ) : (
                   <div className="space-y-2">
                     {(assignmentsByDate[day] || []).map((a) => (

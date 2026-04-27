@@ -10,7 +10,7 @@ const changeLeadSchema = z.object({
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -22,7 +22,7 @@ export async function PUT(
     const tenant = await getTenantContext(user!.id)
     if (!tenant) return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
 
-    const { id: teamId } = params
+    const { id: teamId } = await params
     const body = await request.json()
     const { new_team_lead_id } = changeLeadSchema.parse(body)
 

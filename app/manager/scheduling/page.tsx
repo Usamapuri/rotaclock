@@ -233,9 +233,60 @@ export default function ManagerSchedulingPage() {
     // Implementation would go here
   }
 
-  const handlePublishRota = (rotaId: string) => {
-    console.log('Publish rota:', rotaId)
-    // Implementation would go here
+  const handlePublishRota = async (rotaId: string) => {
+    try {
+      const user = AuthService.getCurrentUser()
+      const res = await fetch(`/api/rotas/${rotaId}/publish`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
+        },
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error || 'Failed to publish rota')
+      }
+      toast.success('Rota published')
+      await loadWeek(selectedDate, currentRotaId)
+    } catch (error) {
+      console.error('Publish rota error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to publish rota')
+    }
+  }
+
+  const handlePublishShifts = async () => {
+    try {
+      const user = AuthService.getCurrentUser()
+      const selectedDateObj = new Date(`${selectedDate}T12:00:00`)
+      const dayOfWeek = selectedDateObj.getDay()
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      const weekStart = new Date(selectedDateObj)
+      weekStart.setDate(selectedDateObj.getDate() - daysToMonday)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekStart.getDate() + 6)
+      const startDate = weekStart.toISOString().split('T')[0]
+      const endDate = weekEnd.toISOString().split('T')[0]
+
+      const res = await fetch('/api/scheduling/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
+        },
+        body: JSON.stringify({ start_date: startDate, end_date: endDate }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error || 'Failed to publish shifts')
+      }
+      const data = await res.json()
+      toast.success(data.message || 'Shifts published')
+      await loadWeek(selectedDate, currentRotaId)
+    } catch (error) {
+      console.error('Publish shifts error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to publish shifts')
+    }
   }
 
   const handleSelectRota = (rotaId: string) => {
@@ -427,6 +478,7 @@ export default function ManagerSchedulingPage() {
                 rotas={rotas}
                 onCreateRota={handleCreateRota}
                 onPublishRota={handlePublishRota}
+                onPublishShifts={handlePublishShifts}
                 onSelectRota={handleSelectRota}
               />
             </TabsContent>

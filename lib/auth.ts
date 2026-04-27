@@ -19,23 +19,31 @@ export class AuthService {
 
   static async adminLogin(username: string, password: string): Promise<AuthUser | null> {
     try {
-      // For demo purposes, allow admin login with any valid credentials
-      // In production, this should validate against the database
-      if (username && password) {
-        const user: AuthUser = {
-          id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', // Alex Brown (LogiCode Admin)
-          email: 'alex.brown@logicode.com',
-          role: 'admin'
-        }
-        
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(this.ADMIN_KEY, username)
-          localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
-        }
-        
-        return user
+      if (!username || !password) return null
+      // Resolve a real employees row so Bearer auth + getTenantContext work (same as unified login).
+      const response = await fetch('/api/auth/unified-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: username, password }),
+      })
+      if (!response.ok) return null
+      const data = await response.json()
+      if (!data.success || !data.employee || data.employee.role !== 'admin') return null
+      const e = data.employee
+      const user: AuthUser = {
+        id: e.id,
+        email: e.email,
+        role: 'admin',
+        employeeId: e.employee_id,
+        organization_id: e.organization_id,
+        organization_name: e.organization_name,
+        tenant_id: e.tenant_id,
       }
-      return null
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(this.ADMIN_KEY, username)
+        localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
+      }
+      return user
     } catch (error) {
       console.error('Admin login error:', error)
       return null
@@ -140,6 +148,9 @@ export class AuthService {
       email: targetUserData.email,
       role: targetUserData.role,
       employeeId: targetUserData.employee_id,
+      tenant_id: targetUserData.tenant_id ?? currentUser.tenant_id,
+      organization_id: targetUserData.organization_id ?? currentUser.organization_id,
+      organization_name: targetUserData.organization_name ?? currentUser.organization_name,
       isImpersonating: true,
       originalUser: {
         id: currentUser.id,

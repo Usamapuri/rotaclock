@@ -10,6 +10,20 @@ interface Discrepancy {
   details?: any
 }
 
+function computeScheduledHours(start: string | null, end: string | null): number | null {
+  if (!start || !end) return null
+  try {
+    const [sh, sm] = start.split(':').map(Number)
+    const [eh, em] = end.split(':').map(Number)
+    const a = sh * 60 + sm
+    const b = eh * 60 + em
+    if (b <= a) return (b + 24 * 60 - a) / 60
+    return (b - a) / 60
+  } catch {
+    return null
+  }
+}
+
 function detectDiscrepancies(timeEntry: any, shiftAssignment: any): Discrepancy[] {
   const discrepancies: Discrepancy[] = []
 
@@ -98,8 +112,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is employee
-    if (user.role !== 'employee') {
+    const portalRoles = ['employee', 'agent', 'team_lead', 'project_manager']
+    if (!portalRoles.includes(user.role)) {
       return NextResponse.json({ error: 'Access denied. Employee role required.' }, { status: 403 })
     }
 
@@ -162,6 +176,35 @@ export async function GET(request: NextRequest) {
     `
 
     const result = await query(timesheetQuery, [tenantContext.tenant_id, user.id, startDate, endDate])
+
+    const scheduledResult = await query(
+      `
+      SELECT 
+        sa.id,
+        to_char(sa.date, 'YYYY-MM-DD') as date,
+        st.name as template_name,
+        st.start_time as start_time,
+        st.end_time as end_time,
+        r.name as rota_name
+      FROM shift_assignments sa
+      LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
+      LEFT JOIN rotas r ON sa.rota_id = r.id
+      WHERE sa.tenant_id = $1
+        AND sa.employee_id = $2
+        AND sa.date >= $3::date AND sa.date <= $4::date
+        AND sa.is_published = true
+      ORDER BY sa.date ASC, st.start_time ASC NULLS LAST
+      `,
+      [tenantContext.tenant_id, user.id, startDate, endDate]
+    )
+    const scheduledShifts = scheduledResult.rows.map((row: any) => ({
+      ...row,
+      scheduled_hours: computeScheduledHours(row.start_time, row.end_time),
+    }))
+    const totalScheduledHours = scheduledShifts.reduce(
+      (sum: number, r: any) => sum + (Number(r.scheduled_hours) || 0),
+      0
+    )
     
     // Process entries and detect discrepancies
     const processedEntries = result.rows.map((entry: any) => {
@@ -201,7 +244,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: processedEntries,
-      summary
+      summary,
+      scheduledShifts,
+      scheduledSummary: {
+        totalShifts: scheduledShifts.length,
+        totalScheduledHours,
+      },
     })
 
   } catch (error) {

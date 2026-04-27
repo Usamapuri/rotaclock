@@ -4,7 +4,7 @@ import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -12,7 +12,7 @@ export async function POST(
     if (!isAuthenticated) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (user?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const teamLeadId = params.id
+    const { id: teamLeadId } = await params
 
     // Ensure user exists and is team lead
     const emp = await query('SELECT id FROM employees WHERE id = $1 AND role = $2', [teamLeadId, 'team_lead'])

@@ -41,27 +41,39 @@ export async function GET(
     const weekStartStr = weekStart.toISOString().split('T')[0]
     const weekEndStr = weekEnd.toISOString().split('T')[0]
 
-    // Employees for tenant - show schedulable roles
-    let employeesQuery = `
-      SELECT id, employee_code, first_name, last_name, email, department, job_position
-      FROM employees
-      WHERE is_active = true AND tenant_id = $1 AND role IN ('agent','employee')
-    `
-    const employeesParams: any[] = [tenantContext.tenant_id]
-
-    // If user is a manager, restrict employees by their assigned locations
-    if (user.role === 'manager') {
-      const idx = employeesParams.length + 1
-      employeesQuery += ` AND location_id IN (
-        SELECT location_id FROM manager_locations
-        WHERE tenant_id = $1 AND manager_id = $${idx}
-      )`
-      employeesParams.push(user.id)
-    }
+    // Employees for tenant: full roster = schedulable roles; when employee_id is set, always
+    // include that person (e.g. team_lead / project_manager) so nested assignments are built.
+    const schedulableRoles = `('agent','employee','team_lead','project_manager')`
+    let employeesQuery: string
+    const employeesParams: any[] = []
 
     if (employeeId) {
-      employeesQuery += ` AND id = $2`
-      employeesParams.push(employeeId)
+      employeesParams.push(tenantContext.tenant_id, employeeId)
+      employeesQuery = `
+      SELECT id, employee_code, first_name, last_name, email, department, job_position
+      FROM employees
+      WHERE is_active = true AND tenant_id = $1 AND id = $2`
+      if (user.role === 'manager') {
+        employeesQuery += ` AND location_id IN (
+        SELECT location_id FROM manager_locations
+        WHERE tenant_id = $1 AND manager_id = $3
+      )`
+        employeesParams.push(user.id)
+      }
+    } else {
+      employeesParams.push(tenantContext.tenant_id)
+      employeesQuery = `
+      SELECT id, employee_code, first_name, last_name, email, department, job_position
+      FROM employees
+      WHERE is_active = true AND tenant_id = $1 AND role IN ${schedulableRoles}
+    `
+      if (user.role === 'manager') {
+        employeesQuery += ` AND location_id IN (
+        SELECT location_id FROM manager_locations
+        WHERE tenant_id = $1 AND manager_id = $2
+      )`
+        employeesParams.push(user.id)
+      }
     }
 
     employeesQuery += ` ORDER BY first_name, last_name`

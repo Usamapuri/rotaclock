@@ -5,7 +5,7 @@ import { getTenantContext } from '@/lib/tenant'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = createApiAuthMiddleware()
@@ -16,7 +16,7 @@ export async function POST(
     const tenant = await getTenantContext(user.id)
     if (!tenant) return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
 
-    const teamId = params.id
+    const { id: teamId } = await params
     const { team_lead_id } = await request.json()
     if (!team_lead_id) return NextResponse.json({ error: 'team_lead_id is required' }, { status: 400 })
 

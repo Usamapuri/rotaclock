@@ -4,7 +4,7 @@ import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Use demo authentication
@@ -14,7 +14,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const notificationId = await params.id
+    const { id: notificationId } = await params
 
     if (!notificationId) {
       return NextResponse.json(

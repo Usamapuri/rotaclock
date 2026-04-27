@@ -29,7 +29,7 @@ const approvalSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Authenticate the request
@@ -57,7 +57,7 @@ export async function PATCH(
       }
     }
 
-    const shiftId = params.id
+    const { id: shiftId } = await params
     const body = await request.json()
     
     // Log the incoming data for debugging
