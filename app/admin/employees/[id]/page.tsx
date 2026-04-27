@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -155,7 +155,12 @@ type TeamLead = any
 export default function EmployeeDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const employeeId = params.id as string
+  const employeeId = useMemo(() => {
+    const v = params?.id
+    if (typeof v === "string" && v.length > 0) return v
+    if (Array.isArray(v) && v[0]) return v[0]
+    return ""
+  }, [params])
   
   const [adminUser, setAdminUser] = useState("")
   const [employee, setEmployee] = useState<Employee | null>(null)
@@ -182,15 +187,24 @@ export default function EmployeeDetailPage() {
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     if (!user || user.role !== 'admin') {
-      router.push("/login")
-    } else {
-      setAdminUser(user.email || 'Administrator')
-      loadEmployeeData()
+      router.push('/login')
+      return
     }
+    setAdminUser(user.email || 'Administrator')
+    if (!employeeId) {
+      setIsLoading(false)
+      return
+    }
+    loadEmployeeData()
   }, [router, employeeId])
 
   const loadEmployeeData = async () => {
+    if (!employeeId) {
+      setIsLoading(false)
+      return
+    }
     setIsLoading(true)
+    setEmployee(null)
     try {
       const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
@@ -203,8 +217,9 @@ export default function EmployeeDetailPage() {
         headers['x-tenant-id'] = user.tenant_id
       }
 
+      let loadedEmployee: Employee | null = null
       // Load employee details
-      const employeeResponse = await fetch(`/api/employees/${employeeId}`, {
+      const employeeResponse = await fetch(`/api/employees/${encodeURIComponent(employeeId)}`, {
         headers
       })
       console.log('Employee response status:', employeeResponse.status)
@@ -213,8 +228,9 @@ export default function EmployeeDetailPage() {
         console.log('Employee API response:', employeeData)
         if (employeeData && employeeData.data && typeof employeeData.data === 'object') {
           console.log('Setting employee data:', employeeData.data)
-          setEmployee(employeeData.data)
-          setEditForm(employeeData.data)
+          loadedEmployee = employeeData.data as Employee
+          setEmployee(loadedEmployee)
+          setEditForm(loadedEmployee)
         } else {
           console.error('Invalid employee data format:', employeeData)
           toast.error('Invalid employee data received')
@@ -333,11 +349,11 @@ export default function EmployeeDetailPage() {
         setRoles([])
       }
 
-      // Load role history if employee exists
-      if (employee) {
-        const roleHistoryResponse = await fetch(`/api/admin/employees/${employee.id}/role-history`, {
-          headers
-        })
+      if (loadedEmployee) {
+        const roleHistoryResponse = await fetch(
+          `/api/admin/employees/${encodeURIComponent(loadedEmployee.id)}/role-history`,
+          { headers }
+        )
         if (roleHistoryResponse.ok) {
           const roleHistoryData = await roleHistoryResponse.json()
           setRoleHistory(roleHistoryData)
@@ -345,6 +361,8 @@ export default function EmployeeDetailPage() {
           console.error('Failed to load role history:', roleHistoryResponse.status)
           setRoleHistory([])
         }
+      } else {
+        setRoleHistory([])
       }
 
     } catch (error) {
@@ -626,6 +644,21 @@ export default function EmployeeDetailPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
           <p className="mt-2">Loading employee data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!employeeId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="mb-2 text-xl font-semibold">Invalid link</h2>
+          <p className="mb-4 text-gray-600">No employee id in the URL.</p>
+          <Button onClick={() => router.push('/admin/employees')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Employees
+          </Button>
         </div>
       </div>
     )

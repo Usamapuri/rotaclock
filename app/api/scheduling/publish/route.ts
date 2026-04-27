@@ -72,24 +72,27 @@ export async function POST(request: NextRequest) {
       params
     )
 
-    // Create notifications for affected employees
     if (affectedEmployees.rows.length > 0) {
-      const notificationValues = affectedEmployees.rows.map((emp, index) => {
-        const baseIndex = index * 4
-        return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4})`
-      }).join(', ')
+      const notificationValues = affectedEmployees.rows
+        .map((_, i) => {
+          const b = i * 7
+          return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7})`
+        })
+        .join(', ')
 
-      const notificationParams = affectedEmployees.rows.flatMap(emp => [
+      const notificationParams = affectedEmployees.rows.flatMap((emp) => [
         tenantContext.tenant_id,
         emp.employee_id,
-        'shifts_published',
-        `Your shift assignments have been published and are now visible.`
+        'Shifts published',
+        'Your shift assignments have been published and are now visible.',
+        'info',
+        false,
+        '/employee/scheduling',
       ])
 
       await query(
-        `INSERT INTO notifications (tenant_id, employee_id, type, message, created_at)
-         VALUES ${notificationValues}
-         ON CONFLICT DO NOTHING`,
+        `INSERT INTO notifications (tenant_id, user_id, title, message, type, read, action_url)
+         VALUES ${notificationValues}`,
         notificationParams
       )
     }

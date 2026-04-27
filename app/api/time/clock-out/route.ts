@@ -89,10 +89,12 @@ export async function POST(request: NextRequest) {
 			[target_employee_id, tenantContext.tenant_id]
 		)
 
-		// Create notification for admin about pending approval
+		// Notify tenant admins (schema: notifications.user_id, read — not employee_id / is_read)
+		const notifyMsg =
+			`A shift was completed and may require approval. (Employee ${target_employee_id})`
 		await query(
 			`
-				INSERT INTO notifications (employee_id, title, message, type, is_read, action_url, tenant_id)
+				INSERT INTO notifications (user_id, title, message, type, read, action_url, tenant_id)
 				SELECT 
 					 e.id,
 					 'Shift Approval Required',
@@ -100,11 +102,11 @@ export async function POST(request: NextRequest) {
 					 'info',
 					 false,
 					 '/admin/shift-approvals',
-					 $2::uuid
+					 $2::text
 				FROM employees e 
-				WHERE e.role = 'admin' AND e.tenant_id = $2::uuid
+				WHERE e.role = 'admin' AND e.tenant_id = $2::text
 			`,
-			[`${authResult.user.name || 'Employee'} has completed a shift and requires approval`, tenantContext.tenant_id]
+			[notifyMsg, tenantContext.tenant_id]
 		)
 
 		return NextResponse.json({

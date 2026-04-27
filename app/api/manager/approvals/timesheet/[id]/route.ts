@@ -141,7 +141,7 @@ export async function PATCH(
       : `Your timesheet for ${new Date(timesheet.clock_in).toLocaleDateString()} has been rejected. Reason: ${validatedData.rejection_reason}`
 
     await query(`
-      INSERT INTO notifications (tenant_id, employee_id, title, message, type, is_read, action_url)
+      INSERT INTO notifications (tenant_id, user_id, title, message, type, read, action_url)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [
       tenantContext.tenant_id,

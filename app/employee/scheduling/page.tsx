@@ -245,6 +245,11 @@ export default function EmployeeSchedulingPage() {
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
 
+  const hasAnyShift = useMemo(
+    () => weekDays.some((d) => (assignmentsByDate[d] || []).length > 0),
+    [weekDays, assignmentsByDate]
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -255,11 +260,6 @@ export default function EmployeeSchedulingPage() {
       </div>
     )
   }
-
-  const hasAnyShift = useMemo(
-    () => weekDays.some((d) => (assignmentsByDate[d] || []).length > 0),
-    [weekDays, assignmentsByDate]
-  )
 
   return (
     <div className="container mx-auto max-w-7xl p-6 space-y-6">
