@@ -56,10 +56,10 @@ CREATE TABLE IF NOT EXISTS employees (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id VARCHAR(80) NOT NULL,
     organization_id UUID REFERENCES organizations(id),
-    employee_code VARCHAR(64) UNIQUE,
+    employee_code VARCHAR(64),
     first_name VARCHAR(120) NOT NULL,
     last_name VARCHAR(120) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL,
     phone VARCHAR(50),
     password_hash TEXT,
     role VARCHAR(32) DEFAULT 'agent',
@@ -113,6 +113,26 @@ CREATE TABLE IF NOT EXISTS manager_locations (
     location_id UUID NOT NULL REFERENCES locations(id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(tenant_id, manager_id, location_id)
+);
+
+-- Tenant-level settings (manager approvals, pay periods metadata)
+CREATE TABLE IF NOT EXISTS tenant_settings (
+    tenant_id VARCHAR(80) PRIMARY KEY,
+    allow_manager_approvals BOOLEAN DEFAULT true,
+    pay_period_type VARCHAR(20) DEFAULT 'weekly',
+    custom_period_days INTEGER,
+    week_start_day INTEGER DEFAULT 1,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS pay_periods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id VARCHAR(80) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'open',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id, start_date, end_date)
 );
 
 -- =====================================================
@@ -798,13 +818,16 @@ CREATE TABLE IF NOT EXISTS organization_admins (
     UNIQUE(organization_id, user_id)
 );
 
--- Roles table
+-- Roles table (name = employees.role foreign key target; display_name for UI)
 CREATE TABLE IF NOT EXISTS roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id VARCHAR(80) NOT NULL,
+    organization_id UUID REFERENCES organizations(id),
     name VARCHAR(100) NOT NULL,
+    display_name VARCHAR(120) NOT NULL,
     description TEXT,
     permissions JSONB DEFAULT '{}',
+    dashboard_access JSONB DEFAULT '[]',
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -943,8 +966,8 @@ CREATE INDEX IF NOT EXISTS idx_time_entries_approved_by ON time_entries(approved
 
 -- Notifications indexes
 CREATE INDEX IF NOT EXISTS idx_notifications_tenant ON notifications(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_employee ON notifications(employee_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(tenant_id, read);
 
 -- Leave requests indexes
 CREATE INDEX IF NOT EXISTS idx_leave_requests_tenant ON leave_requests(tenant_id);

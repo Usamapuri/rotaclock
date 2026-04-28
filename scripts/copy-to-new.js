@@ -3,10 +3,14 @@
 
 const { Pool } = require('pg');
 
-const DEV_DB = 'postgresql://postgres:QlUXSBsWFuwjhodaivUXTUXDuQhWigHL@metro.proxy.rlwy.net:36516/railway'
-const NEW_DB = 'postgresql://postgres:HkNjRtVqBpGQyPNvfioAjzKnshvrUfMQ@trolley.proxy.rlwy.net:26793/railway'
+const DEV_DB = process.env.DEV_DATABASE_URL
+const NEW_DB = process.env.DATABASE_URL
 
 async function run() {
+  if (!DEV_DB || !NEW_DB) {
+    console.error('Set DEV_DATABASE_URL (source) and DATABASE_URL (target).')
+    process.exit(1)
+  }
   const sourcePool = new Pool({ connectionString: DEV_DB, ssl: { rejectUnauthorized: false } })
   const targetPool = new Pool({ connectionString: NEW_DB, ssl: { rejectUnauthorized: false } })
 

@@ -1,9 +1,13 @@
 const { Pool } = require('pg');
 
-const NEW_DB = 'postgresql://postgres:HkNjRtVqBpGQyPNvfioAjzKnshvrUfMQ@trolley.proxy.rlwy.net:26793/railway'
+const conn = process.env.DATABASE_URL
+if (!conn) {
+  console.error('Set DATABASE_URL')
+  process.exit(1)
+}
 
 async function run() {
-  const pool = new Pool({ connectionString: NEW_DB, ssl: { rejectUnauthorized: false } })
+  const pool = new Pool({ connectionString: conn, ssl: { rejectUnauthorized: false } })
   const client = await pool.connect()
   try {
     console.log('🔎 Verifying NEW Railway database...')
