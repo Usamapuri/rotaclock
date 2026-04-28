@@ -3,6 +3,33 @@ import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
+/** Cache column lists so older DBs without address / extended fields still work */
+let tableColumnsCache: { employees: Set<string>; roles: Set<string>; at: number } | null = null
+const TABLE_COLUMNS_TTL_MS = 5 * 60 * 1000
+
+async function getEmployeesAndRolesColumns(): Promise<{ employees: Set<string>; roles: Set<string> }> {
+  const now = Date.now()
+  if (tableColumnsCache && now - tableColumnsCache.at < TABLE_COLUMNS_TTL_MS) {
+    return { employees: tableColumnsCache.employees, roles: tableColumnsCache.roles }
+  }
+  const r = await query(
+    `SELECT table_name, column_name FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name IN ('employees', 'roles')`
+  )
+  const employees = new Set<string>()
+  const roles = new Set<string>()
+  for (const row of r.rows as { table_name: string; column_name: string }[]) {
+    if (row.table_name === 'employees') employees.add(row.column_name)
+    else if (row.table_name === 'roles') roles.add(row.column_name)
+  }
+  tableColumnsCache = { employees, roles, at: now }
+  return { employees, roles }
+}
+
+function ec(employees: Set<string>, col: string, defaultSql: string): string {
+  return employees.has(col) ? `e.${col}` : defaultSql
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -19,49 +46,64 @@ export async function GET(
     }
 
     const { id } = await params
+    const { employees: emp, roles: rls } = await getEmployeesAndRolesColumns()
 
-    const result = await query(
-      `SELECT 
-         e.id,
-         e.employee_code as employee_id,
-         e.first_name,
-         e.last_name,
-         e.email,
-         e.department,
-         e.job_position as position,
-         e.role,
-         e.hire_date,
-         e.manager_id,
-         e.team_id,
-         e.hourly_rate,
-         e.max_hours_per_week,
-         e.is_active,
-         e.is_online,
-         e.last_online,
-         e.phone,
-         e.address,
-         e.emergency_contact,
-         e.emergency_phone,
-         e.notes,
-         e.location_id,
-         e.created_at,
-         e.updated_at,
-         r.display_name as role_display_name,
-         r.description as role_description,
-         l.name as location_name,
-         COUNT(DISTINCT sa.id) as total_assignments,
-         COUNT(DISTINCT te.id) as total_time_entries,
-         COALESCE(SUM(te.total_hours), 0) as total_hours_worked
-       FROM employees e
-       LEFT JOIN roles r ON e.role = r.name
-       LEFT JOIN locations l ON e.location_id = l.id AND l.tenant_id = e.tenant_id
-       LEFT JOIN shift_assignments sa ON e.id = sa.employee_id AND sa.tenant_id = e.tenant_id
-       LEFT JOIN time_entries te ON e.id = te.employee_id AND te.tenant_id = e.tenant_id
-       WHERE e.id = $1 AND e.tenant_id = $2
-       GROUP BY e.id, e.employee_code, e.first_name, e.last_name, e.email, e.department, e.job_position, e.role, e.hire_date, e.manager_id, e.team_id, e.hourly_rate, e.max_hours_per_week, e.is_active, e.is_online, e.last_online, e.phone, e.address, e.emergency_contact, e.emergency_phone, e.notes, e.location_id, e.created_at, e.updated_at, r.display_name, r.description, l.name
-      `,
-      [id, tenant.tenant_id]
-    )
+    const roleDisplaySql = rls.has('display_name')
+      ? 'COALESCE(r.display_name::text, r.name::text, e.role::text)'
+      : 'COALESCE(r.name::text, e.role::text)'
+    const roleDescSql = rls.has('description') ? 'r.description' : 'NULL::text'
+
+    const tenantJoin =
+      emp.has('tenant_id') && rls.has('tenant_id') ? 'AND r.tenant_id = e.tenant_id' : ''
+    const roleJoinSql = `LEFT JOIN roles r ON e.role = r.name ${tenantJoin}`
+
+    const locJoinSql = emp.has('location_id')
+      ? 'LEFT JOIN locations l ON e.location_id = l.id AND l.tenant_id = e.tenant_id'
+      : ''
+    const locationNameSql = emp.has('location_id') ? 'l.name' : 'NULL::text'
+
+    const sql = `
+      SELECT 
+        e.id,
+        ${ec(emp, 'employee_code', 'NULL::text')} AS employee_id,
+        ${ec(emp, 'first_name', 'NULL::text')} AS first_name,
+        ${ec(emp, 'last_name', 'NULL::text')} AS last_name,
+        ${ec(emp, 'email', 'NULL::text')} AS email,
+        ${ec(emp, 'department', 'NULL::text')} AS department,
+        ${ec(emp, 'job_position', 'NULL::text')} AS position,
+        ${ec(emp, 'role', 'NULL::text')} AS role,
+        ${ec(emp, 'hire_date', 'NULL::date')} AS hire_date,
+        ${ec(emp, 'manager_id', 'NULL::uuid')} AS manager_id,
+        ${ec(emp, 'team_id', 'NULL::uuid')} AS team_id,
+        ${ec(emp, 'hourly_rate', 'NULL::numeric')} AS hourly_rate,
+        ${ec(emp, 'max_hours_per_week', 'NULL::integer')} AS max_hours_per_week,
+        ${ec(emp, 'is_active', 'NULL::boolean')} AS is_active,
+        ${ec(emp, 'is_online', 'NULL::boolean')} AS is_online,
+        ${ec(emp, 'last_online', 'NULL::timestamptz')} AS last_online,
+        ${ec(emp, 'phone', 'NULL::text')} AS phone,
+        ${ec(emp, 'address', 'NULL::text')} AS address,
+        ${ec(emp, 'emergency_contact', 'NULL::text')} AS emergency_contact,
+        ${ec(emp, 'emergency_phone', 'NULL::text')} AS emergency_phone,
+        ${ec(emp, 'notes', 'NULL::text')} AS notes,
+        ${ec(emp, 'location_id', 'NULL::uuid')} AS location_id,
+        ${ec(emp, 'created_at', 'NULL::timestamptz')} AS created_at,
+        ${ec(emp, 'updated_at', 'NULL::timestamptz')} AS updated_at,
+        ${roleDisplaySql} AS role_display_name,
+        ${roleDescSql} AS role_description,
+        ${locationNameSql} AS location_name,
+        (SELECT COUNT(DISTINCT sa.id) FROM shift_assignments sa
+          WHERE sa.employee_id = e.id AND sa.tenant_id = e.tenant_id) AS total_assignments,
+        (SELECT COUNT(DISTINCT te.id) FROM time_entries te
+          WHERE te.employee_id = e.id AND te.tenant_id = e.tenant_id) AS total_time_entries,
+        (SELECT COALESCE(SUM(te.total_hours), 0) FROM time_entries te
+          WHERE te.employee_id = e.id AND te.tenant_id = e.tenant_id) AS total_hours_worked
+      FROM employees e
+      ${roleJoinSql}
+      ${locJoinSql}
+      WHERE e.id = $1 AND e.tenant_id = $2
+    `
+
+    const result = await query(sql, [id, tenant.tenant_id])
 
     if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
