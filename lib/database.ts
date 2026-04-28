@@ -1,47 +1,52 @@
 import { Pool, PoolClient } from 'pg'
 import bcrypt from 'bcryptjs'
 
-// Connection pool — requires DATABASE_URL (e.g. Railway Postgres).
-const connectionString = process.env.DATABASE_URL
-if (!connectionString) {
-  throw new Error(
-    'DATABASE_URL is not set. Add your Postgres connection string (e.g. in Railway service variables).'
-  )
+// Connection pool — lazily initialized to avoid crashing at import time
+// during Next.js build (which imports API routes to collect page data).
+let pool: Pool | null = null
+
+function getPool(): Pool {
+  if (!pool) {
+    const connectionString = process.env.DATABASE_URL
+    if (!connectionString) {
+      throw new Error(
+        'DATABASE_URL is not set. Add your Postgres connection string (e.g. in Railway service variables).'
+      )
+    }
+    pool = new Pool({
+      connectionString,
+      max: 20, // Increased for better concurrency
+      min: 2, // Keep minimum connections ready
+      idleTimeoutMillis: 30000, // Reduced idle timeout for better resource management
+      connectionTimeoutMillis: 5000, // Faster connection timeout
+      maxUses: 750, // Reduced to prevent connection staleness
+      ssl: {
+        rejectUnauthorized: false
+      },
+      // Statement timeout to prevent long-running queries
+      statement_timeout: 30000, // 30 seconds
+      // Query timeout
+      query_timeout: 30000, // 30 seconds
+    })
+
+    pool.on('error', (err) => {
+      console.error('Unexpected error on idle client', err)
+      // Don't exit the process, just log the error
+    })
+
+    pool.on('connect', () => {
+      console.log('Connected to database')
+    })
+  }
+  return pool
 }
-
-const pool = new Pool({
-  connectionString,
-  max: 20, // Increased for better concurrency
-  min: 2, // Keep minimum connections ready
-  idleTimeoutMillis: 30000, // Reduced idle timeout for better resource management
-  connectionTimeoutMillis: 5000, // Faster connection timeout
-  maxUses: 750, // Reduced to prevent connection staleness
-  ssl: {
-    rejectUnauthorized: false
-  },
-  // Statement timeout to prevent long-running queries
-  statement_timeout: 30000, // 30 seconds
-  // Query timeout
-  query_timeout: 30000, // 30 seconds
-})
-
-// Handle pool errors
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err)
-  // Don't exit the process, just log the error
-})
-
-// Test the connection
-pool.on('connect', () => {
-  console.log('Connected to database')
-})
 
 export async function query(text: string, params?: any[]) {
   const start = Date.now()
   let client
   
   try {
-    client = await pool.connect()
+    client = await getPool().connect()
     const result = await client.query(text, params)
     const duration = Date.now() - start
     
@@ -67,7 +72,7 @@ export async function optimizedQuery(text: string, params?: any[], cacheKey?: st
   let client
   
   try {
-    client = await pool.connect()
+    client = await getPool().connect()
     
     // Use prepared statements for better performance
     const result = await client.query({
@@ -96,7 +101,7 @@ export async function optimizedQuery(text: string, params?: any[], cacheKey?: st
 
 // Helper function to execute a transaction
 export async function transaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await pool.connect()
+  const client = await getPool().connect()
   try {
     await client.query('BEGIN')
     const result = await callback(client)
@@ -112,7 +117,7 @@ export async function transaction<T>(callback: (client: PoolClient) => Promise<T
 
 // Close the pool when the application shuts down
 process.on('SIGINT', () => {
-  pool.end()
+  pool?.end()
   process.exit(0)
 })
 
