@@ -16,7 +16,8 @@
     "test:setup": "node scripts/setup-test-database.js",
     "db:run-sql": "node scripts/run-sql-file.js",
     "db:fix:agents": "node scripts/run-sql-file.js --file scripts/fixes/mark_non_admin_as_agents.sql",
-    "db:railway-reset": "node scripts/db-railway-reset.js"
+    "db:railway-reset": "node scripts/db-railway-reset.js",
+    "db:inspect": "node scripts/db-inspect.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
