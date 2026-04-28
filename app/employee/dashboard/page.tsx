@@ -21,7 +21,6 @@ import {
   TrendingUp, 
   Camera,
   Play,
-  Pause,
   Square,
   Coffee,
   Timer as TimerIcon,
