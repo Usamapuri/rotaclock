@@ -17,7 +17,8 @@
     "db:run-sql": "node scripts/run-sql-file.js",
     "db:fix:agents": "node scripts/run-sql-file.js --file scripts/fixes/mark_non_admin_as_agents.sql",
     "db:railway-reset": "node scripts/db-railway-reset.js",
-    "db:inspect": "node scripts/db-inspect.js"
+    "db:inspect": "node scripts/db-inspect.js",
+    "seed:super-admin": "node scripts/seed-super-admin.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

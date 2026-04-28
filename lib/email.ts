@@ -63,3 +63,22 @@ export function buildWelcomeEmail({ orgName, email, loginUrl }: { orgName: strin
     `,
   }
 }
+
+export function buildSignupPendingEmail({
+  orgName,
+  adminEmail,
+}: {
+  orgName: string
+  adminEmail: string
+}) {
+  return {
+    subject: `Application received — ${orgName}`,
+    html: `
+      <div>
+        <h1>Thanks for applying to RotaClock</h1>
+        <p>We received your registration for <strong>${orgName}</strong>.</p>
+        <p>Your application is being reviewed. We will email <strong>${adminEmail}</strong> when your workspace is approved.</p>
+      </div>
+    `,
+  }
+}

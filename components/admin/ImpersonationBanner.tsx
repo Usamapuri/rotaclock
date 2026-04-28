@@ -37,28 +37,19 @@ export function ImpersonationBanner() {
 
   const handleStopImpersonation = async () => {
     try {
-      const user = AuthService.getCurrentUser()
-      const original = AuthService.getOriginalUser()
-      const response = await fetch('/api/admin/impersonation', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          // Prefer the original admin identity for stopping impersonation
-          ...((original?.id || user?.id) ? { authorization: `Bearer ${original?.id || user?.id}` } : {}),
-        },
-      })
-
-      if (response.ok) {
-        const restoredUser = await AuthService.stopImpersonation()
-        setIsImpersonating(false)
-        setCurrentUser(restoredUser)
-        setOriginalUser(null)
-        
-        toast.success('Impersonation stopped')
-        router.push('/admin/dashboard')
+      const restoredUser = await AuthService.stopImpersonation()
+      if (!restoredUser) {
+        toast.error('Failed to stop impersonation')
+        return
+      }
+      setIsImpersonating(false)
+      setCurrentUser(restoredUser)
+      setOriginalUser(null)
+      toast.success('Impersonation stopped')
+      if (restoredUser.role === 'super_admin') {
+        router.push('/super-admin')
       } else {
-        const data = await response.json()
-        toast.error(data.error || 'Failed to stop impersonation')
+        router.push('/admin/dashboard')
       }
     } catch (error) {
       console.error('Error stopping impersonation:', error)
@@ -90,7 +81,10 @@ export function ImpersonationBanner() {
                 Original user:
               </span>
               <span className="text-sm text-orange-700">
-                {originalUser.first_name} {originalUser.last_name} ({originalUser.email})
+                {originalUser.first_name || originalUser.last_name
+                  ? `${originalUser.first_name || ''} ${originalUser.last_name || ''}`.trim()
+                  : originalUser.email}
+                {originalUser.email ? ` (${originalUser.email})` : ''}
               </span>
             </div>
           )}

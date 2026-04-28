@@ -819,30 +819,19 @@ export default function AdminDashboard() {
   const handleStopImpersonation = async () => {
     try {
       console.log('🔄 Stopping impersonation...')
-      
-      const response = await fetch('/api/admin/impersonation', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        // Stop impersonation in AuthService
-        const restoredUser = await AuthService.stopImpersonation()
-        
-        setIsImpersonating(false)
-        setOriginalUser(null)
-        setCurrentUser(restoredUser)
-        
-        toast.success('Impersonation stopped')
-        
-        // Redirect back to admin dashboard
-        router.push('/admin/dashboard')
+      const restoredUser = await AuthService.stopImpersonation()
+      if (!restoredUser) {
+        toast.error('Failed to stop impersonation')
+        return
+      }
+      setIsImpersonating(false)
+      setOriginalUser(null)
+      setCurrentUser(restoredUser)
+      toast.success('Impersonation stopped')
+      if (restoredUser.role === 'super_admin') {
+        router.push('/super-admin')
       } else {
-        const data = await response.json()
-        console.error('Stop impersonation error response:', data)
-        toast.error(data.error || 'Failed to stop impersonation')
+        router.push('/admin/dashboard')
       }
     } catch (error) {
       console.error('Error stopping impersonation:', error)

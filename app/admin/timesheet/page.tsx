@@ -120,6 +120,9 @@ interface BreakLog {
 
 interface TimesheetEntry {
   id: string
+  row_source?: 'shift_log' | 'time_entry' | 'schedule_only'
+  can_approve?: boolean
+  scheduled_label?: string | null
   employee_id: string
   employee_name: string
   employee_code: string
@@ -277,15 +280,16 @@ export default function AdminTimesheet() {
   }
 
   const getMonthStart = (date: Date) => {
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    return new Date(year, month, 1).toISOString().split('T')[0]
+    const y = date.getFullYear()
+    const m = date.getMonth()
+    return `${y}-${String(m + 1).padStart(2, '0')}-01`
   }
 
   const getMonthEnd = (date: Date) => {
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    return new Date(year, month + 1, 0).toISOString().split('T')[0]
+    const y = date.getFullYear()
+    const m = date.getMonth()
+    const last = new Date(y, m + 1, 0)
+    return `${y}-${String(m + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`
   }
 
   const handlePreviousMonth = () => {
@@ -344,10 +348,16 @@ export default function AdminTimesheet() {
 
   // Edit functionality
   const openEditDialog = (entry: TimesheetEntry) => {
+    if (entry.row_source === 'schedule_only') {
+      toast.message('No clock data yet', {
+        description: 'This row is a published shift with no punch. Edit is available after the employee clocks in.',
+      })
+      return
+    }
     setEditingEntry(entry)
     setEditForm({
-      clock_in: entry.actual_clock_in,
-      clock_out: entry.actual_clock_out || '',
+      clock_in: toDatetimeLocal(entry.actual_clock_in),
+      clock_out: toDatetimeLocal(entry.actual_clock_out),
       break_hours: entry.break_hours,
       notes: entry.notes || ''
     })
@@ -382,15 +392,6 @@ export default function AdminTimesheet() {
     } catch (error) {
       console.error('Error updating timesheet entry:', error)
       toast.error('Failed to update timesheet entry')
-    }
-  }
-
-  // Bulk approval functionality
-  const handleSelectAll = () => {
-    if (selectedEntries.length === filteredEntries.length) {
-      setSelectedEntries([])
-    } else {
-      setSelectedEntries(filteredEntries.map(entry => entry.id))
     }
   }
 
@@ -441,11 +442,28 @@ export default function AdminTimesheet() {
   }
 
   const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleTimeString('en-US', {
+    if (!timeString) return '—'
+    if (/^\d{1,2}:\d{2}$/.test(timeString)) {
+      const [hh, mm] = timeString.split(':').map(Number)
+      const d = new Date()
+      d.setHours(hh, mm, 0, 0)
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    }
+    const d = new Date(timeString)
+    if (isNaN(d.getTime())) return timeString
+    return d.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
     })
+  }
+
+  const toDatetimeLocal = (iso?: string) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return ''
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
   const formatDate = (dateString: string) => {
@@ -501,6 +519,22 @@ export default function AdminTimesheet() {
     return true
   })
 
+  const approvableEntryIds = filteredEntries.filter((e) => e.can_approve).map((e) => e.id)
+
+  const handleSelectAll = () => {
+    if (approvableEntryIds.length === 0) {
+      setSelectedEntries([])
+      return
+    }
+    const allApprovableSelected =
+      approvableEntryIds.length > 0 && approvableEntryIds.every((id) => selectedEntries.includes(id))
+    if (allApprovableSelected) {
+      setSelectedEntries([])
+    } else {
+      setSelectedEntries(approvableEntryIds)
+    }
+  }
+
   // Get unique values for filters
   const departments = [...new Set(timesheetEntries.map(entry => entry.department))]
   const locations = [...new Set(timesheetEntries.map(entry => entry.location_name).filter(Boolean))]
@@ -517,17 +551,19 @@ export default function AdminTimesheet() {
 
   const exportTimesheet = () => {
     const csvContent = [
-      ['Employee ID', 'Employee Name', 'Department', 'Location', 'Date', 'Scheduled Start', 'Scheduled End', 'Actual Clock In', 'Actual Clock Out', 'Scheduled Hours', 'Actual Hours', 'Break Hours', 'Total Approved Hours', 'Discrepancies', 'Status', 'Approved By', 'Notes'],
+      ['Employee ID', 'Employee Name', 'Department', 'Location', 'Date', 'Source', 'Scheduled label', 'Scheduled from', 'Scheduled to', 'Actual in', 'Actual out', 'Scheduled hours', 'Worked hours', 'Break hours', 'Approved hours', 'Discrepancies', 'Approval', 'Approved By', 'Notes'],
       ...filteredEntries.map(entry => [
         entry.employee_code,
         entry.employee_name,
         entry.department,
         entry.location_name || '',
         formatDate(entry.date),
+        entry.row_source || '',
+        entry.scheduled_label || '',
         entry.scheduled_start ? formatTime(entry.scheduled_start) : '',
         entry.scheduled_end ? formatTime(entry.scheduled_end) : '',
-        formatTime(entry.actual_clock_in),
-        entry.actual_clock_out ? formatTime(entry.actual_clock_out) : 'Ongoing',
+        entry.actual_clock_in ? formatTime(entry.actual_clock_in) : '',
+        entry.actual_clock_out ? formatTime(entry.actual_clock_out) : '',
         entry.scheduled_hours?.toString() || '',
         entry.actual_hours.toString(),
         entry.break_hours.toString(),
@@ -547,6 +583,48 @@ export default function AdminTimesheet() {
     a.click()
     window.URL.revokeObjectURL(url)
     toast.success('Timesheet exported successfully!')
+  }
+
+  const sourceBadge = (entry: TimesheetEntry) => {
+    switch (entry.row_source) {
+      case 'shift_log':
+        return <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-800">Clock record</Badge>
+      case 'time_entry':
+        return <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-900">Legacy entry</Badge>
+      case 'schedule_only':
+        return <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-900">Scheduled only</Badge>
+      default:
+        return <Badge variant="outline">—</Badge>
+    }
+  }
+
+  const compareSummary = (entry: TimesheetEntry) => {
+    if (entry.row_source === 'schedule_only') {
+      return <span className="text-sm text-orange-700">Waiting for clock-in</span>
+    }
+    if (!entry.scheduled_start || !entry.scheduled_end) {
+      return <span className="text-sm text-slate-500">No published shift for this date</span>
+    }
+    if (!entry.actual_clock_in) {
+      return <span className="text-sm text-slate-500">—</span>
+    }
+    if (entry.discrepancies.length === 0) {
+      return (
+        <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700">
+          <CheckCircle className="h-4 w-4" /> On schedule
+        </span>
+      )
+    }
+    return (
+      <ul className="max-w-[220px] space-y-1 text-xs text-slate-700">
+        {entry.discrepancies.map((d, i) => (
+          <li key={i} className="flex items-start gap-1">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+            {d.message}
+          </li>
+        ))}
+      </ul>
+    )
   }
 
   if (loading) {
@@ -831,7 +909,7 @@ export default function AdminTimesheet() {
               Employee Timesheet Entries
             </CardTitle>
             <CardDescription>
-              Complete overview of all employee time entries with discrepancy flags and editing capabilities
+              Scheduled (published rota) vs actual punches from shift logs and legacy time entries. Rows with no punch yet show as &quot;Scheduled only&quot;.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -841,31 +919,54 @@ export default function AdminTimesheet() {
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedEntries.length === filteredEntries.length && filteredEntries.length > 0}
+                        checked={
+                          approvableEntryIds.length > 0 &&
+                          approvableEntryIds.every((id) => selectedEntries.includes(id))
+                        }
+                        disabled={approvableEntryIds.length === 0}
                         onCheckedChange={handleSelectAll}
+                        title={
+                          approvableEntryIds.length === 0
+                            ? 'No legacy time entries in this view'
+                            : 'Select all legacy entries that support approval'
+                        }
                       />
                     </TableHead>
                     <TableHead>Employee</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Scheduled Times</TableHead>
-                    <TableHead>Actual Times</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Scheduled</TableHead>
+                    <TableHead className="min-w-[180px]">Actual punch</TableHead>
+                    <TableHead>Compare</TableHead>
                     <TableHead>Hours</TableHead>
                     <TableHead>Breaks</TableHead>
-                    <TableHead>Discrepancies</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Flags</TableHead>
+                    <TableHead>Approval</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredEntries.map((entry) => (
-                    <TableRow 
-                      key={entry.id} 
-                      className={`${entry.discrepancies.length > 0 ? 'bg-yellow-50' : ''} hover:bg-gray-50`}
+                    <TableRow
+                      key={entry.id}
+                      className={
+                        entry.discrepancies.some((d) => d.severity === 'error')
+                          ? 'bg-red-50/80 hover:bg-red-50'
+                          : entry.discrepancies.length > 0
+                            ? 'bg-amber-50/60 hover:bg-amber-50/80'
+                            : 'hover:bg-gray-50'
+                      }
                     >
                       <TableCell>
                         <Checkbox
                           checked={selectedEntries.includes(entry.id)}
+                          disabled={!entry.can_approve}
                           onCheckedChange={() => handleSelectEntry(entry.id)}
+                          title={
+                            !entry.can_approve
+                              ? 'Bulk approval applies to legacy time entries only'
+                              : undefined
+                          }
                         />
                       </TableCell>
                       <TableCell>
@@ -881,39 +982,54 @@ export default function AdminTimesheet() {
                       <TableCell>
                         <div className="text-sm">{formatDate(entry.date)}</div>
                       </TableCell>
+                      <TableCell>{sourceBadge(entry)}</TableCell>
                       <TableCell>
-                        <div className="text-sm">
-                          {entry.scheduled_start ? (
-                            <>
-                              <div className="font-medium">{formatTime(entry.scheduled_start)}</div>
-                              <div className="text-gray-500">{formatTime(entry.scheduled_end || '')}</div>
-                              <div className="text-xs text-gray-400">
-                                {(Number(entry.scheduled_hours) || 0).toFixed(1)}h scheduled
-                              </div>
-                            </>
-                          ) : (
-                            <span className="text-gray-400">No schedule</span>
-                          )}
-                        </div>
+                        {entry.scheduled_start ? (
+                          <div className="space-y-1 text-sm">
+                            <div className="font-medium">{entry.scheduled_label || 'Scheduled shift'}</div>
+                            <div className="text-gray-700">
+                              {formatTime(entry.scheduled_start)} – {formatTime(entry.scheduled_end)}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {(Number(entry.scheduled_hours) || 0).toFixed(1)}h on rota
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">No published shift</span>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">
-                          <div className="font-medium">{formatTime(entry.actual_clock_in)}</div>
-                          <div className="text-gray-500">
-                            {entry.actual_clock_out ? formatTime(entry.actual_clock_out) : 'Ongoing'}
+                        {entry.row_source === 'schedule_only' || !entry.actual_clock_in ? (
+                          <span className="text-sm text-orange-700">No punch yet</span>
+                        ) : (
+                          <div className="space-y-1 text-sm">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 shrink-0 rounded-full bg-green-500" />
+                              <span className="font-medium">{formatTime(entry.actual_clock_in)}</span>
+                              <span className="text-gray-500">in</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                              <span className="font-medium">
+                                {entry.actual_clock_out ? formatTime(entry.actual_clock_out) : '—'}
+                              </span>
+                              <span className="text-gray-500">out</span>
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {(Number(entry.actual_hours) || 0).toFixed(1)}h recorded
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-400">
-                            {(Number(entry.actual_hours) || 0).toFixed(1)}h worked
-                          </div>
-                        </div>
+                        )}
                       </TableCell>
+                      <TableCell>{compareSummary(entry)}</TableCell>
                       <TableCell>
-                        <div className="text-sm">
-                          <div className="font-medium text-green-600">
-                            {(Number(entry.total_approved_hours) || 0).toFixed(1)}h
+                        <div className="space-y-1 text-sm">
+                          <div>
+                            <span className="font-medium">{(Number(entry.actual_hours) || 0).toFixed(1)}h</span>
+                            <span className="text-gray-500"> gross</span>
                           </div>
-                          <div className="text-xs text-gray-400">
-                            Approved hours
+                          <div className="text-xs text-gray-500">
+                            Net: {(Number(entry.total_approved_hours) || 0).toFixed(1)}h
                           </div>
                         </div>
                       </TableCell>
@@ -922,7 +1038,7 @@ export default function AdminTimesheet() {
                           <div className="font-medium">{(Number(entry.break_hours) || 0).toFixed(1)}h</div>
                           {entry.breaks.length > 0 && (
                             <div className="text-xs text-gray-400">
-                              {entry.breaks.length} break{entry.breaks.length > 1 ? 's' : ''}
+                              {entry.breaks.length} logged break{entry.breaks.length > 1 ? 's' : ''}
                             </div>
                           )}
                         </div>
@@ -933,7 +1049,7 @@ export default function AdminTimesheet() {
                             <div key={index} className="flex items-center gap-1">
                               {getDiscrepancyIcon(discrepancy)}
                               <span className="text-xs text-gray-600" title={discrepancy.message}>
-                                {discrepancy.minutes ? `${discrepancy.minutes}m` : '!'}
+                                {discrepancy.minutes != null ? `${discrepancy.minutes}m` : discrepancy.type}
                               </span>
                             </div>
                           ))}
@@ -943,27 +1059,47 @@ export default function AdminTimesheet() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {entry.is_approved ? (
-                          <Badge variant="default" className="bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Approved
-                          </Badge>
+                        {entry.can_approve ? (
+                          entry.is_approved ? (
+                            <Badge variant="default" className="bg-green-100 text-green-800">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Approved
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                              <Clock4 className="h-3 w-3 mr-1" />
+                              Pending approval
+                            </Badge>
+                          )
                         ) : (
-                          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                            <Clock4 className="h-3 w-3 mr-1" />
-                            Pending
-                          </Badge>
+                          <div className="space-y-1">
+                            <Badge variant="outline" className="border-slate-200 text-slate-700">
+                              Punch / rota
+                            </Badge>
+                            <div className="text-[11px] text-gray-500">No payroll approval step</div>
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditDialog(entry)}
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
+                        <div className="flex flex-wrap gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(entry)}
+                            disabled={entry.row_source === 'schedule_only'}
+                            title={
+                              entry.row_source === 'schedule_only'
+                                ? 'Wait for a clock-in before editing'
+                                : 'Edit times'
+                            }
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button variant="ghost" size="sm" type="button" title="Details">
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

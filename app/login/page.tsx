@@ -25,6 +25,9 @@ export default function UnifiedLogin() {
       if (user) {
         // Route to appropriate dashboard based on role
         switch (user.role) {
+          case 'super_admin':
+            router.push('/super-admin')
+            break
           case 'admin':
             router.push("/admin/dashboard")
             break

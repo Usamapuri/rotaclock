@@ -16,6 +16,10 @@ describe('AuthService Impersonation', () => {
     localStorageMock.getItem.mockClear()
     localStorageMock.setItem.mockClear()
     localStorageMock.removeItem.mockClear()
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    }) as unknown as typeof fetch
   })
 
   describe('startImpersonation', () => {
@@ -38,7 +42,7 @@ describe('AuthService Impersonation', () => {
 
       const result = await AuthService.startImpersonation('target-id', targetUserData)
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         id: 'target-id',
         email: 'target@test.com',
         role: 'employee',
@@ -47,8 +51,8 @@ describe('AuthService Impersonation', () => {
         originalUser: {
           id: 'admin-id',
           email: 'admin@test.com',
-          role: 'admin'
-        }
+          role: 'admin',
+        },
       })
 
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
@@ -74,7 +78,7 @@ describe('AuthService Impersonation', () => {
       }
 
       await expect(AuthService.startImpersonation('target-id', targetUserData))
-        .rejects.toThrow('Only admins can impersonate users')
+        .rejects.toThrow('Only tenant admins or platform super admins can impersonate users')
     })
   })
 

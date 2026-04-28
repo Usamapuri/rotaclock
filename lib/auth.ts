@@ -2,13 +2,34 @@
 export interface AuthUser {
   id: string
   email: string
-  role: 'admin' | 'manager' | 'team_lead' | 'project_manager' | 'employee'
-  employeeId?: string // legacy: human-readable employee code
+  role: 'admin' | 'manager' | 'team_lead' | 'project_manager' | 'employee' | 'super_admin'
+  employeeId?: string
+  first_name?: string
+  last_name?: string
   organization_id?: string
   organization_name?: string
   tenant_id?: string
   isImpersonating?: boolean
-  originalUser?: { id: string, email: string, role: string }
+  originalUser?: { id: string; email: string; role: string; first_name?: string; last_name?: string }
+}
+
+function normalizeUnifiedRole(
+  role: string
+): 'admin' | 'manager' | 'team_lead' | 'project_manager' | 'employee' | 'super_admin' {
+  switch (role) {
+    case 'super_admin':
+      return 'super_admin'
+    case 'admin':
+      return 'admin'
+    case 'manager':
+      return 'manager'
+    case 'team_lead':
+      return 'team_lead'
+    case 'project_manager':
+      return 'project_manager'
+    default:
+      return 'employee'
+  }
 }
 
 export class AuthService {
@@ -20,7 +41,6 @@ export class AuthService {
   static async adminLogin(username: string, password: string): Promise<AuthUser | null> {
     try {
       if (!username || !password) return null
-      // Resolve a real employees row so Bearer auth + getTenantContext work (same as unified login).
       const response = await fetch('/api/auth/unified-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -35,6 +55,8 @@ export class AuthService {
         email: e.email,
         role: 'admin',
         employeeId: e.employee_id,
+        first_name: e.first_name,
+        last_name: e.last_name,
         organization_id: e.organization_id,
         organization_name: e.organization_name,
         tenant_id: e.tenant_id,
@@ -66,25 +88,32 @@ export class AuthService {
       }
 
       const data = await response.json()
-      
+
       if (data.success && data.employee) {
-        const normalizedRole = (data.employee.role === 'team_lead' ? 'team_lead' : (data.employee.role === 'project_manager' ? 'project_manager' : 'employee')) as AuthUser['role']
+        const normalizedRole = (
+          data.employee.role === 'team_lead'
+            ? 'team_lead'
+            : data.employee.role === 'project_manager'
+              ? 'project_manager'
+              : 'employee'
+        ) as AuthUser['role']
         const user: AuthUser = {
           id: data.employee.id,
           email: data.employee.email,
           role: normalizedRole,
           employeeId: data.employee.employee_id,
+          first_name: data.employee.first_name,
+          last_name: data.employee.last_name,
           organization_id: data.employee.organization_id,
           organization_name: data.employee.organization_name,
-          tenant_id: data.employee.tenant_id
+          tenant_id: data.employee.tenant_id,
         }
-        
+
         if (typeof window !== 'undefined') {
-          // Store human-readable employee code for legacy use, but use UUID for auth
           localStorage.setItem(this.EMPLOYEE_KEY, employeeId)
           localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
         }
-        
+
         return user
       }
       return null
@@ -110,24 +139,31 @@ export class AuthService {
       }
 
       const data = await response.json()
-      
+
       if (data.success && data.employee) {
-        const normalizedRole = (data.employee.role === 'admin' ? 'admin' : (data.employee.role === 'manager' ? 'manager' : (data.employee.role === 'team_lead' ? 'team_lead' : (data.employee.role === 'project_manager' ? 'project_manager' : 'employee')))) as AuthUser['role']
+        const e = data.employee
+        const normalizedRole = normalizeUnifiedRole(e.role || 'employee')
         const user: AuthUser = {
-          id: data.employee.id,
-          email: data.employee.email,
+          id: e.id,
+          email: e.email,
           role: normalizedRole,
-          employeeId: data.employee.employee_id,
-          organization_id: data.employee.organization_id,
-          organization_name: data.employee.organization_name,
-          tenant_id: data.employee.tenant_id
+          employeeId: e.employee_id ?? undefined,
+          first_name: e.first_name,
+          last_name: e.last_name,
+          organization_id: e.organization_id ?? undefined,
+          organization_name: e.organization_name ?? undefined,
+          tenant_id: e.tenant_id ?? undefined,
         }
-        
+
         if (typeof window !== 'undefined') {
-          localStorage.setItem(this.EMPLOYEE_KEY, data.employee.employee_id)
+          if (e.employee_id) {
+            localStorage.setItem(this.EMPLOYEE_KEY, e.employee_id)
+          } else {
+            localStorage.removeItem(this.EMPLOYEE_KEY)
+          }
           localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
         }
-        
+
         return user
       }
       return null
@@ -139,8 +175,8 @@ export class AuthService {
 
   static async startImpersonation(targetUserId: string, targetUserData: any): Promise<AuthUser> {
     const currentUser = this.getCurrentUser()
-    if (!currentUser || currentUser.role !== 'admin') {
-      throw new Error('Only admins can impersonate users')
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) {
+      throw new Error('Only tenant admins or platform super admins can impersonate users')
     }
 
     const impersonatedUser: AuthUser = {
@@ -148,6 +184,8 @@ export class AuthService {
       email: targetUserData.email,
       role: targetUserData.role,
       employeeId: targetUserData.employee_id,
+      first_name: targetUserData.first_name,
+      last_name: targetUserData.last_name,
       tenant_id: targetUserData.tenant_id ?? currentUser.tenant_id,
       organization_id: targetUserData.organization_id ?? currentUser.organization_id,
       organization_name: targetUserData.organization_name ?? currentUser.organization_name,
@@ -155,8 +193,10 @@ export class AuthService {
       originalUser: {
         id: currentUser.id,
         email: currentUser.email,
-        role: currentUser.role
-      }
+        role: currentUser.role,
+        first_name: currentUser.first_name,
+        last_name: currentUser.last_name,
+      },
     }
 
     if (typeof window !== 'undefined') {
@@ -183,11 +223,27 @@ export class AuthService {
         throw new Error('No original user data found')
       }
 
-      // Restore original user session
+      const url =
+        originalUser.role === 'super_admin' ? '/api/super-admin/impersonate' : '/api/admin/impersonation'
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${originalUser.id}`,
+        },
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        console.warn('Stop impersonation API:', data)
+      }
+
       const restoredUser: AuthUser = {
         id: originalUser.id,
         email: originalUser.email,
-        role: originalUser.role
+        role: originalUser.role as AuthUser['role'],
+        first_name: originalUser.first_name,
+        last_name: originalUser.last_name,
       }
 
       localStorage.removeItem(this.IMPERSONATION_KEY)
@@ -202,24 +258,20 @@ export class AuthService {
 
   static isImpersonating(): boolean {
     if (typeof window === 'undefined') return false
-    
+
     const impersonationSession = localStorage.getItem(this.IMPERSONATION_KEY)
     return !!impersonationSession
   }
 
-  static getOriginalUser(): AuthUser | null {
+  static getOriginalUser(): AuthUser['originalUser'] | null {
     if (typeof window === 'undefined') return null
-    
+
     const impersonationSession = localStorage.getItem(this.IMPERSONATION_KEY)
     if (!impersonationSession) return null
 
     try {
       const impersonatedUser = JSON.parse(impersonationSession)
-      return impersonatedUser.originalUser ? {
-        id: impersonatedUser.originalUser.id,
-        email: impersonatedUser.originalUser.email,
-        role: impersonatedUser.originalUser.role
-      } : null
+      return impersonatedUser.originalUser ?? null
     } catch {
       return null
     }
@@ -227,18 +279,16 @@ export class AuthService {
 
   static getCurrentUser(): AuthUser | null {
     if (typeof window === 'undefined') return null
-    
-    // Check for impersonation session first
+
     const impersonationSession = localStorage.getItem(this.IMPERSONATION_KEY)
     if (impersonationSession) {
       try {
         return JSON.parse(impersonationSession)
       } catch {
-        // If impersonation session is corrupted, clean it up
         localStorage.removeItem(this.IMPERSONATION_KEY)
       }
     }
-    
+
     const session = localStorage.getItem(this.SESSION_KEY)
     if (session) {
       try {
@@ -257,6 +307,11 @@ export class AuthService {
   static isAdmin(): boolean {
     const user = this.getCurrentUser()
     return user?.role === 'admin'
+  }
+
+  static isSuperAdmin(): boolean {
+    const user = this.getCurrentUser()
+    return user?.role === 'super_admin'
   }
 
   static isEmployee(): boolean {
@@ -285,9 +340,8 @@ export class AuthService {
       localStorage.removeItem(this.EMPLOYEE_KEY)
       localStorage.removeItem(this.SESSION_KEY)
       localStorage.removeItem(this.IMPERSONATION_KEY)
-      
-      // Redirect to main login page
+
       window.location.href = '/login'
     }
   }
-} 
+}

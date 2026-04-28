@@ -45,10 +45,11 @@ export async function POST(request: NextRequest) {
     // Optional audit insert - ignore if table doesn't exist
     try {
       const auditQuery = `
-        INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, created_at)
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
+        INSERT INTO admin_audit_logs (tenant_id, admin_id, action, target_user_id, details, created_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
       `
       await query(auditQuery, [
+        tenant.tenant_id,
         user.id,
         'impersonation_start',
         targetUserId,
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
           target_user_email: targetUser.email,
           target_user_role: targetUser.role,
           admin_email: user.email,
-          tenant_id: tenant.tenant_id
+          tenant_id: tenant.tenant_id,
         }),
       ])
     } catch (e) {
@@ -95,25 +96,27 @@ export async function DELETE(request: NextRequest) {
     // We still log the action below.
 
     const tenant = await getTenantContext(user.id)
-
-    // Best-effort audit logging; skip if table doesn't exist
-    try {
-      const auditQuery = `
-        INSERT INTO admin_audit_logs (id, admin_id, action, target_user_id, details, created_at)
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
-      `
-      await query(auditQuery, [
-        user.id,
-        'impersonation_end',
-        null,
-        JSON.stringify({
-          admin_email: user.email,
-          action: 'impersonation_stopped',
-          tenant_id: tenant?.tenant_id || null,
-        }),
-      ])
-    } catch (e) {
-      console.warn('Audit log insert skipped:', e instanceof Error ? e.message : e)
+    const tenantId = tenant?.tenant_id
+    if (tenantId) {
+      try {
+        const auditQuery = `
+          INSERT INTO admin_audit_logs (tenant_id, admin_id, action, target_user_id, details, created_at)
+          VALUES ($1, $2, $3, $4, $5, NOW())
+        `
+        await query(auditQuery, [
+          tenantId,
+          user.id,
+          'impersonation_end',
+          null,
+          JSON.stringify({
+            admin_email: user.email,
+            action: 'impersonation_stopped',
+            tenant_id: tenantId,
+          }),
+        ])
+      } catch (e) {
+        console.warn('Audit log insert skipped:', e instanceof Error ? e.message : e)
+      }
     }
 
     return NextResponse.json({ success: true })

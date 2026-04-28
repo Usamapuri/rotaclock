@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query, createShiftLogByEmail, getShiftAssignmentsByEmail, isEmployeeClockedInByEmail, getEmployeeByEmail } from '@/lib/database'
+import { localTodayYmd } from '@/lib/calendar-date'
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,18 +54,22 @@ export async function POST(request: NextRequest) {
     
     // Store verification record in database instead of file system
     try {
-      await query(`
+      await query(
+        `
         INSERT INTO verification_logs (
-          tenant_id, employee_id, verification_type, timestamp, status, image_data_length
-        ) VALUES ($1, $2, $3, $4, $5, $6)
-      `, [
-        employee.tenant_id || null,
-        employee.id,
-        verificationType,
-        timestamp,
-        'verified',
-        imageData.length
-      ])
+          tenant_id, employee_id, verification_type, verification_data, status, verified_at
+        ) VALUES ($1, $2, $3, $4, 'verified', NOW())
+      `,
+        [
+          employee.tenant_id,
+          employee.id,
+          verificationType,
+          JSON.stringify({
+            image_data_length: imageData.length,
+            captured_at: timestamp,
+          }),
+        ]
+      )
       console.log('✅ Verification log stored in database')
     } catch (dbError) {
       const err = dbError as Error
@@ -86,7 +91,7 @@ export async function POST(request: NextRequest) {
         
         if (!isClockedIn) {
           // Get today's date
-          const today = new Date().toISOString().split('T')[0]
+          const today = localTodayYmd()
           console.log('   Checking shift assignments for:', today)
           
           // Find today's shift assignment for this employee

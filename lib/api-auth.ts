@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server'
 import { query } from '@/lib/database'
 
-type ApiUser = {
+export type ApiUser = {
   id: string
   email?: string
-  role: 'admin' | 'manager' | 'employee' | 'team_lead' | 'project_manager'
+  role: 'admin' | 'manager' | 'employee' | 'team_lead' | 'project_manager' | 'super_admin'
   employeeId?: string
+  isSuperAdmin?: boolean
   isImpersonating?: boolean
-  originalUser?: { id: string, email: string, role: string }
+  originalUser?: { id: string; email: string; role: string }
 }
 
 export function createApiAuthMiddleware() {
@@ -15,41 +16,70 @@ export function createApiAuthMiddleware() {
     const authHeader = request.headers.get('authorization')
     const employeeHeader = request.headers.get('x-employee-id')
 
-    // Try to resolve user from headers
-    let employeeIdOrUuid: string | null = null
+    let token: string | null = null
     if (authHeader?.toLowerCase().startsWith('bearer ')) {
-      employeeIdOrUuid = authHeader.split(' ')[1]?.trim() || null
+      token = authHeader.split(' ')[1]?.trim() || null
     } else if (employeeHeader) {
-      employeeIdOrUuid = employeeHeader.trim()
+      token = employeeHeader.trim()
     }
 
     let user: ApiUser | null = null
-    if (employeeIdOrUuid) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(employeeIdOrUuid)
-      const sql = isUuid
-        ? 'SELECT id, employee_code, email, role FROM employees WHERE id = $1 AND is_active = true'
-        : 'SELECT id, employee_code, email, role FROM employees WHERE employee_code = $1 AND is_active = true'
-      const res = await query(sql, [employeeIdOrUuid])
-      if (res.rows.length > 0) {
-        const e = res.rows[0]
-        const role = (e.role as string) || 'employee'
-        user = { id: e.id, email: e.email, role: role as any, employeeId: e.employee_code }
-        
-        // Check if this user is being impersonated
-        // For now, we'll rely on the client-side impersonation state
-        // In a production environment, you might want to store impersonation state server-side
+    if (token) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)
+      if (isUuid) {
+        const empRes = await query(
+          'SELECT id, employee_code, email, role FROM employees WHERE id = $1 AND is_active = true',
+          [token]
+        )
+        if (empRes.rows.length > 0) {
+          const e = empRes.rows[0]
+          const role = (e.role as string) || 'employee'
+          user = { id: e.id, email: e.email, role: role as ApiUser['role'], employeeId: e.employee_code }
+        } else {
+          const saRes = await query(
+            'SELECT id, email FROM super_admins WHERE id = $1 AND is_active = true',
+            [token]
+          )
+          if (saRes.rows.length > 0) {
+            const s = saRes.rows[0]
+            user = {
+              id: s.id,
+              email: s.email,
+              role: 'super_admin',
+              isSuperAdmin: true,
+            }
+          }
+        }
+      } else {
+        const res = await query(
+          'SELECT id, employee_code, email, role FROM employees WHERE employee_code = $1 AND is_active = true',
+          [token]
+        )
+        if (res.rows.length > 0) {
+          const e = res.rows[0]
+          const role = (e.role as string) || 'employee'
+          user = { id: e.id, email: e.email, role: role as ApiUser['role'], employeeId: e.employee_code }
+        }
       }
     }
 
-    // Demo fallback ONLY if explicitly enabled
     const allowDemo = (process.env.DEMO_AUTH ?? '').toLowerCase() === 'true'
     if (!user && allowDemo) {
-      user = { id: 'c67f737f-662a-4530-8d07-ba13d56bc54b', email: 'admin@rotaclock.com', role: 'admin', employeeId: 'EMP001' }
+      user = {
+        id: 'c67f737f-662a-4530-8d07-ba13d56bc54b',
+        email: 'admin@rotaclock.com',
+        role: 'admin',
+        employeeId: 'EMP001',
+      }
     }
 
     const isAuthenticated = !!user
     return { user, isAuthenticated }
   }
+}
+
+export function isSuperAdmin(user: ApiUser | null): boolean {
+  return !!user && user.role === 'super_admin'
 }
 
 export function isAdmin(user: ApiUser | null): boolean {
@@ -73,12 +103,15 @@ export function isManager(user: ApiUser | null): boolean {
 }
 
 export async function getManagerLocations(userId: string, tenantId: string): Promise<string[] | null> {
-  const result = await query(`
+  const result = await query(
+    `
     SELECT l.id 
     FROM locations l
     JOIN manager_locations ml ON l.id = ml.location_id
     WHERE ml.tenant_id = $1 AND ml.manager_id = $2 AND l.is_active = true
-  `, [tenantId, userId])
-  
-  return result.rows.length > 0 ? result.rows.map(r => r.id) : null
+  `,
+    [tenantId, userId]
+  )
+
+  return result.rows.length > 0 ? result.rows.map((r) => r.id) : null
 }
