@@ -24,7 +24,6 @@ import {
   Pause,
   Square,
   Coffee,
-  LogOut,
   Timer as TimerIcon,
   AlertCircle,
   FileText,
@@ -34,7 +33,7 @@ import { AuthService } from '@/lib/auth'
 import { apiService } from '@/lib/api-service'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner'
+import { localTodayYmd, mondayOfWeekContaining, sundayOfWeekContaining, formatYmdDisplay } from '@/lib/calendar-date'
 
 interface TimeEntry {
   id: string
@@ -61,6 +60,7 @@ interface Shift {
   date: string
   status: 'scheduled' | 'in-progress' | 'completed'
   employee_id: string
+  department?: string
 }
 
 // New interfaces for shift logs
@@ -127,6 +127,11 @@ interface SwapRequest {
   target_shift_end: string
   created_at: string
   updated_at: string
+}
+
+function prettyShiftTime(t?: string) {
+  if (!t) return ''
+  return t.slice(0, 5)
 }
 
 // Timer component for displaying elapsed time
@@ -256,10 +261,10 @@ const ShiftHistory = ({ employeeId }: { employeeId: string }) => {
         const elapsedLabel = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}`
 
         return (
-          <div key={shiftLog.id} className="border rounded-lg p-3">
+          <div key={shiftLog.id} className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm font-medium text-slate-900">
                   {start ? start.toLocaleDateString() : ''}
                 </span>
                 {shiftLog.status === 'active' && (
@@ -272,16 +277,22 @@ const ShiftHistory = ({ employeeId }: { employeeId: string }) => {
                   <Badge variant="destructive" className="text-xs">Cancelled</Badge>
                 )}
               </div>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-slate-500">
                 {startLabel} - {endLabel}
               </span>
             </div>
             
             <div className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Duration:</span>
-                <span className="font-mono font-medium text-blue-600">{elapsedLabel}</span>
-              </div>
+              {shiftLog.status === 'active' && shiftLog.clock_in ? (
+                <div className="rounded-lg bg-indigo-50/80 px-3 py-2">
+                  <TimerDisplay startTime={shiftLog.clock_in} label="Duration so far" className="text-sm" />
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Duration:</span>
+                  <span className="font-mono font-medium text-indigo-600">{elapsedLabel}</span>
+                </div>
+              )}
               {Number(shiftLog.total_shift_hours || 0) > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Work Hours:</span>
@@ -413,8 +424,7 @@ export default function EmployeeDashboard() {
   }
 
   const loadTodayShifts = async (userId: string) => {
-    // Load today's shifts using the new scheduling API
-    const today = new Date().toISOString().split('T')[0]
+    const today = localTodayYmd()
     try {
       const user = AuthService.getCurrentUser()
       const res = await fetch(`/api/scheduling/week/${today}?employee_id=${userId}&published_only=true`, { headers: user?.id ? { authorization: `Bearer ${user.id}` } : {} })
@@ -438,11 +448,12 @@ export default function EmployeeDashboard() {
       const transformed = todays.map((a: any) => ({
         id: a.id,
         name: a.template_name || 'Scheduled Shift',
-        start_time: a.start_time,
-        end_time: a.end_time,
+        start_time: prettyShiftTime(a.start_time),
+        end_time: prettyShiftTime(a.end_time),
         date: a.date,
         status: a.status || 'scheduled',
-        employee_id: a.employee_id
+        employee_id: a.employee_id,
+        department: a.template_department,
       }))
       setTodayShifts(transformed)
     } catch (e) {
@@ -450,6 +461,20 @@ export default function EmployeeDashboard() {
       setTodayShifts([])
     }
   }
+
+  useEffect(() => {
+    if (!currentUser?.id) return
+    const refreshToday = () => loadTodayShifts(currentUser.id)
+    const id = setInterval(refreshToday, 120_000)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') refreshToday()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [currentUser?.id])
 
   const loadWeeklyHours = async (userId: string) => {
     // Load weekly hours from shift logs (more accurate)
@@ -515,21 +540,8 @@ export default function EmployeeDashboard() {
     }
   }
 
-  const getWeekStart = () => {
-    const now = new Date()
-    const dayOfWeek = now.getDay()
-    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
-    const monday = new Date(now.setDate(diff))
-    return monday.toISOString().split('T')[0]
-  }
-
-  const getWeekEnd = () => {
-    const now = new Date()
-    const dayOfWeek = now.getDay()
-    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? 0 : 7)
-    const sunday = new Date(now.setDate(diff))
-    return sunday.toISOString().split('T')[0]
-  }
+  const getWeekStart = () => mondayOfWeekContaining(localTodayYmd())
+  const getWeekEnd = () => sundayOfWeekContaining(localTodayYmd())
 
   const formatShiftDuration = (clockInTime: string) => {
     const startTime = new Date(clockInTime)
@@ -696,11 +708,6 @@ export default function EmployeeDashboard() {
       setVerificationFailed(true)
       toast.error('Verification failed. Please try again.')
     }
-  }
-
-  const handleLogout = () => {
-    AuthService.logout()
-    router.push('/login')
   }
 
   const handleLeaveRequestSubmit = async () => {
@@ -889,40 +896,35 @@ export default function EmployeeDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="bg-blue-100 p-2 rounded-full">
-                <User className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  Welcome back, {currentUser?.email || 'Employee'}!
-                </h1>
-                <p className="text-sm text-gray-500">Employee Dashboard</p>
-              </div>
-            </div>
-            <NotificationBell userId={currentUser?.id} className="mr-2" />
-            <Button onClick={handleLogout} variant="outline" size="sm">
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1 rounded-2xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/80 via-white to-violet-50/60 p-5 shadow-sm sm:max-w-xl">
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Employee home</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            {(() => {
+              const h = new Date().getHours()
+              const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
+              const short = (currentUser?.email && currentUser.email.split('@')[0]) || 'there'
+              return `${greet}, ${short}`
+            })()}
+          </h1>
+          <p className="text-sm text-slate-600">
+            {formatYmdDisplay(localTodayYmd(), { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 sm:pt-2">
+          <Button variant="outline" size="sm" onClick={() => loadDashboardData()}>
+            Refresh
+          </Button>
+          <NotificationBell userId={currentUser?.id} />
         </div>
       </div>
 
-      {/* Impersonation Banner - Only shows when admin is impersonating */}
-      <ImpersonationBanner />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Time Tracking Card */}
-            <Card className="dashboard-card">
+            <Card className="dashboard-card overflow-hidden border-slate-200/70 shadow-md shadow-slate-200/30">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
@@ -1080,22 +1082,31 @@ export default function EmployeeDashboard() {
             </Card>
 
             {/* Today's Shifts */}
-            <Card className="dashboard-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Today's Schedule
+            <Card className="dashboard-card overflow-hidden border-slate-200/70 shadow-md shadow-slate-200/30">
+              <CardHeader className="bg-gradient-to-r from-slate-50/90 to-indigo-50/40 border-b border-slate-100/80">
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <Calendar className="h-5 w-5 text-indigo-600" />
+                  Today&apos;s schedule
                 </CardTitle>
+                <CardDescription>
+                  Published shifts for {formatYmdDisplay(localTodayYmd(), { weekday: 'long', month: 'short', day: 'numeric' })}
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-5">
                 {todayShifts.length > 0 ? (
                   <div className="space-y-3">
                     {todayShifts.map((shift) => (
-                      <div key={shift.id} className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
+                      <div
+                        key={shift.id}
+                        className="flex flex-col gap-2 rounded-xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/50 to-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                      >
                         <div>
-                          <p className="font-medium text-gray-900">{shift.name}</p>
-                          <p className="text-sm text-gray-600">
-                            {shift.start_time} - {shift.end_time}
+                          <p className="font-semibold text-slate-900">{shift.name}</p>
+                          {shift.department && (
+                            <p className="text-xs font-medium text-indigo-700">{shift.department}</p>
+                          )}
+                          <p className="mt-1 font-mono text-sm tabular-nums text-slate-600">
+                            {shift.start_time} – {shift.end_time}
                           </p>
                         </div>
                         {getStatusBadge(shift.status)}
@@ -1103,10 +1114,16 @@ export default function EmployeeDashboard() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600 font-medium">No shifts scheduled for today</p>
-                    <p className="text-sm text-gray-500 mt-1">Check with your manager for upcoming assignments</p>
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-10 text-center">
+                    <Calendar className="mx-auto mb-3 h-12 w-12 text-slate-400" />
+                    <p className="font-medium text-slate-700">No shifts scheduled for today</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      If you expected a shift, your manager may still be publishing the rota — try Refresh or check{' '}
+                      <button type="button" onClick={() => router.push('/employee/scheduling')} className="font-medium text-indigo-600 underline-offset-2 hover:underline">
+                        My schedule
+                      </button>
+                      .
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -1419,9 +1436,6 @@ export default function EmployeeDashboard() {
             </Card>
           </div>
         </div>
-      </div>
-
-
 
       {/* Leave Request Dialog */}
       <Dialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>

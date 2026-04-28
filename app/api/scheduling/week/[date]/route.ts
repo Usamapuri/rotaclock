@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
+import { mondayOfWeekContaining, sundayOfWeekContaining } from '@/lib/calendar-date'
 
 export async function GET(
   request: NextRequest,
@@ -30,16 +31,8 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 })
     }
 
-    const weekStart = new Date(date)
-    const dayOfWeek = weekStart.getDay()
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    weekStart.setDate(weekStart.getDate() - daysToMonday)
-
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekStart.getDate() + 6)
-
-    const weekStartStr = weekStart.toISOString().split('T')[0]
-    const weekEndStr = weekEnd.toISOString().split('T')[0]
+    const weekStartStr = mondayOfWeekContaining(date)
+    const weekEndStr = sundayOfWeekContaining(date)
 
     // Employees for tenant: full roster = schedulable roles; when employee_id is set, always
     // include that person (e.g. team_lead / project_manager) so nested assignments are built.
@@ -244,7 +237,12 @@ export async function GET(
       const employeeAssignments = assignments.filter(a => a.employee_id === employee.id)
       employeeAssignments.forEach(assignment => {
         const dateValue: any = (assignment as any).date
-        const dateKey = typeof dateValue === 'string' ? dateValue : new Date(dateValue).toISOString().split('T')[0]
+        const dateKey =
+          typeof dateValue === 'string'
+            ? dateValue.split('T')[0]
+            : dateValue instanceof Date
+              ? dateValue.toISOString().split('T')[0]
+              : String(dateValue).split('T')[0]
         const emp = scheduleData.employees.find(e => e.id === employee.id)!
         if (!emp.assignments[dateKey]) emp.assignments[dateKey] = []
         emp.assignments[dateKey].push(assignment)

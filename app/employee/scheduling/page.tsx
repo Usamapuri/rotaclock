@@ -12,7 +12,14 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Calendar, ChevronLeft, ChevronRight, RefreshCw, ArrowLeftRight } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, RefreshCw, ArrowLeftRight, Sparkles } from 'lucide-react'
+import {
+  addDaysYmd,
+  formatYmdDisplay,
+  localTodayYmd,
+  mondayOfWeekContaining,
+  weekDayListMonSun,
+} from '@/lib/calendar-date'
 
 type Assignment = {
   id: string
@@ -21,6 +28,7 @@ type Assignment = {
   end_time: string
   date: string
   color?: string
+  template_department?: string
 }
 
 type Employee = {
@@ -34,7 +42,8 @@ type Employee = {
 export default function EmployeeSchedulingPage() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState<string>(() => localTodayYmd())
+  const [todayYmd, setTodayYmd] = useState<string>(() => localTodayYmd())
   const [weekDays, setWeekDays] = useState<string[]>([])
   const [assignmentsByDate, setAssignmentsByDate] = useState<Record<string, Assignment[]>>({})
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -65,21 +74,23 @@ export default function EmployeeSchedulingPage() {
     setCurrentUser(user)
   }, [router])
 
-  // Compute week days whenever selectedDate changes
   useEffect(() => {
-    const date = new Date(selectedDate)
-    const dayOfWeek = date.getDay()
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    const monday = new Date(date)
-    monday.setDate(date.getDate() - daysToMonday)
-    const days: string[] = []
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday)
-      d.setDate(monday.getDate() + i)
-      days.push(d.toISOString().split('T')[0])
-    }
-    setWeekDays(days)
+    const mon = mondayOfWeekContaining(selectedDate)
+    setWeekDays(weekDayListMonSun(mon))
   }, [selectedDate])
+
+  useEffect(() => {
+    const tick = () => setTodayYmd(localTodayYmd())
+    const id = setInterval(tick, 60_000)
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
 
   // Load data when user or selectedDate changes
   useEffect(() => {
@@ -144,20 +155,20 @@ export default function EmployeeSchedulingPage() {
     setAssignmentsByDate(byDate)
   }
 
-  const goPrev = async () => {
-    const base = new Date(weekDays[0] || selectedDate)
-    base.setDate(base.getDate() - 7)
-    setSelectedDate(base.toISOString().split('T')[0])
+  const goPrev = () => {
+    const mon = weekDays[0] || mondayOfWeekContaining(selectedDate)
+    setSelectedDate(addDaysYmd(mon, -7))
   }
 
-  const goNext = async () => {
-    const base = new Date(weekDays[0] || selectedDate)
-    base.setDate(base.getDate() + 7)
-    setSelectedDate(base.toISOString().split('T')[0])
+  const goNext = () => {
+    const mon = weekDays[0] || mondayOfWeekContaining(selectedDate)
+    setSelectedDate(addDaysYmd(mon, 7))
   }
 
-  const goToday = async () => {
-    setSelectedDate(new Date().toISOString().split('T')[0])
+  const goToday = () => {
+    const t = localTodayYmd()
+    setTodayYmd(t)
+    setSelectedDate(t)
   }
 
   const handleRefresh = async () => {
@@ -243,8 +254,6 @@ export default function EmployeeSchedulingPage() {
 
   const prettyTime = (t?: string) => (t ? t.slice(0,5) : '')
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
-
   const hasAnyShift = useMemo(
     () => weekDays.some((d) => (assignmentsByDate[d] || []).length > 0),
     [weekDays, assignmentsByDate]
@@ -261,12 +270,21 @@ export default function EmployeeSchedulingPage() {
     )
   }
 
+  const weekLabelStart = weekDays[0] ? formatYmdDisplay(weekDays[0], { month: 'short', day: 'numeric' }) : ''
+  const weekLabelEnd = weekDays[6] ? formatYmdDisplay(weekDays[6], { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+  const thisWeek = weekDays[0] && weekDays[6] && todayYmd >= weekDays[0] && todayYmd <= weekDays[6]
+
   return (
-    <div className="container mx-auto max-w-7xl p-6 space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">My weekly schedule</h1>
-          <p className="text-slate-600">Published shifts for the week (Mon–Sun)</p>
+    <div className="container mx-auto max-w-7xl space-y-6">
+      <div className="rounded-2xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/70 p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-indigo-700">
+            <Sparkles className="h-5 w-5" aria-hidden />
+            <span className="text-xs font-semibold uppercase tracking-wide">Schedule</span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">My weekly schedule</h1>
+          <p className="text-slate-600">Published shifts — Monday through Sunday (your manager&apos;s rota)</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
@@ -277,61 +295,97 @@ export default function EmployeeSchedulingPage() {
             Request Leave
           </Button>
         </div>
+        </div>
       </div>
 
-      <Card className="overflow-hidden border-slate-200/80 shadow-sm transition-shadow duration-300 hover:shadow-md">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-slate-900">
-              <Calendar className="h-5 w-5 text-primary" /> Week of {weekDays[0]} – {weekDays[6]}
+      <Card className="overflow-hidden border-slate-200/60 shadow-md shadow-slate-200/40 transition-shadow duration-300 hover:shadow-lg">
+        <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex flex-wrap items-center gap-2 text-lg text-slate-900 sm:text-xl">
+              <Calendar className="h-5 w-5 shrink-0 text-indigo-600" />
+              <span>
+                Week of{' '}
+                <span className="font-semibold text-indigo-900">{weekLabelStart}</span>
+                {' — '}
+                <span className="font-semibold text-indigo-900">{weekLabelEnd}</span>
+              </span>
+              {thisWeek && (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">This week</span>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={goPrev}>
+              <Button variant="outline" size="sm" onClick={goPrev} aria-label="Previous week">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="sm" onClick={goToday}>Today</Button>
-              <Button variant="outline" size="sm" onClick={goNext}>
+              <Button variant="outline" size="sm" onClick={goNext} aria-label="Next week">
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="animate-in fade-in duration-300">
+        <CardContent className="animate-in fade-in duration-300 px-3 pb-4 pt-4 sm:px-6">
           {!hasAnyShift && (
-            <p className="mb-4 rounded-md border border-amber-200/80 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            <p className="mb-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
               No published shifts this week. If your manager has just published a rota, tap Refresh — otherwise you may be off the schedule for these dates.
             </p>
           )}
-          <div className="grid grid-cols-1 gap-3 transition-all duration-300 md:grid-cols-7">
-            {weekDays.map((day) => (
+          <div className="flex gap-3 overflow-x-auto overscroll-x-contain pb-1 snap-x snap-mandatory [-webkit-overflow-scrolling:touch] md:grid md:grid-cols-7 md:overflow-visible md:pb-0 md:snap-none">
+            {weekDays.map((day) => {
+              const isToday = day === todayYmd
+              return (
               <div
                 key={day}
-                className={`rounded-xl border p-3 transition-colors duration-200 ${
-                  day === todayStr ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20' : 'border-slate-200 bg-white'
+                className={`min-w-[148px] shrink-0 snap-center rounded-xl border p-3 shadow-sm transition-all duration-200 md:min-w-0 ${
+                  isToday
+                    ? 'border-indigo-400/80 bg-gradient-to-b from-indigo-50 to-white ring-2 ring-indigo-200/80 shadow-indigo-100/50'
+                    : 'border-slate-200/80 bg-white hover:border-slate-300'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-medium">{new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                <div className="mb-2 flex items-center justify-between gap-1">
+                  <div className="text-sm font-semibold text-slate-800">
+                    {formatYmdDisplay(day, { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </div>
+                  {isToday && (
+                    <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Today</span>
+                  )}
                 </div>
                 {(assignmentsByDate[day] || []).length === 0 ? (
-                  <div className="text-sm text-slate-500">No shift</div>
+                  <div className="flex min-h-[100px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/50 text-center text-xs text-slate-500">
+                    No shift
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {(assignmentsByDate[day] || []).map((a) => (
-                      <div key={a.id} className="p-2 rounded text-xs text-white" style={{ backgroundColor: a.color || '#3B82F6' }}>
-                        <div className="font-medium">{a.template_name}</div>
-                        <div>{prettyTime(a.start_time)} - {prettyTime(a.end_time)}</div>
-                        <div className="mt-2">
-                          <Button size="sm" variant="secondary" className="w-full" onClick={() => { setSwapOpen(true); setSwapDate(day) }}>
-                            <ArrowLeftRight className="h-4 w-4 mr-2" /> Request Swap
-                          </Button>
+                      <div
+                        key={a.id}
+                        className="space-y-2 rounded-lg p-3 text-xs text-white shadow-md"
+                        style={{ backgroundColor: a.color || '#4f46e5' }}
+                      >
+                        <div>
+                          <div className="font-semibold leading-tight">{a.template_name}</div>
+                          {a.template_department && (
+                            <div className="mt-0.5 text-[11px] font-medium text-white/85">{a.template_department}</div>
+                          )}
+                          <div className="mt-1 font-mono tabular-nums text-white/95">
+                            {prettyTime(a.start_time)} – {prettyTime(a.end_time)}
+                          </div>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full border-0 bg-white/95 text-slate-900 hover:bg-white"
+                          onClick={() => { setSwapOpen(true); setSwapDate(day) }}
+                        >
+                          <ArrowLeftRight className="h-3.5 w-3.5 mr-1.5" /> Swap
+                        </Button>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>
