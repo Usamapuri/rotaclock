@@ -45,11 +45,14 @@ export default function UnifiedLogin() {
         }
         toast.success(`Welcome back! Redirecting to your dashboard...`)
       } else {
-        toast.error("Invalid credentials. Please try again.")
+        toast.error(
+          "Could not sign you in. If the database was reset, use the seeded demo email and password, or ask your admin to create your account."
+        )
       }
     } catch (error) {
       console.error('Login error:', error)
-      toast.error("Login failed. Please try again.")
+      const msg = error instanceof Error ? error.message : "Login failed. Please try again."
+      toast.error(msg)
     } finally {
       setIsLoading(false)
     }

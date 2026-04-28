@@ -90,7 +90,7 @@ export class AuthService {
       return null
     } catch (error) {
       console.error('Employee login error:', error)
-      return null
+      throw error
     }
   }
 
@@ -133,7 +133,7 @@ export class AuthService {
       return null
     } catch (error) {
       console.error('Unified login error:', error)
-      return null
+      throw error
     }
   }
 
