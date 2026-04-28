@@ -6,6 +6,21 @@ import type { OrganizationSignupPayload } from '@/lib/provision-tenant-from-sign
 export async function POST(request: NextRequest) {
   try {
     const body: OrganizationSignupPayload = await request.json()
+    body.organizationEmail = String(body.organizationEmail ?? '').trim()
+    body.adminEmail = String(body.adminEmail ?? '').trim()
+    body.organizationName = String(body.organizationName ?? '').trim()
+    body.organizationPhone = String(body.organizationPhone ?? '').trim()
+    body.adminFirstName = String(body.adminFirstName ?? '').trim()
+    body.adminLastName = String(body.adminLastName ?? '').trim()
+    body.adminPhone = String(body.adminPhone ?? '').trim()
+    if (body.organizationAddress != null) body.organizationAddress = String(body.organizationAddress).trim()
+    if (body.organizationCity != null) body.organizationCity = String(body.organizationCity).trim()
+    if (body.organizationState != null) body.organizationState = String(body.organizationState).trim()
+    body.organizationCountry = String(body.organizationCountry ?? '').trim()
+    body.organizationIndustry = String(body.organizationIndustry ?? '').trim()
+    body.organizationSize = String(body.organizationSize ?? '').trim()
+    body.selectedPlan = String(body.selectedPlan ?? 'starter').trim()
+
     const requiredFields = [
       'organizationName',
       'organizationEmail',
@@ -33,7 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Password must be at least 8 characters long' }, { status: 400 })
     }
 
-    const existingOrg = await query('SELECT id FROM organizations WHERE LOWER(email) = LOWER($1)', [
+    const existingOrg = await query('SELECT id FROM organizations WHERE LOWER(TRIM(email)) = LOWER($1)', [
       body.organizationEmail,
     ])
     if (existingOrg.rows.length > 0) {
@@ -41,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     const existingAdmin = await query(
-      'SELECT id FROM employees WHERE LOWER(email) = LOWER($1)',
+      'SELECT id FROM employees WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))',
       [body.adminEmail]
     )
     if (existingAdmin.rows.length > 0) {
@@ -51,7 +66,7 @@ export async function POST(request: NextRequest) {
     const pending = await query(
       `SELECT id FROM tenant_signup_requests 
        WHERE status = 'pending' 
-       AND (LOWER(payload->>'organizationEmail') = LOWER($1) OR LOWER(payload->>'adminEmail') = LOWER($2))`,
+       AND (LOWER(TRIM(payload->>'organizationEmail')) = LOWER(TRIM($1)) OR LOWER(TRIM(payload->>'adminEmail')) = LOWER(TRIM($2)))`,
       [body.organizationEmail, body.adminEmail]
     )
     if (pending.rows.length > 0) {

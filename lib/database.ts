@@ -554,26 +554,24 @@ export async function authenticateEmployee(employeeCode: string, password: strin
 
 // Authenticate employee by email and password
 export async function authenticateEmployeeByEmail(email: string, password: string): Promise<Employee | null> {
+  const normalized = String(email ?? '').trim().toLowerCase()
   const result = await query(`
     SELECT e.*, o.name as organization_name, o.subscription_status, o.subscription_plan
     FROM employees e
     LEFT JOIN organizations o ON e.organization_id = o.id
-    WHERE e.email = $1 AND e.is_active = true
+    WHERE LOWER(TRIM(e.email)) = $1 AND e.is_active = true
     AND (e.organization_id IS NULL OR (o.id IS NOT NULL AND o.is_active = true))
-  `, [email])
+  `, [normalized])
 
   if (result.rows.length === 0) {
     return null
   }
 
-  const employee = result.rows[0]
-  
-  if (!employee.password_hash) {
-    return null
-  }
-
-  if (verifyPassword(password, employee.password_hash)) {
-    return employee
+  for (const row of result.rows) {
+    if (!row.password_hash) continue
+    if (verifyPassword(password, row.password_hash)) {
+      return row as Employee
+    }
   }
 
   return null

@@ -1,34 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { transaction } from '@/lib/database'
 import { createApiAuthMiddleware, isSuperAdmin } from '@/lib/api-auth'
 import { provisionTenantFromSignup, type OrganizationSignupPayload } from '@/lib/provision-tenant-from-signup'
 import { sendEmail, buildOrgVerificationEmail, buildWelcomeEmail } from '@/lib/email'
 import { insertPlatformAuditLog } from '@/lib/platform-audit'
+import { parseSignupPayloadFromDb } from '@/lib/signup-payload'
 
 const authMiddleware = createApiAuthMiddleware()
-
-const signupPayloadSchema = z.object({
-  organizationName: z.string().min(1),
-  organizationEmail: z.string().email(),
-  organizationPhone: z.string().min(1),
-  organizationAddress: z.string().optional(),
-  organizationCity: z.string().optional(),
-  organizationState: z.string().optional(),
-  organizationCountry: z.string().min(1),
-  organizationIndustry: z.string().min(1),
-  organizationSize: z.string().min(1),
-  adminFirstName: z.string().min(1),
-  adminLastName: z.string().min(1),
-  adminEmail: z.string().email(),
-  adminPhone: z.string().min(1),
-  adminPassword: z.string().min(8),
-  selectedPlan: z.string().min(1),
-})
-
-function parsePayload(raw: unknown): OrganizationSignupPayload {
-  return signupPayloadSchema.parse(raw) as OrganizationSignupPayload
-}
 
 type ApproveOk = {
   organization: { id: string; tenant_id: string }
@@ -44,7 +22,6 @@ type ApproveOk = {
   slug: string
   payload: OrganizationSignupPayload
 }
-
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -77,25 +54,27 @@ export async function POST(
 
         let payload: OrganizationSignupPayload
         try {
-          payload = parsePayload(row.payload)
+          payload = parseSignupPayloadFromDb(row.payload)
         } catch {
           const e = new Error('BAD_PAYLOAD') as Error & { code: string }
           e.code = 'BAD_PAYLOAD'
           throw e
         }
 
-        const dupOrg = await client.query(`SELECT id FROM organizations WHERE LOWER(email) = LOWER($1)`, [
-          payload.organizationEmail,
-        ])
+        const dupOrg = await client.query(
+          `SELECT id FROM organizations WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))`,
+          [payload.organizationEmail]
+        )
         if (dupOrg.rows.length > 0) {
           const e = new Error('DUP_ORG') as Error & { code: string }
           e.code = 'DUP_ORG'
           throw e
         }
 
-        const dupAdmin = await client.query(`SELECT id FROM employees WHERE LOWER(email) = LOWER($1)`, [
-          payload.adminEmail,
-        ])
+        const dupAdmin = await client.query(
+          `SELECT id FROM employees WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))`,
+          [payload.adminEmail]
+        )
         if (dupAdmin.rows.length > 0) {
           const e = new Error('DUP_ADMIN') as Error & { code: string }
           e.code = 'DUP_ADMIN'

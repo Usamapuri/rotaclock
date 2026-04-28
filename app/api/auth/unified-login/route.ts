@@ -20,19 +20,33 @@ export async function POST(request: NextRequest) {
                o.name AS organization_name, o.is_active AS org_is_active
         FROM employees e
         LEFT JOIN organizations o ON e.organization_id = o.id
-        WHERE LOWER(e.email) = LOWER($1) AND e.is_active = true
+        WHERE LOWER(TRIM(e.email)) = $1 AND e.is_active = true
       `,
         [emailLower]
       )
 
-      if (res.rows.length > 0) {
-        employee = res.rows[0] as Record<string, unknown>
-        const orgActive = employee.org_is_active
-        if (employee.organization_id != null && orgActive === false) {
-          return NextResponse.json(
-            { error: 'This organization has been suspended. Contact support.' },
-            { status: 403 }
-          )
+      for (const row of res.rows) {
+        const r = row as Record<string, unknown>
+        const orgActive = r.org_is_active
+        if (r.organization_id != null && orgActive === false) {
+          continue
+        }
+        if (r.password_hash) {
+          try {
+            const ok = await bcrypt.compare(password, String(r.password_hash))
+            if (ok) {
+              employee = r
+              break
+            }
+          } catch {
+            /* try next row */
+          }
+        } else {
+          const allowDefault = (process.env.ALLOW_DEFAULT_PASSWORD ?? '').toLowerCase() === 'true'
+          if (allowDefault && password === 'password123') {
+            employee = r
+            break
+          }
         }
       }
     } catch (dbErr) {
@@ -61,13 +75,14 @@ export async function POST(request: NextRequest) {
         organization_id: null,
         organization_name: null,
         org_is_active: true,
+        password_hash: null,
       }
     }
 
     if (!employee) {
       try {
         const sa = await query(
-          `SELECT id, email, full_name, password_hash FROM super_admins WHERE LOWER(email) = LOWER($1) AND is_active = true`,
+          `SELECT id, email, full_name, password_hash FROM super_admins WHERE LOWER(TRIM(email)) = $1 AND is_active = true`,
           [emailLower]
         )
         if (sa.rows.length > 0) {
@@ -113,20 +128,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
-    let passwordOk = false
-    if (employee.password_hash) {
-      try {
-        passwordOk = await bcrypt.compare(password, String(employee.password_hash))
-      } catch (_) {
-        passwordOk = false
-      }
-    } else {
+    if (!employee.password_hash) {
       const allowDefault = (process.env.ALLOW_DEFAULT_PASSWORD ?? 'true').toLowerCase() === 'true'
-      if (allowDefault) passwordOk = password === 'password123'
-    }
-
-    if (!passwordOk) {
-      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+      if (!allowDefault || password !== 'password123') {
+        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+      }
     }
 
     return NextResponse.json({
