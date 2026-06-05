@@ -22,6 +22,13 @@ phased plan and `CLAUDE.md` for audit findings and conventions.
 - Never commit secrets or connection strings. Read `DATABASE_URL` from the
   environment.
 
+## Environment
+
+- `DATABASE_URL` — Postgres connection string (required).
+- `JWT_SECRET` — secret used to sign session tokens. **Required in production**
+  (must be >= 16 chars). In development the app falls back to a fixed, insecure
+  dev secret with no config needed; never rely on that fallback in production.
+
 ## Database
 
 - `npm run db:railway-reset` drops `public`, applies `database-schema.sql`, and
