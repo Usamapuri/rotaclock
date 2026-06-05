@@ -25,3 +25,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# build / tooling caches
+/.swc/
+
+# editor
+.idea/
+.vscode/
+*.swp
+
+# local db dumps & scratch
+*.dump
+*.bak
+scheduling-backup.json
