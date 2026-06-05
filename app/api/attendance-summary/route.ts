@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { getAttendanceSummary } from '@/lib/database'
+import { getTenantContext } from '@/lib/tenant'
 
 export async function GET(request: NextRequest) {
   try {
     const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
     if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
     const { searchParams } = new URL(request.url)
     const start_date = searchParams.get('start_date')
@@ -22,10 +27,11 @@ export async function GET(request: NextRequest) {
     }
 
     const filters: any = {
+      tenant_id: tenantContext.tenant_id,
       start_date,
       end_date
     }
-    
+
     if (employee_id) filters.employee_id = employee_id
     if (department) filters.department = department
 

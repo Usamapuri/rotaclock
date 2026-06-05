@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const end_date = searchParams.get('end_date') || undefined
     const status = searchParams.get('status') || undefined
 
-    const logs = await getBreakLogs({ employee_id, shift_log_id, start_date, end_date, status })
+    const logs = await getBreakLogs({ tenant_id: tenant.tenant_id, employee_id, shift_log_id, start_date, end_date, status })
 
     // Normalize rows to BreakLog shape for admin UI
     const data = logs.map((row: any) => ({

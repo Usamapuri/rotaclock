@@ -441,17 +441,29 @@ export async function isManager() {
 /**
  * Get employee by ID with related data
  */
-export async function getEmployee(id: string) {
+/**
+ * Asserts a tenant id is present. Tenant-scoped data-access helpers call this
+ * so a missing tenant_id fails loudly instead of silently returning/altering
+ * data across tenants. (Phase 3 — mandatory tenant scoping at the data layer.)
+ */
+function assertTenant(tenantId: string | undefined | null): asserts tenantId is string {
+  if (!tenantId) {
+    throw new Error('tenant_id is required for this tenant-scoped query')
+  }
+}
+
+export async function getEmployee(id: string, tenantId: string) {
+  assertTenant(tenantId)
   const result = await query(`
-    SELECT 
+    SELECT
       e.*,
       m.first_name as manager_first_name,
       m.last_name as manager_last_name,
       m.email as manager_email
     FROM employees e
-    LEFT JOIN employees m ON e.manager_id = m.id
-    WHERE e.id = $1
-  `, [id])
+    LEFT JOIN employees m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
+    WHERE e.id = $1 AND e.tenant_id = $2
+  `, [id, tenantId])
 
   if (result.rows.length === 0) {
     throw new Error('Employee not found')
@@ -463,35 +475,38 @@ export async function getEmployee(id: string) {
 /**
  * Get all employees with optional filters
  */
-export async function getEmployees(filters?: {
+export async function getEmployees(filters: {
+  tenant_id: string
   department?: string
   is_active?: boolean
   job_position?: string
 }) {
+  assertTenant(filters?.tenant_id)
   let queryText = `
-    SELECT 
+    SELECT
       e.*,
       m.first_name as manager_first_name,
       m.last_name as manager_last_name,
       m.email as manager_email
     FROM employees e
-    LEFT JOIN employees m ON e.manager_id = m.id
+    LEFT JOIN employees m ON e.manager_id = m.id AND m.tenant_id = e.tenant_id
+    WHERE e.tenant_id = $1
   `
-  const params: any[] = []
-  let paramIndex = 1
+  const params: any[] = [filters.tenant_id]
+  let paramIndex = 2
 
-  if (filters?.department) {
-    queryText += ` WHERE e.department = $${paramIndex}`
+  if (filters.department) {
+    queryText += ` AND e.department = $${paramIndex}`
     params.push(filters.department)
     paramIndex++
   }
-  if (filters?.is_active !== undefined) {
-    queryText += filters?.department ? ` AND e.is_active = $${paramIndex}` : ` WHERE e.is_active = $${paramIndex}`
+  if (filters.is_active !== undefined) {
+    queryText += ` AND e.is_active = $${paramIndex}`
     params.push(filters.is_active)
     paramIndex++
   }
-  if (filters?.job_position) {
-    queryText += (filters?.department || filters?.is_active !== undefined) ? ` AND e.job_position = $${paramIndex}` : ` WHERE e.job_position = $${paramIndex}`
+  if (filters.job_position) {
+    queryText += ` AND e.job_position = $${paramIndex}`
     params.push(filters.job_position)
   }
 
@@ -650,21 +665,23 @@ export async function deleteEmployee(id: string) {
 /**
  * Get shifts with optional filters
  */
-export async function getShifts(filters?: {
+export async function getShifts(filters: {
+  tenant_id: string
   department?: string
   is_active?: boolean
 }) {
-  let queryText = 'SELECT * FROM shift_templates'
-  const params: any[] = []
-  let paramIndex = 1
+  assertTenant(filters?.tenant_id)
+  let queryText = 'SELECT * FROM shift_templates WHERE tenant_id = $1'
+  const params: any[] = [filters.tenant_id]
+  let paramIndex = 2
 
-  if (filters?.department) {
-    queryText += ` WHERE department = $${paramIndex}`
+  if (filters.department) {
+    queryText += ` AND department = $${paramIndex}`
     params.push(filters.department)
     paramIndex++
   }
-  if (filters?.is_active !== undefined) {
-    queryText += filters?.department ? ` AND is_active = $${paramIndex}` : ` WHERE is_active = $${paramIndex}`
+  if (filters.is_active !== undefined) {
+    queryText += ` AND is_active = $${paramIndex}`
     params.push(filters.is_active)
   }
 
@@ -674,18 +691,19 @@ export async function getShifts(filters?: {
   return result.rows
 }
 
-export async function getShift(id: string) {
+export async function getShift(id: string, tenantId: string) {
+  assertTenant(tenantId)
   const result = await query(`
-    SELECT s.*, 
-           e.id as employee_id, 
-           e.first_name, 
-           e.last_name, 
+    SELECT s.*,
+           e.id as employee_id,
+           e.first_name,
+           e.last_name,
            e.email
     FROM shift_templates s
-    LEFT JOIN employees e ON s.created_by = e.id
-    WHERE s.id = $1
-  `, [id])
-  
+    LEFT JOIN employees e ON s.created_by = e.id AND e.tenant_id = s.tenant_id
+    WHERE s.id = $1 AND s.tenant_id = $2
+  `, [id, tenantId])
+
   return result.rows[0] || null
 }
 
@@ -761,8 +779,9 @@ export async function getShiftAssignments(filters: {
   end_date: string
   employee_id?: string
   status?: string
-  tenant_id?: string
+  tenant_id: string
 }) {
+  assertTenant(filters?.tenant_id)
   let queryText = `
     SELECT 
       sa.*,
@@ -848,10 +867,11 @@ export async function getTimeEntries(filters: {
   start_date?: string
   end_date?: string
   status?: string
-  tenant_id?: string
+  tenant_id: string
 }) {
+  assertTenant(filters?.tenant_id)
   let queryText = `
-    SELECT 
+    SELECT
       te.*,
       e.first_name as employee_first_name,
       e.last_name as employee_last_name,
@@ -1596,10 +1616,11 @@ export async function updateBreakLog(id: string, breakLogData: Partial<BreakLog>
 }
 
 // Get break logs with filters
-export async function getBreakLogs(filters: { employee_id?: string; shift_log_id?: string; start_date?: string; end_date?: string; status?: string; }) {
-  const conditions: string[] = []
-  const params: any[] = []
-  let i = 0
+export async function getBreakLogs(filters: { tenant_id: string; employee_id?: string; shift_log_id?: string; start_date?: string; end_date?: string; status?: string; }) {
+  assertTenant(filters?.tenant_id)
+  const conditions: string[] = ['e.tenant_id = $1']
+  const params: any[] = [filters.tenant_id]
+  let i = 1
   if (filters.employee_id) { i++; conditions.push(`te.employee_id = $${i}`); params.push(filters.employee_id) }
   if (filters.shift_log_id) { i++; conditions.push(`te.id = $${i}`); params.push(filters.shift_log_id) }
   if (filters.start_date) { i++; conditions.push(`DATE(te.break_start) >= $${i}`); params.push(filters.start_date) }
@@ -1685,37 +1706,40 @@ export async function updateAttendanceSummary(employeeId: string, date: string) 
 
 // Get attendance summary for reporting
 export async function getAttendanceSummary(filters: {
+  tenant_id: string
   start_date: string
   end_date: string
   employee_id?: string
   department?: string
 }) {
-  let conditions = ['as.date >= $1', 'as.date <= $2'];
-  let params = [filters.start_date, filters.end_date];
-  let paramCount = 2;
-  
+  assertTenant(filters?.tenant_id)
+  // NB: `as` is a SQL reserved word — the table is aliased `att`, not `as`.
+  const conditions = ['att.date >= $1', 'att.date <= $2', 'e.tenant_id = $3']
+  const params: any[] = [filters.start_date, filters.end_date, filters.tenant_id]
+  let paramCount = 3
+
   if (filters.employee_id) {
-    paramCount++;
-    conditions.push(`as.employee_id = $${paramCount}`);
-    params.push(filters.employee_id);
+    paramCount++
+    conditions.push(`att.employee_id = $${paramCount}`)
+    params.push(filters.employee_id)
   }
-  
+
   if (filters.department) {
-    paramCount++;
-    conditions.push(`e.department = $${paramCount}`);
-    params.push(filters.department);
+    paramCount++
+    conditions.push(`e.department = $${paramCount}`)
+    params.push(filters.department)
   }
-  
+
   const result = await query(
-    `SELECT as.*, e.first_name, e.last_name, e.employee_code as emp_id, e.department
-     FROM attendance_summary as
-     LEFT JOIN employees e ON as.employee_id = e.id
+    `SELECT att.*, e.first_name, e.last_name, e.employee_code as emp_id, e.department
+     FROM attendance_summary att
+     LEFT JOIN employees e ON att.employee_id = e.id
      WHERE ${conditions.join(' AND ')}
-     ORDER BY as.date DESC, e.first_name, e.last_name`,
+     ORDER BY att.date DESC, e.first_name, e.last_name`,
     params
-  );
-  
-  return result.rows;
+  )
+
+  return result.rows
 }
 
 /**
