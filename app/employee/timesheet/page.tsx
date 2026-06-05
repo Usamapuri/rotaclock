@@ -335,32 +335,11 @@ export default function EmployeeTimesheet() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <Link href="/employee/dashboard">
-                <div className="flex items-center">
-                  <ArrowLeft className="h-6 w-6 text-blue-600 mr-2" />
-                  <span className="text-xl font-bold text-gray-900">My Timesheet</span>
-                </div>
-              </Link>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                <Clock className="h-3 w-3 mr-1" />
-                Employee Time Tracking
-              </Badge>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {currentUser?.email}</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Page heading (chrome/logout provided by DashboardShell) */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">My Timesheet</h1>
+        <p className="text-sm text-gray-600">Employee time tracking</p>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Month Navigation and Controls */}

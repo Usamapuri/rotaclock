@@ -276,6 +276,11 @@ export default function ModernWeekGrid({
                   {currentRota.name} ({currentRota.status})
                 </Badge>
               )}
+              {draftCount > 0 && (
+                <Badge variant="outline" className="ml-1 border-yellow-400 bg-yellow-50 text-yellow-800">
+                  {draftCount} draft{draftCount !== 1 ? 's' : ''} — not yet visible to employees
+                </Badge>
+              )}
             </CardTitle>
             
             <div className="flex items-center gap-2">
@@ -447,6 +452,11 @@ export default function ModernWeekGrid({
               {currentRota && (
                 <Badge variant={currentRota.status === 'published' ? 'default' : 'secondary'} className="ml-2">
                   {currentRota.name} ({currentRota.status})
+                </Badge>
+              )}
+              {draftCount > 0 && (
+                <Badge variant="outline" className="ml-1 border-yellow-400 bg-yellow-50 text-yellow-800">
+                  {draftCount} draft{draftCount !== 1 ? 's' : ''} — not yet visible to employees
                 </Badge>
               )}
             </CardTitle>

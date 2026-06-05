@@ -232,29 +232,10 @@ export default function AdminReports() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <Link href="/admin/dashboard">
-                <div className="flex items-center">
-                  <Clock className="h-6 w-6 text-purple-600 mr-2" />
-                  <span className="text-xl font-bold text-gray-900">RotaClock Admin</span>
-                </div>
-              </Link>
-              <Badge variant="outline">Reports & Analytics</Badge>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {adminUser}</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Page heading (chrome/logout provided by DashboardShell) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <h1 className="text-2xl font-bold text-gray-900">Reports &amp; Analytics</h1>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filters */}

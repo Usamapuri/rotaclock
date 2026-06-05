@@ -213,29 +213,11 @@ export default function TimeHistory() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <Link href="/employee/dashboard">
-                <div className="flex items-center">
-                  <ArrowLeft className="h-6 w-6 text-blue-600 mr-2" />
-                  <span className="text-xl font-bold text-gray-900">Time History</span>
-                </div>
-              </Link>
-              <Badge variant="outline">View your clock-in/out logs</Badge>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {currentUser?.email}</span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Page heading (chrome/logout provided by DashboardShell) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <h1 className="text-2xl font-bold text-gray-900">Time History</h1>
+        <p className="text-sm text-gray-600">View your clock-in/out logs</p>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Month Navigation */}

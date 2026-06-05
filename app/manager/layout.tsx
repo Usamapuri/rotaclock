@@ -21,12 +21,10 @@ import {
 export default function ManagerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [role, setRole] = useState<'admin' | 'manager' | 'employee' | null>(null)
-  const [isImpersonating, setIsImpersonating] = useState(false)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     setRole(user?.role ?? null)
-    setIsImpersonating(AuthService.isImpersonating())
   }, [])
 
   const links = useMemo(() => {
@@ -43,32 +41,15 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
     return base
   }, [role])
 
-  const crumbs = useMemo(() => {
-    const parts = pathname.split('/').filter(Boolean)
-    const breadcrumbs = []
-    
-    if (parts[0] === 'manager') {
-      breadcrumbs.push({ label: 'Manager', href: '/manager/dashboard' })
-      
-      if (parts[1]) {
-        const section = parts[1]
-        const link = links.find(l => l.href.includes(section))
-        if (link) {
-          breadcrumbs.push({ label: link.label, href: link.href })
-        }
-      }
-    }
-    
-    return breadcrumbs
-  }, [pathname, links])
+  // Hide chrome (sidebar/breadcrumb) on auth page
+  const isAuthPage = pathname === '/login'
+  if (isAuthPage) {
+    return <div className="min-h-screen">{children}</div>
+  }
 
   return (
-    <DashboardShell
-      title="Manager Portal"
-      links={links}
-      breadcrumbs={crumbs}
-      userRole={role}
-      isImpersonating={isImpersonating}
-    />
+    <DashboardShell headerLabel="Manager Portal" links={links}>
+      {children}
+    </DashboardShell>
   )
 }

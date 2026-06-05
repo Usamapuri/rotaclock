@@ -53,9 +53,25 @@ export async function POST(
       }, { status: 400 })
     }
 
-    if (rota.total_shifts === 0) {
-      return NextResponse.json({ 
-        error: 'Cannot publish an empty rota. Please add shifts first.' 
+    // Count shifts that will be published: shifts already linked to this rota,
+    // PLUS ad-hoc shifts (rota_id IS NULL) that fall within the rota's week.
+    // The latter are created by drag/drop when no rota is selected and would
+    // otherwise never reach employees — this was the original "shifts invisible"
+    // bug, since the publish step only flipped WHERE rota_id = $1.
+    const publishableResult = await query(
+      `SELECT COUNT(*) AS count
+       FROM shift_assignments sa
+       JOIN rotas r ON r.id = $1 AND r.tenant_id = $2
+       WHERE sa.tenant_id = $2
+         AND (
+           sa.rota_id = $1
+           OR (sa.rota_id IS NULL AND sa.date >= r.week_start_date AND sa.date <= (r.week_start_date + INTERVAL '6 days'))
+         )`,
+      [id, tenantContext.tenant_id]
+    )
+    if (parseInt(publishableResult.rows[0].count, 10) === 0) {
+      return NextResponse.json({
+        error: 'Cannot publish an empty rota. Please add shifts first.'
       }, { status: 400 })
     }
 
@@ -65,27 +81,36 @@ export async function POST(
     try {
       // Update rota status to published
       await query(
-        `UPDATE rotas 
+        `UPDATE rotas
          SET status = 'published', published_by = $1, published_at = NOW(), updated_at = NOW()
          WHERE id = $2 AND tenant_id = $3`,
         [user.id, id, tenantContext.tenant_id]
       )
 
-      // Mark all shift assignments in this rota as published
+      // Publish this rota's shifts AND adopt+publish any ad-hoc (rota_id NULL)
+      // shifts in the rota's week, so drag/drop shifts created without a selected
+      // rota become visible to employees and are permanently linked to the rota
+      // (which also makes the DELETE/unpublish path below cover them).
       await query(
-        `UPDATE shift_assignments 
-         SET is_published = TRUE, updated_at = NOW()
-         WHERE rota_id = $1`,
-        [id]
+        `UPDATE shift_assignments sa
+         SET is_published = TRUE, rota_id = $1, updated_at = NOW()
+         FROM rotas r
+         WHERE r.id = $1 AND r.tenant_id = $2 AND sa.tenant_id = $2
+           AND (
+             sa.rota_id = $1
+             OR (sa.rota_id IS NULL AND sa.date >= r.week_start_date AND sa.date <= (r.week_start_date + INTERVAL '6 days'))
+           )`,
+        [id, tenantContext.tenant_id]
       )
 
-      // Get all employees affected by this rota for notifications
+      // Get all employees affected by this rota for notifications (ad-hoc shifts
+      // were just adopted into the rota, so rota_id = $1 now covers them).
       const affectedEmployees = await query(
         `SELECT DISTINCT sa.employee_id, e.first_name, e.last_name, e.email
          FROM shift_assignments sa
          JOIN employees e ON sa.employee_id = e.id AND e.tenant_id = sa.tenant_id
-         WHERE sa.rota_id = $1`,
-        [id]
+         WHERE sa.rota_id = $1 AND sa.tenant_id = $2`,
+        [id, tenantContext.tenant_id]
       )
 
       // Create notifications for all affected employees
