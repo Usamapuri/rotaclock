@@ -14,6 +14,8 @@
     "test:integration": "playwright test",
     "db:railway-reset": "node scripts/db-railway-reset.js",
     "db:inspect": "node scripts/db-inspect.js",
+    "db:login:list": "node scripts/reset-login.js --list",
+    "db:reset-login": "node scripts/reset-login.js",
     "seed:super-admin": "node scripts/seed-super-admin.js"
   },
   "dependencies": {
