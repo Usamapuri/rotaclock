@@ -1,8 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createApiAuthMiddleware } from "@/lib/api-auth"
 import { query } from "@/lib/database"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const processesResult = await query(`
       SELECT 
         op.*,
@@ -30,6 +35,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await request.json()
 
     const { employee_id, employee_name, template_id, template_name, start_date, assigned_mentor, notes } = body

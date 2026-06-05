@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
+import { createSessionToken, setSessionCookie } from '@/lib/session'
 
 const authMiddleware = createApiAuthMiddleware()
 
@@ -64,7 +65,16 @@ export async function POST(request: NextRequest) {
       console.warn('Audit log insert skipped:', e instanceof Error ? e.message : e)
     }
 
-    return NextResponse.json({
+    // Issue an impersonation session: the cookie now represents the target
+    // user, but carries an `imp` claim recording the original admin so the
+    // session can be restored on stop.
+    const token = await createSessionToken({
+      id: targetUser.id,
+      role: targetUser.role,
+      email: targetUser.email,
+      imp: { id: user.id, role: user.role, email: user.email },
+    })
+    const response = NextResponse.json({
       success: true,
       targetUser: {
         id: targetUser.id,
@@ -77,6 +87,8 @@ export async function POST(request: NextRequest) {
         position: targetUser.position
       }
     })
+    setSessionCookie(response, token)
+    return response
 
   } catch (error) {
     console.error('Impersonation start error:', error)

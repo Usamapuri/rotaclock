@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { query } from '@/lib/database'
 
 export async function GET(
@@ -6,6 +7,10 @@ export async function GET(
   { params }: { params: Promise<{ teamId: string }> }
 ) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { teamId } = await params
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('start_date') || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]

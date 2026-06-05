@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { query } from '@/lib/database'
 
 // POST /api/scheduling/assign/clear
 // Danger: deletes all shift assignments (testing only)
 export async function POST(_request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(_request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const countRes = await query('SELECT COUNT(*)::int AS cnt FROM shift_assignments_new', [])
     const count = countRes.rows[0]?.cnt ?? 0
     await query('DELETE FROM shift_assignments_new', [])

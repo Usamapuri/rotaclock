@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
 import { createApiAuthMiddleware, isSuperAdmin } from '@/lib/api-auth'
 import { insertPlatformAuditLog } from '@/lib/platform-audit'
+import { createSessionToken, setSessionCookie } from '@/lib/session'
 
 const authMiddleware = createApiAuthMiddleware()
 
@@ -57,7 +58,13 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({
+    const token = await createSessionToken({
+      id: targetUser.id,
+      role: targetUser.role,
+      email: targetUser.email,
+      imp: { id: user.id, role: 'super_admin', email: user.email },
+    })
+    const response = NextResponse.json({
       success: true,
       targetUser: {
         id: targetUser.id,
@@ -73,6 +80,8 @@ export async function POST(request: NextRequest) {
         organization_name: targetUser.organization_name,
       },
     })
+    setSessionCookie(response, token)
+    return response
   } catch (e) {
     console.error('POST super-admin impersonate', e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

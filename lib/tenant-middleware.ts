@@ -47,15 +47,6 @@ export function validateTenantAccess(userTenantId: string, requestedTenantId?: s
   return userTenantId === requestedTenantId
 }
 
-export function addTenantFilter(query: string, tenantId: string): string {
-  // Add tenant_id filter to existing WHERE clause or create new one
-  if (query.toLowerCase().includes('where')) {
-    return query.replace(/where/gi, `WHERE tenant_id = '${tenantId}' AND `)
-  } else {
-    return `${query} WHERE tenant_id = '${tenantId}'`
-  }
-}
-
 export function validateSubscriptionStatus(subscriptionStatus: string): boolean {
   // Allow access for active, trial, and pending statuses
   const allowedStatuses = ['active', 'trial', 'pending']

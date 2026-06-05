@@ -138,14 +138,12 @@ export class AuthService {
         throw new Error('No original user data found')
       }
 
-      const url =
-        originalUser.role === 'super_admin' ? '/api/super-admin/impersonate' : '/api/admin/impersonation'
-      const response = await fetch(url, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          authorization: `Bearer ${originalUser.id}`,
-        },
+      // Restore the original session server-side (re-issues the original user's
+      // session cookie from the imp claim). Reachable regardless of the
+      // impersonated user's role since it lives under /api/auth.
+      const response = await fetch('/api/auth/stop-impersonation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
       })
 
       if (!response.ok) {

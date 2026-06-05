@@ -151,7 +151,7 @@ afterAll(() => {
 
 // Mock environment variables
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
-process.env.DEMO_AUTH = 'true'
+process.env.JWT_SECRET = 'test-jwt-secret-at-least-16-chars-long'
 
 // Mock TextEncoder and TextDecoder for Node.js environment
 global.TextEncoder = TextEncoder

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query, createShiftLogByEmail, getShiftAssignmentsByEmail, isEmployeeClockedInByEmail, getEmployeeByEmail } from '@/lib/database'
 import { localTodayYmd } from '@/lib/calendar-date'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { imageData, employeeId, verificationType = 'shift_start' } = await request.json()
     
     console.log('🔍 Verification API called with:', { employeeId, verificationType })
@@ -48,6 +54,17 @@ export async function POST(request: NextRequest) {
       )
     }
     console.log('✅ Employee found:', { id: employee.id, employee_id: employee.employee_id, name: `${employee.first_name} ${employee.last_name}` })
+
+    // Bind the verification/clock-in to the caller: an employee may only verify
+    // themselves; admins and managers may act on behalf of others. Previously
+    // this endpoint was unauthenticated, so anyone could clock anyone in.
+    const isPrivileged = user.role === 'admin' || user.role === 'manager'
+    if (!isPrivileged && employee.id !== user.id) {
+      return NextResponse.json(
+        { error: 'You can only submit verification for your own account' },
+        { status: 403 }
+      )
+    }
 
     // Create timestamp for all operations
     const timestamp = new Date().toISOString()

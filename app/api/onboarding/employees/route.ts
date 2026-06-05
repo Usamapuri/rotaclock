@@ -1,8 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createApiAuthMiddleware } from "@/lib/api-auth"
 import { query } from "@/lib/database"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const employeesResult = await query(`
       SELECT * FROM employees
       WHERE is_active = true
@@ -18,6 +23,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await request.json()
 
     const { employee_id, first_name, last_name, email, department, job_position, hire_date, manager_id } = body

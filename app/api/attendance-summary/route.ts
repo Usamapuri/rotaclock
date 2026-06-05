@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { getAttendanceSummary } from '@/lib/database'
 
 export async function GET(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
     const start_date = searchParams.get('start_date')
     const end_date = searchParams.get('end_date')

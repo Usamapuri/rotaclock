@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { query } from '@/lib/database'
 
 export async function GET(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     const { searchParams } = new URL(request.url)
     const periodId = searchParams.get('period_id')
 

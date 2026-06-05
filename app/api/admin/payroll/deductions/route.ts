@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { query } from '@/lib/database'
 
 export async function POST(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     const { employee_email, payroll_period_id, amount, reason, deduction_type } = await request.json()
 
     if (!employee_email || !payroll_period_id || !amount || !reason) {

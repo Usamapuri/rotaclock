@@ -1,8 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createApiAuthMiddleware } from "@/lib/api-auth"
 import { query } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await request.json()
 
     const { process_id, step_id } = body

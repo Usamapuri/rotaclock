@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { query } from '@/lib/database'
 
 // POST /api/admin/employees/backfill-emp-codes
 // Adds EMP prefix to any non-EMP employee_code and pads simple numerics
 export async function POST(_req: NextRequest) {
   try {
+    const { user, isAuthenticated } = await createApiAuthMiddleware()(_req)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     // Ensure column exists
     await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS employee_code TEXT`, [])
 
