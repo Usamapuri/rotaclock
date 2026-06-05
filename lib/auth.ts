@@ -38,94 +38,9 @@ export class AuthService {
   private static readonly SESSION_KEY = 'authSession'
   private static readonly IMPERSONATION_KEY = 'impersonationSession'
 
-  static async adminLogin(username: string, password: string): Promise<AuthUser | null> {
-    try {
-      if (!username || !password) return null
-      const response = await fetch('/api/auth/unified-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: username, password }),
-      })
-      if (!response.ok) return null
-      const data = await response.json()
-      if (!data.success || !data.employee || data.employee.role !== 'admin') return null
-      const e = data.employee
-      const user: AuthUser = {
-        id: e.id,
-        email: e.email,
-        role: 'admin',
-        employeeId: e.employee_id,
-        first_name: e.first_name,
-        last_name: e.last_name,
-        organization_id: e.organization_id,
-        organization_name: e.organization_name,
-        tenant_id: e.tenant_id,
-      }
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(this.ADMIN_KEY, username)
-        localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
-      }
-      return user
-    } catch (error) {
-      console.error('Admin login error:', error)
-      return null
-    }
-  }
-
-  static async employeeLogin(employeeId: string, password: string): Promise<AuthUser | null> {
-    try {
-      const response = await fetch('/api/auth/employee-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ employeeId, password }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Login failed')
-      }
-
-      const data = await response.json()
-
-      if (data.success && data.employee) {
-        const normalizedRole = (
-          data.employee.role === 'team_lead'
-            ? 'team_lead'
-            : data.employee.role === 'project_manager'
-              ? 'project_manager'
-              : 'employee'
-        ) as AuthUser['role']
-        const user: AuthUser = {
-          id: data.employee.id,
-          email: data.employee.email,
-          role: normalizedRole,
-          employeeId: data.employee.employee_id,
-          first_name: data.employee.first_name,
-          last_name: data.employee.last_name,
-          organization_id: data.employee.organization_id,
-          organization_name: data.employee.organization_name,
-          tenant_id: data.employee.tenant_id,
-        }
-
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(this.EMPLOYEE_KEY, employeeId)
-          localStorage.setItem(this.SESSION_KEY, JSON.stringify(user))
-        }
-
-        return user
-      }
-      return null
-    } catch (error) {
-      console.error('Employee login error:', error)
-      throw error
-    }
-  }
-
   static async unifiedLogin(email: string, password: string): Promise<AuthUser | null> {
     try {
-      const response = await fetch('/api/auth/unified-login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -335,13 +250,17 @@ export class AuthService {
   }
 
   static logout(): void {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return
+    const clearAndRedirect = () => {
       localStorage.removeItem(this.ADMIN_KEY)
       localStorage.removeItem(this.EMPLOYEE_KEY)
       localStorage.removeItem(this.SESSION_KEY)
       localStorage.removeItem(this.IMPERSONATION_KEY)
-
       window.location.href = '/login'
     }
+    // Clear the httpOnly session cookie server-side, then clear local UI state.
+    fetch('/api/auth/logout', { method: 'POST' })
+      .catch(() => {})
+      .finally(clearAndRedirect)
   }
 }
