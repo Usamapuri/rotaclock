@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { query } from '@/lib/database'
+import { getTenantContext } from '@/lib/tenant'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,7 +9,14 @@ export async function GET(request: NextRequest) {
     if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    const result = await query('SELECT * FROM teams WHERE is_active = true ORDER BY created_at ASC')
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
+    const result = await query(
+      'SELECT * FROM teams WHERE tenant_id = $1 AND is_active = true ORDER BY created_at ASC',
+      [tenantContext.tenant_id]
+    )
     return NextResponse.json({ success: true, data: result.rows })
   } catch (err) {
     console.error('GET /api/teams error:', err)

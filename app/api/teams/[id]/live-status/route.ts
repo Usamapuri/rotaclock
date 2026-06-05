@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { query } from '@/lib/database'
+import { getTenantContext } from '@/lib/tenant'
 
 export async function GET(
   request: NextRequest,
@@ -11,10 +12,14 @@ export async function GET(
     if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
     const { id } = await context.params
     const teamId = id
     const result = await query(
-      `SELECT 
+      `SELECT
          e.id,
          e.first_name,
          e.last_name,
@@ -29,12 +34,12 @@ export async function GET(
          COALESCE(te.clock_in, sl.clock_in_time) as clock_in,
          COALESCE(te.clock_out, sl.clock_out_time) as clock_out
        FROM employees e
-        LEFT JOIN time_entries te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break')
-        LEFT JOIN shift_logs sl ON e.id = sl.employee_id AND sl.status = 'active'
+        LEFT JOIN time_entries te ON e.id = te.employee_id AND te.status IN ('in-progress', 'break') AND te.tenant_id = e.tenant_id
+        LEFT JOIN shift_logs sl ON e.id = sl.employee_id AND sl.status = 'active' AND sl.tenant_id = e.tenant_id
         LEFT JOIN break_logs bl ON e.id = bl.employee_id AND bl.status = 'active'
-       WHERE e.team_id = $1 AND e.is_active = true
+       WHERE e.team_id = $1 AND e.is_active = true AND e.tenant_id = $2
        ORDER BY e.first_name, e.last_name`,
-      [teamId]
+      [teamId, tenantContext.tenant_id]
     )
 
     const stats = {

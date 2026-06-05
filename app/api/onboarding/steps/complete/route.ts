@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createApiAuthMiddleware } from "@/lib/api-auth"
 import { query } from "@/lib/database"
+import { getTenantContext } from "@/lib/tenant"
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,9 +9,33 @@ export async function POST(request: NextRequest) {
     if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
     const body = await request.json()
 
     const { process_id, step_id, completed_by, feedback } = body
+
+    // Validate the process belongs to the caller's tenant
+    const processResult = await query(`
+      SELECT template_id FROM onboarding_processes WHERE id = $1 AND tenant_id = $2
+    `, [process_id, tenantContext.tenant_id])
+
+    if (processResult.rows.length === 0) {
+      return NextResponse.json({ error: "Process not found" }, { status: 404 })
+    }
+
+    const process = processResult.rows[0]
+
+    // Validate the step belongs to the caller's tenant before recording completion
+    const stepResult = await query(`
+      SELECT 1 FROM onboarding_steps WHERE id = $1 AND tenant_id = $2
+    `, [step_id, tenantContext.tenant_id])
+
+    if (stepResult.rows.length === 0) {
+      return NextResponse.json({ error: "Step not found" }, { status: 404 })
+    }
 
     // Insert step completion
     const completionResult = await query(`
@@ -21,28 +46,20 @@ export async function POST(request: NextRequest) {
 
     const completion = completionResult.rows[0]
 
-    // Get all steps for this template to calculate progress
-    const processResult = await query(`
-      SELECT template_id FROM onboarding_processes WHERE id = $1
-    `, [process_id])
-
-    if (processResult.rows.length === 0) {
-      return NextResponse.json({ error: "Process not found" }, { status: 404 })
-    }
-
-    const process = processResult.rows[0]
-
     // Get total steps count
     const totalStepsResult = await query(`
-      SELECT COUNT(*) as count FROM onboarding_steps WHERE template_id = $1
-    `, [process.template_id])
+      SELECT COUNT(*) as count FROM onboarding_steps WHERE template_id = $1 AND tenant_id = $2
+    `, [process.template_id, tenantContext.tenant_id])
 
     const totalSteps = parseInt(totalStepsResult.rows[0].count)
 
-    // Get completed steps count
+    // Get completed steps count (scoped to tenant via onboarding_steps)
     const completedStepsResult = await query(`
-      SELECT COUNT(*) as count FROM step_completions WHERE process_id = $1
-    `, [process_id])
+      SELECT COUNT(*) as count
+      FROM step_completions sc
+      JOIN onboarding_steps os ON sc.step_id = os.id
+      WHERE sc.process_id = $1 AND os.tenant_id = $2
+    `, [process_id, tenantContext.tenant_id])
 
     const completedSteps = parseInt(completedStepsResult.rows[0].count)
 
@@ -58,13 +75,14 @@ export async function POST(request: NextRequest) {
         status = $2,
         actual_completion_date = $3,
         updated_at = $4
-      WHERE id = $5
+      WHERE id = $5 AND tenant_id = $6
     `, [
       progress,
       status,
       progress === 100 ? new Date().toISOString().split("T")[0] : null,
       new Date().toISOString(),
-      process_id
+      process_id,
+      tenantContext.tenant_id
     ])
 
     return NextResponse.json({ completion, progress, status })

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createApiAuthMiddleware } from "@/lib/api-auth"
 import { query } from "@/lib/database"
+import { getTenantContext } from "@/lib/tenant"
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,11 +9,15 @@ export async function GET(request: NextRequest) {
     if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
     const employeesResult = await query(`
       SELECT * FROM employees
-      WHERE is_active = true
+      WHERE is_active = true AND tenant_id = $1
       ORDER BY created_at DESC
-    `)
+    `, [tenantContext.tenant_id])
 
     return NextResponse.json({ employees: employeesResult.rows })
   } catch (error) {
@@ -27,15 +32,19 @@ export async function POST(request: NextRequest) {
     if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
     const body = await request.json()
 
     const { employee_id, first_name, last_name, email, department, job_position, hire_date, manager_id } = body
 
     const employeeResult = await query(`
-      INSERT INTO employees (employee_id, first_name, last_name, email, department, job_position, hire_date, manager_id, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO employees (employee_id, first_name, last_name, email, department, job_position, hire_date, manager_id, is_active, tenant_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
-    `, [employee_id, first_name, last_name, email, department, job_position, hire_date, manager_id, true])
+    `, [employee_id, first_name, last_name, email, department, job_position, hire_date, manager_id, true, tenantContext.tenant_id])
 
     return NextResponse.json({ employee: employeeResult.rows[0] })
   } catch (error) {

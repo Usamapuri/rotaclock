@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createApiAuthMiddleware } from "@/lib/api-auth"
 import { query } from "@/lib/database"
+import { getTenantContext } from "@/lib/tenant"
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,8 +9,12 @@ export async function GET(request: NextRequest) {
     if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
     const templatesResult = await query(`
-      SELECT 
+      SELECT
         *,
         (
           SELECT json_agg(
@@ -26,13 +31,13 @@ export async function GET(request: NextRequest) {
             )
           )
           FROM onboarding_steps os
-          WHERE os.template_id = ot.id
+          WHERE os.template_id = ot.id AND os.tenant_id = $1
           ORDER BY os.step_order
         ) as onboarding_steps
       FROM onboarding_templates ot
-      WHERE ot.is_active = true
+      WHERE ot.is_active = true AND ot.tenant_id = $1
       ORDER BY ot.created_at DESC
-    `)
+    `, [tenantContext.tenant_id])
 
     return NextResponse.json({ templates: templatesResult.rows })
   } catch (error) {
@@ -47,6 +52,10 @@ export async function POST(request: NextRequest) {
     if (!isAuthenticated || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const tenantContext = await getTenantContext(user.id)
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
+    }
     const body = await request.json()
 
     const { name, description, department, steps } = body
@@ -56,10 +65,10 @@ export async function POST(request: NextRequest) {
 
     // Insert template
     const templateResult = await query(`
-      INSERT INTO onboarding_templates (name, description, is_active)
-      VALUES ($1, $2, $3)
+      INSERT INTO onboarding_templates (name, description, is_active, tenant_id)
+      VALUES ($1, $2, $3, $4)
       RETURNING *
-    `, [name, description, true])
+    `, [name, description, true, tenantContext.tenant_id])
 
     const template = templateResult.rows[0]
 
@@ -68,9 +77,9 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i]
         await query(`
-          INSERT INTO onboarding_steps (name, description, step_order, estimated_time, is_required, template_id)
-          VALUES ($1, $2, $3, $4, $5, $6)
-        `, [step.name, step.description, i + 1, step.estimated_time || 0, step.is_required || false, template.id])
+          INSERT INTO onboarding_steps (name, description, step_order, estimated_time, is_required, template_id, tenant_id)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [step.name, step.description, i + 1, step.estimated_time || 0, step.is_required || false, template.id, tenantContext.tenant_id])
       }
     }
 
