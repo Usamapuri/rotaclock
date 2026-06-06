@@ -35,6 +35,23 @@ function splitPgStatements(sql) {
     }
 
     if (!inSingle && !inDouble) {
+      // Line comment: consume to end of line so a ';' inside it isn't treated
+      // as a statement boundary (e.g. "-- ...target; display_name for UI").
+      if (ch === '-' && sql[i + 1] === '-') {
+        const nl = sql.indexOf('\n', i)
+        const end = nl === -1 ? sql.length : nl
+        buf += sql.slice(i, end)
+        i = end
+        continue
+      }
+      // Block comment: consume to the closing */.
+      if (ch === '/' && sql[i + 1] === '*') {
+        const close = sql.indexOf('*/', i + 2)
+        const end = close === -1 ? sql.length : close + 2
+        buf += sql.slice(i, end)
+        i = end
+        continue
+      }
       const dq = startsDollarQuote(sql, i)
       if (dq) {
         dollarTag = dq
