@@ -72,18 +72,10 @@ export async function GET(
     employeesQuery += ` ORDER BY first_name, last_name`
     const employeesPromise = query(employeesQuery, employeesParams)
 
-    // Determine if override columns exist
-    const colCheck = await query(`
-      SELECT 1 FROM information_schema.columns 
-      WHERE table_name = 'shift_assignments' AND column_name = 'override_name' LIMIT 1
-    `)
-    const hasOverrides = colCheck.rows.length > 0
-
-    // Assignments for tenant - filter based on rota and published status
-    let assignmentsQuery = ''
-    if (hasOverrides) {
-      assignmentsQuery = `
-        SELECT 
+    // Assignments for tenant. Override columns are guaranteed by the canonical
+    // schema + migration 003, so no information_schema probing is needed.
+    let assignmentsQuery = `
+        SELECT
           sa.id,
           sa.employee_id,
           sa.template_id,
@@ -109,31 +101,6 @@ export async function GET(
         LEFT JOIN rotas r ON sa.rota_id = r.id
         WHERE sa.date >= $1 AND sa.date <= $2 AND sa.tenant_id = $3
       `
-    } else {
-      assignmentsQuery = `
-        SELECT 
-          sa.id,
-          sa.employee_id,
-          sa.template_id,
-          to_char(sa.date, 'YYYY-MM-DD') as date,
-          sa.status,
-          sa.notes,
-          sa.rota_id,
-          sa.is_published,
-          sa.created_at,
-          st.name as template_name,
-          st.start_time as start_time,
-          st.end_time as end_time,
-          st.color as color,
-          st.department as template_department,
-          r.name as rota_name,
-          r.status as rota_status
-        FROM shift_assignments sa
-        LEFT JOIN shift_templates st ON sa.template_id = st.id AND st.tenant_id = sa.tenant_id
-        LEFT JOIN rotas r ON sa.rota_id = r.id
-        WHERE sa.date >= $1 AND sa.date <= $2 AND sa.tenant_id = $3
-      `
-    }
     const assignmentsParams: any[] = [weekStartStr, weekEndStr, tenantContext.tenant_id]
     let paramIndex = 4
 

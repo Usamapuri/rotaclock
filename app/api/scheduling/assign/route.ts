@@ -113,20 +113,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Employee already has an assignment on this date' }, { status: 409 })
     }
 
-    const colCheck = await query(`
-      SELECT 1 FROM information_schema.columns 
-      WHERE table_name = 'shift_assignments' AND column_name = 'override_name' LIMIT 1
-    `)
-    const hasOverrideCols = colCheck.rows.length > 0
-
-    if (hasOverrides && !hasOverrideCols) {
-      return NextResponse.json({ success: false, error: 'Custom shift overrides are not enabled. Run scripts/cleanup_db.sql to add override columns.' }, { status: 400 })
-    }
-
-    let insertSql: string
-    let insertParams: any[]
-    // Check if rota_id is provided and validate it
-    let rotaStatus = null
+    // Validate rota_id if provided (override columns are guaranteed by the
+    // canonical schema + migration 003, so no information_schema probing).
     if (rota_id) {
       const rotaResult = await query(
         'SELECT status FROM rotas WHERE id = $1 AND tenant_id = $2',
@@ -135,31 +123,20 @@ export async function POST(request: NextRequest) {
       if (rotaResult.rows.length === 0) {
         return NextResponse.json({ success: false, error: 'Rota not found' }, { status: 404 })
       }
-      rotaStatus = rotaResult.rows[0].status
-      // Allow creating new shifts in published rotas as drafts
+      // Allow creating new shifts in published rotas as drafts.
     }
 
     // Always create shifts as drafts by default - no auto-publishing
     const isPublished = false
 
-    if (hasOverrideCols) {
-      insertSql = `
-        INSERT INTO shift_assignments (
-          employee_id, template_id, date, override_name, override_start_time, override_end_time, override_color,
-          status, notes, assigned_by, tenant_id, organization_id, rota_id, is_published, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'assigned', $8, $9, $10, $11, $12, $13, NOW(), NOW())
-        RETURNING id, employee_id, template_id, date, override_name, override_start_time, override_end_time, override_color, status, notes, rota_id, is_published, created_at
-      `
-      insertParams = [employee_id, effectiveTemplateId || null, date, override_name, override_start_time, override_end_time, override_color, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id, rota_id || null, isPublished]
-    } else {
-      insertSql = `
-        INSERT INTO shift_assignments (
-          employee_id, template_id, date, status, notes, assigned_by, tenant_id, organization_id, rota_id, is_published, created_at, updated_at
-        ) VALUES ($1, $2, $3, 'assigned', $4, $5, $6, $7, $8, $9, NOW(), NOW())
-        RETURNING id, employee_id, template_id, date, status, notes, rota_id, is_published, created_at
-      `
-      insertParams = [employee_id, effectiveTemplateId || null, date, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id, rota_id || null, isPublished]
-    }
+    const insertSql = `
+      INSERT INTO shift_assignments (
+        employee_id, template_id, date, override_name, override_start_time, override_end_time, override_color,
+        status, notes, assigned_by, tenant_id, organization_id, rota_id, is_published, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'assigned', $8, $9, $10, $11, $12, $13, NOW(), NOW())
+      RETURNING id, employee_id, template_id, date, override_name, override_start_time, override_end_time, override_color, status, notes, rota_id, is_published, created_at
+    `
+    const insertParams = [employee_id, effectiveTemplateId || null, date, override_name, override_start_time, override_end_time, override_color, notes || null, assigned_by || user.id, tenantContext.tenant_id, tenantContext.organization_id, rota_id || null, isPublished]
 
     const result = await query(insertSql, insertParams)
     const assignment = result.rows[0]
@@ -276,12 +253,11 @@ export async function PUT(request: NextRequest) {
     if (status) { fields.push(`status = $${idx++}`); params.push(status) }
     if (typeof notes !== 'undefined') { fields.push(`notes = $${idx++}`); params.push(notes) }
 
-    const colCheckPut = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'shift_assignments'`)
-    const cols = new Set(colCheckPut.rows.map((r: any) => r.column_name))
-    if (cols.has('override_name') && typeof override_name !== 'undefined') { fields.push(`override_name = $${idx++}`); params.push(override_name) }
-    if (cols.has('override_start_time') && typeof override_start_time !== 'undefined') { fields.push(`override_start_time = $${idx++}`); params.push(override_start_time) }
-    if (cols.has('override_end_time') && typeof override_end_time !== 'undefined') { fields.push(`override_end_time = $${idx++}`); params.push(override_end_time) }
-    if (cols.has('override_color') && typeof override_color !== 'undefined') { fields.push(`override_color = $${idx++}`); params.push(override_color) }
+    // Override columns are guaranteed by the canonical schema + migration 003.
+    if (typeof override_name !== 'undefined') { fields.push(`override_name = $${idx++}`); params.push(override_name) }
+    if (typeof override_start_time !== 'undefined') { fields.push(`override_start_time = $${idx++}`); params.push(override_start_time) }
+    if (typeof override_end_time !== 'undefined') { fields.push(`override_end_time = $${idx++}`); params.push(override_end_time) }
+    if (typeof override_color !== 'undefined') { fields.push(`override_color = $${idx++}`); params.push(override_color) }
 
     if (fields.length === 0) {
       return NextResponse.json({ success: false, error: 'No fields to update' }, { status: 400 })
