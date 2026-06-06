@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { query } from '@/lib/database'
 import { getTenantContext } from '@/lib/tenant'
 
-export async function GET(
+async function _GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -64,3 +64,6 @@ export async function GET(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)

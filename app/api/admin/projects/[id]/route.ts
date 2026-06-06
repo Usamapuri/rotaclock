@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware, isAdmin } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isAdmin, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 
 const updateProjectSchema = z.object({
@@ -9,7 +9,7 @@ const updateProjectSchema = z.object({
   is_active: z.boolean().optional()
 })
 
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -57,7 +57,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
+async function _PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -144,7 +144,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function _DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -194,3 +194,8 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const PUT = withRlsTenant(_PUT)
+export const DELETE = withRlsTenant(_DELETE)

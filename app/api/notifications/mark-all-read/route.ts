@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { markAllNotificationsAsRead } from '@/lib/notification-service'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 
-export async function PUT(request: NextRequest) {
+async function _PUT(request: NextRequest) {
   try {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -30,3 +30,5 @@ export async function PUT(request: NextRequest) {
     )
   }
 } 
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const PUT = withRlsTenant(_PUT)

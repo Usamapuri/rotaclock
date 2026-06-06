@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
@@ -62,7 +62,7 @@ const updateEmployeeSchema = z.object({
  * GET /api/employees
  * List all employees with optional filters
  */
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     // Authentication and tenant context
     const authMiddleware = createApiAuthMiddleware()
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
  * POST /api/employees
  * Create a new employee
  */
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     // Authentication and tenant context
     const authMiddleware = createApiAuthMiddleware()
@@ -384,7 +384,7 @@ export async function POST(request: NextRequest) {
  * PUT /api/employees
  * Update an employee
  */
-export async function PUT(request: NextRequest) {
+async function _PUT(request: NextRequest) {
   try {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -453,7 +453,7 @@ export async function PUT(request: NextRequest) {
  * DELETE /api/employees
  * Delete an employee
  */
-export async function DELETE(request: NextRequest) {
+async function _DELETE(request: NextRequest) {
   try {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -490,3 +490,8 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const POST = withRlsTenant(_POST)
+export const PUT = withRlsTenant(_PUT)
+export const DELETE = withRlsTenant(_DELETE)

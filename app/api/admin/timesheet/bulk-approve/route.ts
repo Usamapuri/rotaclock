@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 import { z } from 'zod'
 
@@ -9,7 +9,7 @@ const bulkApproveSchema = z.object({
   notes: z.string().optional()
 })
 
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -138,3 +138,6 @@ export async function POST(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const POST = withRlsTenant(_POST)

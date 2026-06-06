@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware, isAdmin } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isAdmin, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -9,7 +9,7 @@ const assignTeamSchema = z.object({
   team_id: z.string().uuid('Invalid team ID')
 })
 
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const auth = createApiAuthMiddleware()
     const { user, isAuthenticated } = await auth(request)
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function _DELETE(request: NextRequest) {
   try {
     const auth = createApiAuthMiddleware()
     const { user, isAuthenticated } = await auth(request)
@@ -80,3 +80,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to remove team from project' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const POST = withRlsTenant(_POST)
+export const DELETE = withRlsTenant(_DELETE)

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateBreakLog, getCurrentBreak, updateShiftLog, query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     // Authenticate the request
     const authMiddleware = createApiAuthMiddleware()
@@ -93,3 +93,5 @@ export async function POST(request: NextRequest) {
     )
   }
 } 
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const POST = withRlsTenant(_POST)

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
 const authMiddleware = createApiAuthMiddleware()
 
-export async function PUT(
+async function _PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -124,3 +124,6 @@ export async function PUT(
     )
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const PUT = withRlsTenant(_PUT)

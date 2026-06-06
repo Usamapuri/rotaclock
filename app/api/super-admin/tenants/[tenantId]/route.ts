@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware, isSuperAdmin } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isSuperAdmin, withRlsTenant } from '@/lib/api-auth'
 import { insertPlatformAuditLog } from '@/lib/platform-audit'
 
 const authMiddleware = createApiAuthMiddleware()
@@ -13,7 +13,7 @@ const patchSchema = z.object({
   trial_end_date: z.string().optional(),
 })
 
-export async function PATCH(
+async function _PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ tenantId: string }> }
 ) {
@@ -86,3 +86,6 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const PATCH = withRlsTenant(_PATCH)

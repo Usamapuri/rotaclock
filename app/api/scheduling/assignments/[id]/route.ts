@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
 /**
  * DELETE /api/scheduling/assignments/[id]
  * Delete a specific shift assignment
  */
-export async function DELETE(
+async function _DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -80,7 +80,7 @@ export async function DELETE(
  * GET /api/scheduling/assignments/[id]
  * Get a specific shift assignment
  */
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -137,7 +137,7 @@ export async function GET(
  * PUT /api/scheduling/assignments/[id]
  * Update a specific shift assignment
  */
-export async function PUT(
+async function _PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -231,3 +231,8 @@ export async function PUT(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const PUT = withRlsTenant(_PUT)
+export const DELETE = withRlsTenant(_DELETE)

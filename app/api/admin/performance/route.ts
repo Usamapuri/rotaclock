@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createApiAuthMiddleware, isAdmin } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isAdmin, withRlsTenant } from '@/lib/api-auth'
 import { performanceMonitor } from '@/lib/performance'
 import { rateLimiters, createRateLimitMiddleware, getRateLimitToken } from '@/lib/rate-limit'
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     // Rate limiting
     const rateLimitToken = getRateLimitToken(request)
@@ -84,3 +84,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware, isSuperAdmin } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isSuperAdmin, withRlsTenant } from '@/lib/api-auth'
 
 const authMiddleware = createApiAuthMiddleware()
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { user, isAuthenticated } = await authMiddleware(request)
     if (!isAuthenticated || !user || !isSuperAdmin(user)) {
@@ -48,3 +48,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query, createTimeEntry, updateTimeEntry, getCurrentTimeEntry, getCurrentEmployee, isEmployeeClockedIn } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 
 // Validation schema for attendance marking
@@ -22,7 +22,7 @@ const attendanceSchema = z.object({
  * POST /api/time/attendance
  * Mark attendance with camera verification
  */
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
  * GET /api/time/attendance
  * Get attendance history for the current employee
  */
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -266,3 +266,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const POST = withRlsTenant(_POST)

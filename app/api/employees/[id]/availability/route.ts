@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 
 // Validation schema for availability updates
@@ -19,7 +19,7 @@ const updateAvailabilitySchema = z.object({
  * GET /api/employees/[id]/availability
  * Get employee availability schedule
  */
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -66,7 +66,7 @@ export async function GET(
  * PUT /api/employees/[id]/availability
  * Update employee availability schedule
  */
-export async function PUT(
+async function _PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -156,3 +156,6 @@ export async function PUT(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const PUT = withRlsTenant(_PUT)

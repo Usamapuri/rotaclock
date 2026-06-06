@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
 /**
  * GET /api/shifts/[id]
  * Get a specific shift by ID
  */
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -50,7 +50,7 @@ export async function GET(
  * PATCH /api/shifts/[id]
  * Update a shift
  */
-export async function PATCH(
+async function _PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -128,7 +128,7 @@ export async function PATCH(
  * DELETE /api/shifts/[id]
  * Delete a shift
  */
-export async function DELETE(
+async function _DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -173,3 +173,7 @@ export async function DELETE(
   }
 } 
  
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const PATCH = withRlsTenant(_PATCH)
+export const DELETE = withRlsTenant(_DELETE)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 import { z } from 'zod'
 
@@ -10,7 +10,7 @@ const updateLocationSchema = z.object({
   is_active: z.boolean().optional()
 })
 
-export async function PUT(
+async function _PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -99,7 +99,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+async function _DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -187,3 +187,7 @@ export async function DELETE(
     )
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const PUT = withRlsTenant(_PUT)
+export const DELETE = withRlsTenant(_DELETE)

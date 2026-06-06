@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
 const authMiddleware = createApiAuthMiddleware()
@@ -9,7 +9,7 @@ const authMiddleware = createApiAuthMiddleware()
  * GET /api/admin/employees
  * List all employees for admin impersonation
  */
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { user, isAuthenticated } = await authMiddleware(request)
     
@@ -95,3 +95,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)

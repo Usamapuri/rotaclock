@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
 // Simple in-memory cache for dashboard data
@@ -29,7 +29,7 @@ function isRateLimited(ip: string): boolean {
   return false
 }
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     // Rate limiting
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
@@ -280,3 +280,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)

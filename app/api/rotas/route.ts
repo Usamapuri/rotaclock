@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -17,7 +17,7 @@ const updateRotaSchema = createRotaSchema.partial()
  * GET /api/rotas
  * Get all rotas with optional filters
  */
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
  * POST /api/rotas
  * Create a new rota
  */
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
  * PUT /api/rotas
  * Update a rota (only draft rotas can be updated)
  */
-export async function PUT(request: NextRequest) {
+async function _PUT(request: NextRequest) {
   try {
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -242,7 +242,7 @@ export async function PUT(request: NextRequest) {
  * DELETE /api/rotas
  * Delete a rota (only draft rotas can be deleted)
  */
-export async function DELETE(request: NextRequest) {
+async function _DELETE(request: NextRequest) {
   try {
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -299,3 +299,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const POST = withRlsTenant(_POST)
+export const PUT = withRlsTenant(_PUT)
+export const DELETE = withRlsTenant(_DELETE)

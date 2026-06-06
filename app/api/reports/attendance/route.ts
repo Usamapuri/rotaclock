@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAttendanceStats } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
 /**
  * GET /api/reports/attendance
  * Get attendance statistics report
  */
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -55,3 +55,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)

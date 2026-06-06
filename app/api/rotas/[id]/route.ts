@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -14,7 +14,7 @@ const updateRotaSchema = z.object({
  * GET /api/rotas/[id]
  * Get a specific rota with its shift assignments
  */
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -118,7 +118,7 @@ export async function GET(
  * PUT /api/rotas/[id]
  * Update a specific rota
  */
-export async function PUT(
+async function _PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -194,7 +194,7 @@ export async function PUT(
  * DELETE /api/rotas/[id]
  * Delete a specific rota
  */
-export async function DELETE(
+async function _DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -269,3 +269,8 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const PUT = withRlsTenant(_PUT)
+export const DELETE = withRlsTenant(_DELETE)

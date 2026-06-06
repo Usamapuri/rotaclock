@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
 /**
  * POST /api/rotas/[id]/publish
  * Publish a rota and make all its shifts visible to employees
  */
-export async function POST(
+async function _POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -180,7 +180,7 @@ export async function POST(
  * DELETE /api/rotas/[id]/publish
  * Unpublish a rota (move back to draft status)
  */
-export async function DELETE(
+async function _DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -262,3 +262,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const POST = withRlsTenant(_POST)
+export const DELETE = withRlsTenant(_DELETE)

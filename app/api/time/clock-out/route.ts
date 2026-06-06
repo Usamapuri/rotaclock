@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -13,7 +13,7 @@ const clockOutSchema = z.object({
 	performance_rating: z.number().min(1).max(5).optional(),
 })
 
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
 	try {
 		// Authenticate the request
 		const authMiddleware = createApiAuthMiddleware()
@@ -134,3 +134,5 @@ export async function POST(request: NextRequest) {
 		)
 	}
 } 
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const POST = withRlsTenant(_POST)

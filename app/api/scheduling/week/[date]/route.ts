@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 import { mondayOfWeekContaining, sundayOfWeekContaining } from '@/lib/calendar-date'
 
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ date: string }> }
 ) {
@@ -223,3 +223,6 @@ export async function GET(
   }
 }
 
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)

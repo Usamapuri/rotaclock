@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { query } from '@/lib/database'
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
     if (!isAuthenticated || !user) {
@@ -81,3 +81,6 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)

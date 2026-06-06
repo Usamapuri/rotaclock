@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 
 /** Cache column lists so older DBs without address / extended fields still work */
@@ -30,7 +30,7 @@ function ec(employees: Set<string>, col: string, defaultSql: string): string {
   return employees.has(col) ? `e.${col}` : defaultSql
 }
 
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -147,7 +147,7 @@ const updateEmployeeSchema = z.object({
   location_id: z.string().uuid().nullable().optional().transform(val => val === null ? undefined : val),
 })
 
-export async function PUT(
+async function _PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -338,3 +338,7 @@ export async function PUT(
     )
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const PUT = withRlsTenant(_PUT)

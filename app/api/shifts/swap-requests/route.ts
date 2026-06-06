@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query, getShiftSwaps, createShiftSwap } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -17,7 +17,7 @@ const createShiftSwapSchema = z.object({
  * GET /api/shifts/swap-requests
  * Get shift swap requests with filters
  */
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
  * POST /api/shifts/swap-requests
  * Create a new shift swap request
  */
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     // Use demo authentication
     const authMiddleware = createApiAuthMiddleware()
@@ -152,3 +152,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const POST = withRlsTenant(_POST)

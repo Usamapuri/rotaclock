@@ -106,6 +106,35 @@ function splitArgs<H>(a: ApiRole[] | H, b?: H): { roles: ApiRole[] | null; handl
   return { roles: a as ApiRole[], handler: b as H }
 }
 
+type RawHandler = (request: NextRequest, ctx?: any) => Promise<Response> | Response
+
+/**
+ * Wrap an EXISTING route handler so its DB queries run on a tenant-scoped
+ * connection (SET app.tenant_id) whenever the caller resolves to a tenant —
+ * WITHOUT changing the handler body. Purely additive: the handler keeps its own
+ * auth/tenant checks; this only routes its queries through the tenant connection,
+ * which is the prerequisite for DB-enforced RLS. Requests with no resolvable
+ * tenant (super_admin, public, unauthenticated) run unchanged. Under the current
+ * superuser DB connection RLS is inert, so this is a no-op behaviorally until the
+ * non-superuser role switch (see RLS_CUTOVER.md).
+ */
+export function withRlsTenant<H extends RawHandler>(handler: H): H {
+  return (async (request: NextRequest, ctx?: any) => {
+    let tenantId: string | null = null
+    try {
+      const session = await getSession(request)
+      if (session?.sub) {
+        const t = await getTenantContext(session.sub)
+        tenantId = t?.tenant_id ?? null
+      }
+    } catch {
+      tenantId = null
+    }
+    if (!tenantId) return handler(request, ctx)
+    return runWithTenantConnection(tenantId, () => Promise.resolve(handler(request, ctx)))
+  }) as H
+}
+
 async function authenticate(
   request: NextRequest,
   roles: ApiRole[] | null

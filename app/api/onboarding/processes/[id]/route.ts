@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createApiAuthMiddleware } from "@/lib/api-auth"
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { query } from "@/lib/database"
 import { getTenantContext } from "@/lib/tenant"
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function _GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
     if (!isAuthenticated || !user) {
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function _PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { user, isAuthenticated } = await createApiAuthMiddleware()(request)
     if (!isAuthenticated || !user) {
@@ -96,3 +96,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const PATCH = withRlsTenant(_PATCH)

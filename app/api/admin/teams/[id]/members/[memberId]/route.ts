@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware, isAdmin } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isAdmin, withRlsTenant } from '@/lib/api-auth'
 
-export async function DELETE(
+async function _DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
@@ -70,3 +70,6 @@ export async function DELETE(
     )
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const DELETE = withRlsTenant(_DELETE)

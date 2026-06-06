@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { withPerformanceMonitoring } from '@/lib/performance'
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const authMiddleware = createApiAuthMiddleware()
     const { user, isAuthenticated } = await authMiddleware(request)
@@ -121,3 +121,6 @@ async function getUnreadCount(userId: string) {
 
   return parseInt(result.rows[0]?.unread_count || '0')
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)

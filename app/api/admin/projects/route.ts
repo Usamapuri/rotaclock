@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware, isAdmin } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isAdmin, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 
 const createProjectSchema = z.object({
@@ -14,7 +14,7 @@ const updateProjectSchema = z.object({
   is_active: z.boolean().optional()
 })
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   try {
     const auth = createApiAuthMiddleware()
     const { user, isAuthenticated } = await auth(request)
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     const auth = createApiAuthMiddleware()
     const { user, isAuthenticated } = await auth(request)
@@ -100,3 +100,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const POST = withRlsTenant(_POST)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -22,7 +22,7 @@ const verifyStartSchema = z.object({
  * POST /api/shifts/[id]/verify-start
  * Verify shift start with camera and location data
  */
-export async function POST(
+async function _POST(
 	request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
@@ -156,3 +156,5 @@ export async function POST(
 		return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
 	}
 } 
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const POST = withRlsTenant(_POST)

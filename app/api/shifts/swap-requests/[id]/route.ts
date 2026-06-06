@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { z } from 'zod'
 
 // Validation schema for updating swap requests
@@ -13,7 +13,7 @@ const updateSwapRequestSchema = z.object({
  * GET /api/shifts/swap-requests/[id]
  * Get a specific swap request
  */
-export async function GET(
+async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -75,7 +75,7 @@ export async function GET(
  * PATCH /api/shifts/swap-requests/[id]
  * Update a swap request (approve/deny/cancel)
  */
-export async function PATCH(
+async function _PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -188,7 +188,7 @@ export async function PATCH(
  * PUT /api/shifts/swap-requests/[id]
  * Update a swap request (approve/reject/cancel) - legacy method
  */
-export async function PUT(
+async function _PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -200,7 +200,7 @@ export async function PUT(
  * DELETE /api/shifts/swap-requests/[id]
  * Delete a swap request (only for pending requests)
  */
-export async function DELETE(
+async function _DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -259,3 +259,8 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const GET = withRlsTenant(_GET)
+export const PUT = withRlsTenant(_PUT)
+export const PATCH = withRlsTenant(_PATCH)
+export const DELETE = withRlsTenant(_DELETE)

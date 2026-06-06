@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { query } from '@/lib/database'
 
 // POST /api/admin/employees/backfill-emp-codes
 // Adds EMP prefix to any non-EMP employee_code and pads simple numerics
-export async function POST(_req: NextRequest) {
+async function _POST(_req: NextRequest) {
   try {
     const { user, isAuthenticated } = await createApiAuthMiddleware()(_req)
     if (!isAuthenticated || !user) {
@@ -45,3 +45,6 @@ export async function POST(_req: NextRequest) {
 }
 
 
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const POST = withRlsTenant(_POST)

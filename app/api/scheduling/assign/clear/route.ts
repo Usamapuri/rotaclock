@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createApiAuthMiddleware } from '@/lib/api-auth'
+import { createApiAuthMiddleware, withRlsTenant } from '@/lib/api-auth'
 import { query } from '@/lib/database'
 
 // POST /api/scheduling/assign/clear
 // Danger: deletes all shift assignments (testing only)
-export async function POST(_request: NextRequest) {
+async function _POST(_request: NextRequest) {
   try {
     const { user, isAuthenticated } = await createApiAuthMiddleware()(_request)
     if (!isAuthenticated || !user) {
@@ -21,3 +21,6 @@ export async function POST(_request: NextRequest) {
 }
 
 
+
+// Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
+export const POST = withRlsTenant(_POST)
