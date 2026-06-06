@@ -19,6 +19,10 @@ phased plan and `CLAUDE.md` for audit findings and conventions.
   `tenant_id`. Prefer a shared `withAuth`/`withTenant` wrapper over copy-paste.
 - Frontend chrome (header / sidebar / logout) lives only in
   `components/layouts/DashboardShell.tsx`.
+- New/migrated API routes return the standard envelope `{ success, data?, error? }`
+  via `lib/api-response.ts`, and validate every body/query with zod via
+  `lib/validate.ts`. See `API_CONVENTIONS.md` for the conventions and the
+  duplicate-endpoint consolidation map.
 - Never commit secrets or connection strings. Read `DATABASE_URL` from the
   environment.
 
