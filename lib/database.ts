@@ -1315,14 +1315,15 @@ export async function createShiftSwap(swapData: Omit<ShiftSwap, 'id' | 'created_
 /**
  * Get shift swap requests
  */
-export async function getShiftSwaps(filters?: {
+export async function getShiftSwaps(filters: {
   requester_id?: string
   target_id?: string
   status?: string
-  tenant_id?: string
+  tenant_id: string
 }) {
+  assertTenant(filters?.tenant_id)
   let queryText = `
-    SELECT 
+    SELECT
       ss.*,
       r.first_name as requester_first_name,
       r.last_name as requester_last_name,
@@ -1334,22 +1335,17 @@ export async function getShiftSwaps(filters?: {
       aba.last_name as approved_by_last_name,
       aba.email as approved_by_email
     FROM shift_swaps ss
-    LEFT JOIN employees r ON ss.requester_id = r.id
-    LEFT JOIN employees t ON ss.target_id = t.id
-    LEFT JOIN employees aba ON ss.approved_by = aba.id
+    LEFT JOIN employees r ON ss.requester_id = r.id AND r.tenant_id = ss.tenant_id
+    LEFT JOIN employees t ON ss.target_id = t.id AND t.tenant_id = ss.tenant_id
+    LEFT JOIN employees aba ON ss.approved_by = aba.id AND aba.tenant_id = ss.tenant_id
   `
   const params: any[] = []
   const conditions: string[] = []
   let paramIndex = 1
 
-  if (filters?.tenant_id) {
-    conditions.push(`r.tenant_id = $${paramIndex}`)
-    params.push(filters.tenant_id)
-    paramIndex++
-    conditions.push(`t.tenant_id = $${paramIndex}`)
-    params.push(filters.tenant_id)
-    paramIndex++
-  }
+  conditions.push(`ss.tenant_id = $${paramIndex}`)
+  params.push(filters.tenant_id)
+  paramIndex++
 
   if (filters?.requester_id) {
     conditions.push(`ss.requester_id = $${paramIndex}`)

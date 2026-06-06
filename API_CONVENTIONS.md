@@ -28,14 +28,14 @@ updating callers in lockstep — see the note at the bottom.
 
 ## Duplicate endpoint families → canonical target
 
-### Shift swaps  → canonical: `/api/shifts/swaps` (+ `/[id]`)
+### Shift swaps  → canonical: `/api/shifts/swap-requests` (+ `/[id]`)
 | Endpoint | Status | Callers |
 |---|---|---|
-| `shifts/swaps` (GET/POST, `[id]` PUT) | **keep (canonical)** | only `components/ui/swap-requests.tsx` (DEAD component) |
-| `shifts/swap-requests` (+`[id]`) | remove after migrate | `app/admin/dashboard`, `lib/api-service.ts` |
-| `shifts/swap-request` (+`[id]`) | remove after migrate | `app/employee/scheduling` (create) |
+| `shifts/swap-requests` (GET/POST, `[id]`) | **keep (canonical)** — tenant-scoped | `app/admin/dashboard`, `lib/api-service.ts` |
+| `shifts/swap-request` (POST date-based, `[id]`) | keep (employee create flow); fold into canonical later | `app/employee/scheduling` |
+| `shifts/swaps` (+route) | ✅ DELETED | was a cross-tenant leak (GET dropped tenant filter) + demo-broken POST (requester = first active employee); only caller was a dead component |
 | `manager/approvals/shift-swap/[id]` | keep (approval action) | `app/manager/approvals` |
-Work: point the live callers at `shifts/swaps`; delete the two `swap-request(s)` families + the dead component.
+Done: deleted the leaky/broken `shifts/swaps`; hardened `getShiftSwaps` to require tenant_id. Remaining: fold the employee date-based `swap-request` create into `swap-requests`.
 
 ### Leave requests  → canonical: `/api/leave-requests` (+ `/[id]`, role-scoped)
 | Endpoint | Status | Callers |
@@ -54,8 +54,8 @@ Work: add a role-scoped `PATCH /api/leave-requests/[id]` (approve/reject), migra
 | `shifts/assignments` (GET read, POST dup) | move GET to scheduling; delete dup POST | `app/admin/dashboard` (GET) |
 Note: the `shifts` vs `rotas` vs `scheduling` route groups are reconciled more fully in Phase 7 (scheduling is the domain core).
 
-## Dead frontend components (delete in Phase 6)
-`components/ui/{swap-requests,leave-requests,employee-requests}.tsx` — not imported anywhere; they call stale/nonexistent endpoints.
+## Dead frontend components
+`components/ui/{swap-requests,leave-requests,employee-requests}.tsx` — ✅ DELETED (not imported anywhere; called stale/nonexistent endpoints).
 
 ## Why the migration is deferred
 Switching routes to the envelope and deleting endpoint families changes
