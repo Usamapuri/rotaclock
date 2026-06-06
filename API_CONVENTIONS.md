@@ -43,9 +43,9 @@ Done: deleted the leaky/broken `shifts/swaps`; hardened `getShiftSwaps` to requi
 | `leave-requests` (GET/POST) | **keep (canonical)** | admin, employee dashboards, `components/ui/*` |
 | `admin/leave-requests/[id]` | fold into `leave-requests/[id]` PATCH | `app/admin/leave` |
 | `manager/approvals/leave-request/[id]` | fold (role-scoped) | `app/manager/approvals` |
-| `employees/leave-requests` (+`[id]`) | remove after migrate | `app/employee/scheduling` |
-| `onboarding/leave-requests/[id]` | **does not exist** | only `components/ui/leave-requests.tsx` (DEAD) — broken call |
-Work: add a role-scoped `PATCH /api/leave-requests/[id]` (approve/reject), migrate callers, delete the fragments + dead components.
+| `employees/leave-requests` (+`[id]`) | ✅ DELETED | was a tenant leak (GET dropped tenant filter); employee create migrated to canonical |
+| `onboarding/leave-requests/[id]` | n/a (never existed) | was only called by a now-deleted dead component |
+Done: canonical POST now accepts `leave_type` alias + auto-derives days_requested; employee/scheduling migrated to it; `employees/leave-requests` deleted; `getLeaveRequests` hardened to require tenant_id. Remaining: fold the admin + manager approve/reject `[id]` endpoints into a role-scoped `PATCH /api/leave-requests/[id]` (left intact for now — they carry role-specific approval logic).
 
 ### Assignments  → write via `/api/scheduling/assign`; read via scheduling
 | Endpoint | Status | Callers |

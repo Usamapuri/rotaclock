@@ -4,15 +4,20 @@ import { createApiAuthMiddleware } from '@/lib/api-auth'
 import { getTenantContext } from '@/lib/tenant'
 import { z } from 'zod'
 
-// Validation schemas
+// Validation schema. Accepts `type` or its alias `leave_type`, and derives
+// days_requested from the date range when not supplied (this is the single
+// canonical create endpoint, replacing /api/employees/leave-requests).
+const leaveTypeEnum = z.enum(['vacation', 'sick', 'personal', 'bereavement', 'jury-duty', 'other'])
 const createLeaveRequestSchema = z.object({
   employee_id: z.string().uuid('Invalid employee ID'),
-  type: z.enum(['vacation', 'sick', 'personal', 'bereavement', 'jury-duty', 'other']),
+  type: leaveTypeEnum.optional(),
+  leave_type: leaveTypeEnum.optional(),
   start_date: z.string().min(1, 'Start date is required'),
   end_date: z.string().min(1, 'End date is required'),
-  days_requested: z.number().positive('Days requested must be positive'),
-  reason: z.string().optional()
-})
+  days_requested: z.number().positive('Days requested must be positive').optional(),
+  reason: z.string().optional(),
+  status: z.string().optional(),
+}).refine((d) => d.type || d.leave_type, { message: 'type (or leave_type) is required', path: ['type'] })
 
 /**
  * GET /api/leave-requests
@@ -129,8 +134,24 @@ export async function POST(request: NextRequest) {
       }, { status: 409 })
     }
 
+    // Normalize: derive type from the alias and days_requested from the range.
+    const type = (validatedData.type ?? validatedData.leave_type)!
+    const days_requested =
+      validatedData.days_requested ??
+      Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+
     // Create leave request with tenant context
-    const leaveRequest = await createLeaveRequest(validatedData, tenantContext.tenant_id)
+    const leaveRequest = await createLeaveRequest(
+      {
+        employee_id: validatedData.employee_id,
+        type,
+        start_date: validatedData.start_date,
+        end_date: validatedData.end_date,
+        days_requested,
+        reason: validatedData.reason,
+      } as any,
+      tenantContext.tenant_id
+    )
 
     return NextResponse.json({ 
       data: leaveRequest,

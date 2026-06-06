@@ -186,7 +186,7 @@ export default function EmployeeSchedulingPage() {
     }
     try {
       setSubmittingLeave(true)
-      const res = await fetch('/api/employees/leave-requests', {
+      const res = await fetch('/api/leave-requests', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1196,14 +1196,15 @@ export async function createNotification(notification: Omit<Notification, 'id' |
 /**
  * Get leave requests with filters
  */
-export async function getLeaveRequests(filters?: {
+export async function getLeaveRequests(filters: {
   employee_id?: string
   status?: string
   type?: string
   start_date?: string
   end_date?: string
-  tenant_id?: string
+  tenant_id: string
 }) {
+  assertTenant(filters?.tenant_id)
   let queryText = `
     SELECT 
       lr.*,

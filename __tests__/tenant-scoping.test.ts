@@ -8,6 +8,7 @@ import {
   getAttendanceSummary,
   getBreakLogs,
   getShiftSwaps,
+  getLeaveRequests,
 } from '@/lib/database'
 
 /**
@@ -44,5 +45,8 @@ describe('data-layer tenant scoping (fails closed without tenant_id)', () => {
   })
   it('getShiftSwaps requires tenant_id', async () => {
     await expect(getShiftSwaps({} as any)).rejects.toThrow(/tenant_id is required/)
+  })
+  it('getLeaveRequests requires tenant_id', async () => {
+    await expect(getLeaveRequests({} as any)).rejects.toThrow(/tenant_id is required/)
   })
 })
