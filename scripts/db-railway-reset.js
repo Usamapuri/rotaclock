@@ -81,6 +81,13 @@ async function main() {
     }
   }
 
+  // Baseline migrations: the canonical database-schema.sql already includes the
+  // cumulative result of every migration, so record them as applied rather than
+  // re-running them. This keeps a fresh reset consistent with `db:migrate`.
+  const { baselineMigrations } = require('./migrate')
+  const baselined = await baselineMigrations(client)
+  console.log('Baselined', baselined.length, 'migration(s) as applied.')
+
   const check = await client.query(`
     SELECT
       (SELECT COUNT(*)::int FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE') AS n_tables,

@@ -13,6 +13,8 @@
     "test:coverage": "jest --coverage",
     "test:integration": "playwright test",
     "db:railway-reset": "node scripts/db-railway-reset.js",
+    "db:migrate": "node scripts/migrate.js",
+    "db:migrate:status": "node scripts/migrate.js --status",
     "db:inspect": "node scripts/db-inspect.js",
     "db:login:list": "node scripts/reset-login.js --list",
     "db:reset-login": "node scripts/reset-login.js",
