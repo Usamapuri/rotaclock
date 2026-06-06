@@ -23,10 +23,9 @@ export type ApiUser = {
  * trusting stale token claims.
  */
 async function loadApiUser(userId: string): Promise<ApiUser | null> {
-  const empRes = await query(
-    'SELECT id, employee_code, email, role FROM employees WHERE id = $1 AND is_active = true',
-    [userId]
-  )
+  // SECURITY DEFINER lookup so this works before app.tenant_id is set (under RLS
+  // a plain employees read would return nothing pre-tenant). See migration 007.
+  const empRes = await query('SELECT * FROM auth_employee_identity($1)', [userId])
   if (empRes.rows.length > 0) {
     const e = empRes.rows[0]
     return {

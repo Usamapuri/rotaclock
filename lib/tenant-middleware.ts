@@ -11,13 +11,10 @@ export interface TenantContext {
 
 export async function getTenantContext(userId: string): Promise<TenantContext | null> {
   try {
-    const result = await query(`
-      SELECT e.tenant_id, e.organization_id, e.email, o.name as organization_name, 
-             o.subscription_status, o.subscription_plan
-      FROM employees e
-      LEFT JOIN organizations o ON e.organization_id = o.id
-      WHERE e.id = $1
-    `, [userId])
+    // SECURITY DEFINER lookup so tenant resolution works before app.tenant_id is
+    // set (under RLS a plain employees/organizations read returns nothing
+    // pre-tenant). See migration 007.
+    const result = await query(`SELECT * FROM auth_tenant_context($1)`, [userId])
 
     if (result.rows.length === 0) {
       return null
