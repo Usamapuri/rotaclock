@@ -41,8 +41,8 @@ Done: deleted the leaky/broken `shifts/swaps`; hardened `getShiftSwaps` to requi
 | Endpoint | Status | Callers |
 |---|---|---|
 | `leave-requests` (GET/POST) | **keep (canonical)** | admin, employee dashboards, `components/ui/*` |
-| `admin/leave-requests/[id]` | fold into `leave-requests/[id]` PATCH | `app/admin/leave` |
-| `manager/approvals/leave-request/[id]` | fold (role-scoped) | `app/manager/approvals` |
+| `admin/leave-requests/[id]` | ✅ DELETED → `leave-requests/[id]` PATCH | `app/admin/leave` (migrated) |
+| `manager/approvals/leave-request/[id]` | ✅ DELETED → `leave-requests/[id]` PATCH | `app/manager/approvals` (migrated) |
 | `employees/leave-requests` (+`[id]`) | ✅ DELETED | was a tenant leak (GET dropped tenant filter); employee create migrated to canonical |
 | `onboarding/leave-requests/[id]` | n/a (never existed) | was only called by a now-deleted dead component |
 Done: canonical POST now accepts `leave_type` alias + auto-derives days_requested; employee/scheduling migrated to it; `employees/leave-requests` deleted; `getLeaveRequests` hardened to require tenant_id. Remaining: fold the admin + manager approve/reject `[id]` endpoints into a role-scoped `PATCH /api/leave-requests/[id]` (left intact for now — they carry role-specific approval logic).

@@ -178,7 +178,7 @@ export default function AdminLeavePage() {
       }
       if (user?.id) headers['authorization'] = `Bearer ${user.id}`
 
-      const response = await fetch(`/api/admin/leave-requests/${requestId}`, {
+      const response = await fetch(`/api/leave-requests/${requestId}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({

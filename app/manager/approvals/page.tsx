@@ -197,7 +197,7 @@ export default function ManagerApprovals() {
           body.manager_notes = approvalNotes
           break
         case 'leave_request':
-          url = `/api/manager/approvals/leave-request/${selectedApproval.id}`
+          url = `/api/leave-requests/${selectedApproval.id}`
           body.manager_notes = approvalNotes
           break
       }
