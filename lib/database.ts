@@ -1,5 +1,6 @@
 import { Pool, PoolClient } from 'pg'
 import bcrypt from 'bcryptjs'
+import { dbContext } from './db-context'
 
 // Connection pool — lazily initialized to avoid crashing at import time
 // during Next.js build (which imports API routes to collect page data).
@@ -43,18 +44,34 @@ function getPool(): Pool {
 
 export async function query(text: string, params?: any[]) {
   const start = Date.now()
+
+  // If the request established a tenant-scoped connection, run on it (it has
+  // SET app.tenant_id applied) — and do NOT release it; the wrapper owns it.
+  const ctx = dbContext.getStore()
+  if (ctx?.client) {
+    try {
+      const result = await ctx.client.query(text, params)
+      const duration = Date.now() - start
+      if (duration > 200) console.log('Slow query:', { text, duration, rows: result.rowCount })
+      return result
+    } catch (error) {
+      console.error('Database query error:', error)
+      throw error
+    }
+  }
+
   let client
-  
+
   try {
     client = await getPool().connect()
     const result = await client.query(text, params)
     const duration = Date.now() - start
-    
+
     // Log slow queries (over 200ms) - increased threshold
     if (duration > 200) {
       console.log('Slow query:', { text, duration, rows: result.rowCount })
     }
-    
+
     return result
   } catch (error) {
     console.error('Database query error:', error)
@@ -63,6 +80,26 @@ export async function query(text: string, params?: any[]) {
     if (client) {
       client.release()
     }
+  }
+}
+
+/**
+ * Run `fn` with a dedicated DB connection that has `SET app.tenant_id` applied,
+ * so every query() inside runs tenant-scoped on that one connection. Used by the
+ * withTenant route wrapper; required for DB-enforced RLS (see RLS_CUTOVER.md).
+ */
+export async function runWithTenantConnection<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+  const client = await getPool().connect()
+  try {
+    await client.query(`SELECT set_config('app.tenant_id', $1, false)`, [tenantId])
+    return await dbContext.run({ client }, fn)
+  } finally {
+    try {
+      await client.query(`SELECT set_config('app.tenant_id', '', false)`)
+    } catch {
+      /* ignore reset errors on a broken connection */
+    }
+    client.release()
   }
 }
 

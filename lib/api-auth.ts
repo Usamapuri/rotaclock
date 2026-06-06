@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/database'
+import { query, runWithTenantConnection } from '@/lib/database'
 import { getSession } from '@/lib/session'
 import type { JwtPayload } from '@/lib/jwt'
 import { getTenantContext, type TenantContext } from '@/lib/tenant-middleware'
@@ -156,7 +156,11 @@ export function withTenant(a: ApiRole[] | TenantHandler, b?: TenantHandler) {
     if (!tenant) {
       return NextResponse.json({ error: 'No tenant context found' }, { status: 403 })
     }
-    return handler(request, ctx ?? {}, { ...res, tenant })
+    // Run the handler on a tenant-scoped connection (SET app.tenant_id), so
+    // every query() inside is tenant-bound — the basis for DB-enforced RLS.
+    return runWithTenantConnection(tenant.tenant_id, () =>
+      Promise.resolve(handler(request, ctx ?? {}, { ...res, tenant }))
+    )
   }
 }
 
