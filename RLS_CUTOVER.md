@@ -10,22 +10,23 @@ do nothing. To enforce them you must connect the app as a **non-superuser role**
 With strict RLS, any DB connection that hasn't run `SET app.tenant_id`
 sees/writes nothing.
 
-**Progress:** the per-request `SET app.tenant_id` mechanism now EXISTS —
-`runWithTenantConnection` + the `dbContext` AsyncLocalStorage make every
-`query()` inside a `withTenant`-wrapped route run on one connection with the
-tenant GUC set (verified on the live DB; `current_tenant()` reconciled via
-migration 005).
+**✅ App-side prerequisites are now DONE:**
+- Per-request `SET app.tenant_id`: `runWithTenantConnection` + the `dbContext`
+  AsyncLocalStorage make every `query()` in a request run on one connection with
+  the tenant GUC set (verified on the live DB).
+- All ~131 tenant routes wrapped with `withRlsTenant` (or `withTenant`), so they
+  establish that connection.
+- `current_tenant()` reconciled to read the GUC (migration 005).
+- Login bypass: `auth_login_candidates()` SECURITY DEFINER lookup (migration 006);
+  `/api/auth/login` uses it, so login works under RLS.
 
-**Still needed before the role switch (or the app locks out):**
-1. **Migrate all tenant routes onto the `withTenant` wrapper** — only routes that
-   go through it establish the tenant connection. Routes still using
-   `createApiAuthMiddleware` + global `query()` would see nothing under RLS.
-2. **A login bypass** — `/api/auth/login` looks up users by email before a tenant
-   is known, so it must run outside RLS (SECURITY DEFINER lookup, or the login
-   query uses a BYPASSRLS path).
-
-Until both land, keep the app on the `postgres` superuser connection; the
-app-layer `WHERE tenant_id = $n` filtering (live + tested) is the isolation.
+**So the only remaining step is the role switch below.** It's still gated on YOU
+because it requires changing the Railway `DATABASE_URL` env var. Until then the
+app runs as superuser (RLS inert) and app-layer `WHERE tenant_id` filtering is
+the isolation. super_admin note: super-admins have no tenant, so under RLS they
+can't read tenant tables directly — platform tables (super_admins,
+tenant_signup_requests) are NOT in the policy list, and per-tenant access is via
+impersonation (which sets app.tenant_id).
 
 ## Steps (when the app-side work is ready)
 
