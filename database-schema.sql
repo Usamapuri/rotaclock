@@ -1051,15 +1051,18 @@ CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created_at ON admin_audit_logs(c
 -- FUNCTIONS
 -- =====================================================
 
--- Function to get current tenant context
+-- Function to get current tenant context.
+-- Single source of truth: the per-connection setting the app sets each request
+-- via `SET app.tenant_id`. Returns NULL when unset. (Previously this returned a
+-- hardcoded 'default-tenant', which conflicted with scripts/rls_policies.sql and
+-- would have made every row look like one tenant — removed.)
 CREATE OR REPLACE FUNCTION current_tenant()
-RETURNS VARCHAR(80) AS $$
-BEGIN
-    -- This function should be implemented based on your tenant resolution logic
-    -- For now, returning a placeholder
-    RETURN 'default-tenant';
-END;
-$$ LANGUAGE plpgsql;
+RETURNS text
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT current_setting('app.tenant_id', true)
+$$;
 
 -- Function to refresh dashboard stats
 CREATE OR REPLACE FUNCTION refresh_dashboard_stats()

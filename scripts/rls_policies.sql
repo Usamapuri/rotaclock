@@ -1,5 +1,18 @@
 -- RLS policies for tenant isolation (defense-in-depth)
 -- This script is idempotent and safe to re-run.
+--
+-- ⚠️ CUTOVER REQUIRED — do NOT apply in isolation. These policies are STRICT
+-- (no NULL-bypass): a connection with no `app.tenant_id` set sees/writes nothing.
+-- For the app to keep working after applying this you MUST also:
+--   1. Run the app as a NON-SUPERUSER role (superusers bypass RLS). Switch the
+--      Railway DATABASE_URL to that role.
+--   2. Have the app run `SET app.tenant_id = '<tenant>'` on each request's
+--      connection (see lib/database.ts request-scoped tenant work).
+--   3. Give the LOGIN/auth path an exception — it looks up users by email
+--      before a tenant is known. Use a SECURITY DEFINER lookup function or a
+--      dedicated BYPASSRLS auth role, else nobody can log in.
+-- Until that cutover is done the app connects as superuser and these policies
+-- are inert. See HANDOVER.md / REFACTOR_PLAN.md Phase 3.
 
 -- Helper: current_tenant() reads connection-local tenant setting
 CREATE OR REPLACE FUNCTION current_tenant()
@@ -77,13 +90,13 @@ BEGIN
       EXECUTE format('DROP POLICY IF EXISTS rls_%s_%s ON %I', replace(tname, ' ', '_'), policy_base, tname);
     END LOOP;
 
-    -- Common predicate
-    -- Allow when current_tenant() is NULL (no context set) OR tenant_id equals setting
-    -- Cast tenant_id to text to avoid type issues
-    EXECUTE format('CREATE POLICY rls_%s_sel ON %I FOR SELECT USING (current_tenant() IS NULL OR tenant_id::text = current_tenant())', replace(tname, ' ', '_'), tname);
-    EXECUTE format('CREATE POLICY rls_%s_ins ON %I FOR INSERT WITH CHECK (current_tenant() IS NULL OR tenant_id::text = current_tenant())', replace(tname, ' ', '_'), tname);
-    EXECUTE format('CREATE POLICY rls_%s_upd ON %I FOR UPDATE USING (current_tenant() IS NULL OR tenant_id::text = current_tenant()) WITH CHECK (current_tenant() IS NULL OR tenant_id::text = current_tenant())', replace(tname, ' ', '_'), tname);
-    EXECUTE format('CREATE POLICY rls_%s_del ON %I FOR DELETE USING (current_tenant() IS NULL OR tenant_id::text = current_tenant())', replace(tname, ' ', '_'), tname);
+    -- Strict predicate: tenant_id must equal the connection's app.tenant_id.
+    -- (No NULL-bypass — see cutover note at the top of this file.)
+    -- tenant_id is cast to text to avoid type issues.
+    EXECUTE format('CREATE POLICY rls_%s_sel ON %I FOR SELECT USING (tenant_id::text = current_tenant())', replace(tname, ' ', '_'), tname);
+    EXECUTE format('CREATE POLICY rls_%s_ins ON %I FOR INSERT WITH CHECK (tenant_id::text = current_tenant())', replace(tname, ' ', '_'), tname);
+    EXECUTE format('CREATE POLICY rls_%s_upd ON %I FOR UPDATE USING (tenant_id::text = current_tenant()) WITH CHECK (tenant_id::text = current_tenant())', replace(tname, ' ', '_'), tname);
+    EXECUTE format('CREATE POLICY rls_%s_del ON %I FOR DELETE USING (tenant_id::text = current_tenant())', replace(tname, ' ', '_'), tname);
   END LOOP;
 END $$;
 
