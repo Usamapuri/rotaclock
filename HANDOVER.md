@@ -9,14 +9,10 @@ Pick-up notes for the refactor. Full plan: `REFACTOR_PLAN.md`. Repo memory/audit
 
 ## 🔴 Do these first (owner actions)
 
-1. **The Railway database is EMPTY** — `employees` table doesn't exist. The deployed app has no logins until you apply the schema:
-   ```
-   DATABASE_URL="<railway url>" npm run db:railway-reset
-   ```
-   This drops/recreates `public`, applies `database-schema.sql`, and seeds:
-   - `admin@rotaclock.local` / `password123`  (role: admin)
-   - `agent@rotaclock.local` / `password123`  (role: agent)
-   Then you can log in and test. (Confirmed empty via `scripts/reset-login.js --list` → "relation employees does not exist".)
+1. **DB is now seeded** ✅ — `db:railway-reset` was run (after fixing a comment-aware
+   bug in the SQL splitter). Logins live: `admin@rotaclock.local` / `password123`
+   (admin) and `agent@rotaclock.local` / `password123` (agent). Tenant `rotaclock-main`.
+   Use `npm run db:login:list` / `npm run db:reset-login <email> <pw>` to manage.
 2. **ROTATE the leaked DB password — it is STILL ACTIVE.** The old cleanup scripts hardcoded
    `postgresql://postgres:QlUX…@metro.proxy.rlwy.net:36516/railway`; a connection with it just succeeded this session. It's also in git history. Rotate it in the Railway dashboard.
 3. **`JWT_SECRET`** — you already set this on Railway. ✅ (Required in production; the app fails closed without it.)
@@ -54,11 +50,13 @@ Pick-up notes for the refactor. Full plan: `REFACTOR_PLAN.md`. Repo memory/audit
 
 ## Remaining work
 
-**Phase 3 (resume here, needs live DB to verify):**
-- **Task 19** — add `tenant_id` column to `break_logs` and `step_completions` (+ backfill from parent rows). Both currently lack it (`database-schema.sql` lines 333, 633).
-- **Task 20** — DB-enforced RLS: a `SET app.tenant_id` per-request wrapper in `lib/database.ts`; reconcile the two `current_tenant()` defs (hardcoded `'default-tenant'` in `database-schema.sql` vs `current_setting`-based in `scripts/rls_policies.sql`); drop the NULL-bypass policies; run as a non-superuser app role (the connection-string switch is a Railway action).
-- **Task 21** — composite `(tenant_id, id)` FKs on tenant tables; a 2-tenant isolation integration test (seed 2 tenants, assert no endpoint returns the other's rows).
+**Phase 3 (resume here):**
+- **Task 19 — DONE.** `tenant_id` added to `break_logs` + `step_completions` (schema + idempotent `scripts/migrations/002_*.sql`, applied to Railway; backfill from parents). `step_completions` writer stamps tenant_id. break_logs is legacy (writes go to time_entries).
+- **Task 20 — SQL groundwork DONE; CUTOVER GATED.** Reconciled `current_tenant()` to one `current_setting('app.tenant_id')` source; made `scripts/rls_policies.sql` strict (no NULL-bypass). NOT applied to live DB. The cutover (documented in the rls_policies.sql header) still needs, together: (a) non-superuser Railway DB role [owner action — superuser bypasses RLS], (b) per-request `SET app.tenant_id` in `lib/database.ts` (needs request-scoped connections, e.g. AsyncLocalStorage — superuser makes this inert today so it's unbuilt), (c) a SECURITY DEFINER / BYPASSRLS exception for the LOGIN path (it looks up users by email before a tenant is known — strict RLS would otherwise lock everyone out). Do NOT apply strict RLS without all three or the app locks out.
+- **Task 21 — TODO.** Composite `(tenant_id, id)` FKs on tenant tables (some uniques exist already, see `database-schema.sql`); a 2-tenant isolation test — `scripts/verify_tenant_isolation.sql` is a rough SQL starting point (uses a `rotaclock_verifier` non-superuser role + `set_config`), but needs the RLS cutover to be meaningful. App-level isolation is already covered by Slices 1–2 + the `tenant-scoping` Jest test.
 - Then merge `phase-3-tenant-isolation` → `main`.
+
+**Note:** app-layer tenant isolation (the real protection) is DONE and tested. The remaining RLS/FK work is defense-in-depth gated on the non-superuser DB role.
 
 **Then Phases 4–8** per `REFACTOR_PLAN.md`: 4 schema/migrations (real migration runner — needed by the Phase 3 SQL above), 5 API consolidation, 6 frontend refactor, 7 RotaCloud feature parity, 8 test/ops/billing.
 
