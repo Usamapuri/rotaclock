@@ -631,13 +631,18 @@ CREATE TABLE IF NOT EXISTS onboarding_steps (
 );
 
 -- Step completions table
+-- Columns match what the onboarding API actually reads/writes (process_id,
+-- step_id, completed_by, feedback) — reconciled from the old shape that used
+-- employee_id/notes, which the code never set (and employee_id was NOT NULL,
+-- so inserts failed). See migration 004.
 CREATE TABLE IF NOT EXISTS step_completions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id VARCHAR(80),
+    process_id UUID REFERENCES onboarding_processes(id),
     step_id UUID NOT NULL REFERENCES onboarding_steps(id),
-    employee_id UUID NOT NULL REFERENCES employees(id),
+    completed_by UUID REFERENCES employees(id),
     completed_at TIMESTAMPTZ DEFAULT NOW(),
-    notes TEXT
+    feedback TEXT
 );
 
 -- Onboarding documents table
