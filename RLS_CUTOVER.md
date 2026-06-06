@@ -7,16 +7,25 @@ app-layer tenant filtering that's already live).
 
 RLS is bypassed by superusers, so today (app connects as `postgres`) the policies
 do nothing. To enforce them you must connect the app as a **non-superuser role**.
-But with strict RLS, **any DB connection that hasn't run `SET app.tenant_id`
-sees/writes nothing.** The app does NOT yet set that per request — doing so needs
-a request-scoped DB connection (AsyncLocalStorage + `SET app.tenant_id` on
-checkout) wrapping every route, plus a bypass for the **login** path (it looks up
-users by email before a tenant is known). That app-side work is **not done yet**.
+With strict RLS, any DB connection that hasn't run `SET app.tenant_id`
+sees/writes nothing.
 
-**So: do NOT switch the Railway role until the app-side `SET app.tenant_id`
-mechanism + login bypass ship.** Until then, the app-layer `WHERE tenant_id = $n`
-filtering (live + tested) is the isolation. This runbook is the procedure for when
-that work lands.
+**Progress:** the per-request `SET app.tenant_id` mechanism now EXISTS —
+`runWithTenantConnection` + the `dbContext` AsyncLocalStorage make every
+`query()` inside a `withTenant`-wrapped route run on one connection with the
+tenant GUC set (verified on the live DB; `current_tenant()` reconciled via
+migration 005).
+
+**Still needed before the role switch (or the app locks out):**
+1. **Migrate all tenant routes onto the `withTenant` wrapper** — only routes that
+   go through it establish the tenant connection. Routes still using
+   `createApiAuthMiddleware` + global `query()` would see nothing under RLS.
+2. **A login bypass** — `/api/auth/login` looks up users by email before a tenant
+   is known, so it must run outside RLS (SECURITY DEFINER lookup, or the login
+   query uses a BYPASSRLS path).
+
+Until both land, keep the app on the `postgres` superuser connection; the
+app-layer `WHERE tenant_id = $n` filtering (live + tested) is the isolation.
 
 ## Steps (when the app-side work is ready)
 
