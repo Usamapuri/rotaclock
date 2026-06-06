@@ -28,16 +28,9 @@ export async function POST(request: NextRequest) {
     const emailLower = String(email).trim().toLowerCase()
 
     // 1) Tenant users (employees). The same email can exist in multiple orgs;
-    // accept the first active org whose password matches.
-    const res = await query(
-      `SELECT e.id, e.email, e.employee_code, e.first_name, e.last_name, e.department,
-              e.job_position, e.role, e.team_id, e.password_hash, e.tenant_id, e.organization_id,
-              o.name AS organization_name, o.is_active AS org_is_active
-       FROM employees e
-       LEFT JOIN organizations o ON e.organization_id = o.id
-       WHERE LOWER(TRIM(e.email)) = $1 AND e.is_active = true`,
-      [emailLower]
-    )
+    // accept the first active org whose password matches. Uses a SECURITY DEFINER
+    // lookup so it works under RLS (login runs before a tenant is known).
+    const res = await query(`SELECT * FROM auth_login_candidates($1)`, [emailLower])
 
     let employee: Record<string, any> | null = null
     for (const r of res.rows as Record<string, any>[]) {

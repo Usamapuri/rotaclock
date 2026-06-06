@@ -22,5 +22,9 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO rotaclock_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO rotaclock_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO rotaclock_app;
 
+-- Execute on functions (incl. the SECURITY DEFINER login lookup auth_login_candidates).
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO rotaclock_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO rotaclock_app;
+
 -- Allow the app role to set the per-request tenant GUC.
 -- (current_tenant() reads current_setting('app.tenant_id', true).)
