@@ -332,6 +332,7 @@ CREATE TABLE IF NOT EXISTS shift_logs (
 -- Break logs table
 CREATE TABLE IF NOT EXISTS break_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id VARCHAR(80),
     shift_log_id UUID REFERENCES shift_logs(id) ON DELETE CASCADE,
     employee_id UUID NOT NULL REFERENCES employees(id),
     break_start_time TIMESTAMPTZ NOT NULL,
@@ -632,6 +633,7 @@ CREATE TABLE IF NOT EXISTS onboarding_steps (
 -- Step completions table
 CREATE TABLE IF NOT EXISTS step_completions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id VARCHAR(80),
     step_id UUID NOT NULL REFERENCES onboarding_steps(id),
     employee_id UUID NOT NULL REFERENCES employees(id),
     completed_at TIMESTAMPTZ DEFAULT NOW(),

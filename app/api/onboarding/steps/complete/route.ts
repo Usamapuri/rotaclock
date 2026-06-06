@@ -37,12 +37,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Step not found" }, { status: 404 })
     }
 
-    // Insert step completion
+    // Insert step completion (tenant_id stamped for RLS / isolation)
     const completionResult = await query(`
-      INSERT INTO step_completions (process_id, step_id, completed_by, feedback)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO step_completions (tenant_id, process_id, step_id, completed_by, feedback)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
-    `, [process_id, step_id, completed_by, feedback])
+    `, [tenantContext.tenant_id, process_id, step_id, completed_by, feedback])
 
     const completion = completionResult.rows[0]
 
