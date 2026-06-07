@@ -70,6 +70,11 @@ export async function provisionTenantFromSignup(
   const tenantId = generateTenantId(body.organizationName)
   const slug = generateSlug(body.organizationName)
 
+  // Under DB-enforced RLS, set this connection's tenant to the new tenant so the
+  // INSERTs below pass each policy's WITH CHECK (tenant_id = current_tenant()).
+  // SET LOCAL is scoped to the caller's transaction. No-op when RLS is inert.
+  await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [tenantId])
+
   const organizationResult = await client.query(
     `
         INSERT INTO organizations (
