@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { transaction } from '@/lib/database'
-import { createApiAuthMiddleware, isSuperAdmin, withRlsTenant } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isSuperAdmin, withPlatform } from '@/lib/api-auth'
 import { provisionTenantFromSignup, type OrganizationSignupPayload } from '@/lib/provision-tenant-from-signup'
 import { sendEmail, buildOrgVerificationEmail, buildWelcomeEmail } from '@/lib/email'
 import { insertPlatformAuditLog } from '@/lib/platform-audit'
@@ -170,4 +170,4 @@ async function _POST(
 }
 
 // Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
-export const POST = withRlsTenant(_POST)
+export const POST = withPlatform(_POST)

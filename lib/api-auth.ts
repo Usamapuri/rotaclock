@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query, runWithTenantConnection } from '@/lib/database'
+import { query, runWithTenantConnection, runAsPlatform } from '@/lib/database'
 import { getSession } from '@/lib/session'
 import type { JwtPayload } from '@/lib/jwt'
 import { getTenantContext, type TenantContext } from '@/lib/tenant-middleware'
@@ -131,6 +131,21 @@ export function withRlsTenant<H extends RawHandler>(handler: H): H {
     }
     if (!tenantId) return handler(request, ctx)
     return runWithTenantConnection(tenantId, () => Promise.resolve(handler(request, ctx)))
+  }) as H
+}
+
+/**
+ * Wrap a super-admin route so its queries run on the platform (BYPASSRLS)
+ * connection — the platform layer legitimately spans tenants. Rejects non
+ * super-admins. Replaces withRlsTenant on /api/super-admin/* routes.
+ */
+export function withPlatform<H extends RawHandler>(handler: H): H {
+  return (async (request: NextRequest, ctx?: any) => {
+    const session = await getSession(request)
+    const user = session?.sub ? await loadApiUser(session.sub) : null
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (user.role !== 'super_admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return runAsPlatform(() => Promise.resolve(handler(request, ctx)))
   }) as H
 }
 

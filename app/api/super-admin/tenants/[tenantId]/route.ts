@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware, isSuperAdmin, withRlsTenant } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isSuperAdmin, withPlatform } from '@/lib/api-auth'
 import { insertPlatformAuditLog } from '@/lib/platform-audit'
 
 const authMiddleware = createApiAuthMiddleware()
@@ -88,4 +88,4 @@ async function _PATCH(
 }
 
 // Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
-export const PATCH = withRlsTenant(_PATCH)
+export const PATCH = withPlatform(_PATCH)

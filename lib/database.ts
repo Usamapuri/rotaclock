@@ -103,6 +103,40 @@ export async function runWithTenantConnection<T>(tenantId: string, fn: () => Pro
   }
 }
 
+// Platform (super-admin) pool — a BYPASSRLS role for the cross-tenant platform
+// layer. Falls back to the main pool when PLATFORM_DATABASE_URL is unset (works
+// while the app runs as superuser; needs the dedicated role once RLS is on).
+let platformPool: Pool | null = null
+function getPlatformPool(): Pool {
+  const conn = process.env.PLATFORM_DATABASE_URL
+  if (!conn) return getPool()
+  if (!platformPool) {
+    platformPool = new Pool({
+      connectionString: conn,
+      max: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+      ssl: { rejectUnauthorized: false },
+    })
+    platformPool.on('error', (err) => console.error('Platform pool error', err))
+  }
+  return platformPool
+}
+
+/**
+ * Run `fn` on the platform (BYPASSRLS) connection so super-admin routes can read
+ * and write across tenants under RLS. Only ever reached by super_admin via the
+ * withPlatform wrapper.
+ */
+export async function runAsPlatform<T>(fn: () => Promise<T>): Promise<T> {
+  const client = await getPlatformPool().connect()
+  try {
+    return await dbContext.run({ client }, fn)
+  } finally {
+    client.release()
+  }
+}
+
 // Optimized query function with prepared statements
 export async function optimizedQuery(text: string, params?: any[], cacheKey?: string) {
   const start = Date.now()

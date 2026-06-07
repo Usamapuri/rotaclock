@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { query } from '@/lib/database'
-import { createApiAuthMiddleware, isSuperAdmin, withRlsTenant } from '@/lib/api-auth'
+import { createApiAuthMiddleware, isSuperAdmin, withPlatform } from '@/lib/api-auth'
 import { insertPlatformAuditLog } from '@/lib/platform-audit'
 
 const authMiddleware = createApiAuthMiddleware()
@@ -58,4 +58,4 @@ async function _POST(request: NextRequest) {
 }
 
 // Tenant-scoped DB connection for RLS (see RLS_CUTOVER.md)
-export const POST = withRlsTenant(_POST)
+export const POST = withPlatform(_POST)
