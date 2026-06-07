@@ -1,5 +1,16 @@
 import '@testing-library/jest-dom'
 import { TextEncoder, TextDecoder } from 'util'
+import { webcrypto } from 'node:crypto'
+
+// jsdom doesn't provide Web Crypto; lib/jwt uses crypto.subtle. jsdom may define
+// `crypto` as a non-writable property, so override it via defineProperty.
+if (!(globalThis as any).crypto?.subtle) {
+  Object.defineProperty(globalThis, 'crypto', {
+    value: webcrypto,
+    configurable: true,
+    writable: true,
+  })
+}
 
 // Prevent real PostgreSQL connections during tests
 jest.mock('pg', () => {
