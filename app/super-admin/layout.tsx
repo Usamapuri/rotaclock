@@ -1,23 +1,21 @@
 'use client'
 
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AuthService } from '@/lib/auth'
+import { useAuth } from '@/components/providers/AuthProvider'
 import { DashboardShell } from '@/components/layouts/DashboardShell'
 import { Building2, ClipboardList, KeyRound, Shield, UserCog } from 'lucide-react'
 
 export default function SuperAdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
-  const [allowed, setAllowed] = useState(false)
+  const { user, loading } = useAuth()
+  const allowed = !loading && user?.role === 'super_admin'
 
   useEffect(() => {
-    const u = AuthService.getCurrentUser()
-    if (!u || u.role !== 'super_admin') {
+    if (!loading && (!user || user.role !== 'super_admin')) {
       router.replace('/login')
-      return
     }
-    setAllowed(true)
-  }, [router])
+  }, [user, loading, router])
 
   if (!allowed) {
     return (
