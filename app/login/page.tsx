@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Mail, Lock, Building2, Users, Shield, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { AuthService } from "@/lib/auth"
+import { useAuth } from "@/components/providers/AuthProvider"
 import { toast } from "sonner"
 
 export default function UnifiedLogin() {
@@ -15,6 +16,7 @@ export default function UnifiedLogin() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { refresh } = useAuth()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,6 +25,7 @@ export default function UnifiedLogin() {
     try {
       const user = await AuthService.unifiedLogin(email, password)
       if (user) {
+        await refresh() // update the AuthProvider with the new session
         // Route to appropriate dashboard based on role
         switch (user.role) {
           case 'super_admin':

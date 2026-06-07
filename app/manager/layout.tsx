@@ -2,8 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
-import { AuthService } from "@/lib/auth"
+import { useMemo } from "react"
 import { DashboardShell } from "@/components/layouts/DashboardShell"
 import { ReactNode } from "react"
 import {
@@ -20,12 +19,6 @@ import {
 
 export default function ManagerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const [role, setRole] = useState<'admin' | 'manager' | 'employee' | null>(null)
-
-  useEffect(() => {
-    const user = AuthService.getCurrentUser()
-    setRole(user?.role ?? null)
-  }, [])
 
   const links = useMemo(() => {
     const base = [
@@ -39,7 +32,7 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
       { href: "/manager/help", label: "Help", icon: <HelpCircle /> },
     ]
     return base
-  }, [role])
+  }, [])
 
   // Hide chrome (sidebar/breadcrumb) on auth page
   const isAuthPage = pathname === '/login'

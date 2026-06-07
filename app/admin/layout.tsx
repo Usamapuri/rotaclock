@@ -2,8 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
-import { AuthService } from "@/lib/auth"
+import { useMemo } from "react"
 import { DashboardShell } from "@/components/layouts/DashboardShell"
 import { ReactNode } from "react"
 import {
@@ -20,14 +19,6 @@ import {
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const [role, setRole] = useState<'admin' | 'manager' | 'employee' | null>(null)
-  const [isImpersonating, setIsImpersonating] = useState(false)
-
-  useEffect(() => {
-    const user = AuthService.getCurrentUser()
-    setRole(user?.role ?? null)
-    setIsImpersonating(AuthService.isImpersonating())
-  }, [])
 
   const links = useMemo(() => {
     const base = [
@@ -43,7 +34,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       { href: "/admin/help", label: "Help / Support", icon: <HelpCircle /> },
     ]
     return base
-  }, [role])
+  }, [])
 
   const crumbs = useMemo(() => {
     const parts = pathname.split('/').filter(Boolean)

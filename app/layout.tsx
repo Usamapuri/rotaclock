@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { AuthProvider } from '@/components/providers/AuthProvider'
 import { Toaster } from '@/components/ui/sonner'
 import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner'
 import { Analytics } from '@vercel/analytics/next'
@@ -26,8 +27,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ImpersonationBanner />
-          {children}
+          <AuthProvider>
+            <ImpersonationBanner />
+            {children}
+          </AuthProvider>
           <Toaster />
           <Analytics />
           <SpeedInsights />
