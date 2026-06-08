@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { AuthService } from "@/lib/auth"
 import { toast } from "sonner"
 
 interface Option { id: string; name: string }
@@ -19,9 +18,7 @@ export default function ManagerLocationsAdmin() {
   const [selectedLocation, setSelectedLocation] = useState("")
 
   const headers = () => {
-    const user = AuthService.getCurrentUser()
     const h: Record<string,string> = { 'Content-Type': 'application/json' }
-    if (user?.tenant_id) h['x-tenant-id'] = user.tenant_id
     return h
   }
 

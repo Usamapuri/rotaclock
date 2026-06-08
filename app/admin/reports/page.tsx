@@ -134,10 +134,8 @@ export default function AdminReports() {
       const departmentParam = selectedDepartment === 'all' ? '' : selectedDepartment
       const locationParam = selectedLocationId ? `&location_id=${selectedLocationId}` : ''
 
-      // Get user and build headers
-      const user = AuthService.getCurrentUser()
+      // Build headers
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (user?.tenant_id) headers['x-tenant-id'] = user.tenant_id
 
       // Load overview report
       const overviewResponse = await fetch(`/api/reports?type=overview&start_date=${startDate}&end_date=${endDate}&department=${departmentParam}${locationParam}`, { headers })

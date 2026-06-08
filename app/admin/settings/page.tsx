@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { AuthService } from '@/lib/auth'
 
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(false)
@@ -15,9 +14,7 @@ export default function AdminSettingsPage() {
   const [customDays, setCustomDays] = useState<number | ''>('' as any)
 
   const headers = () => {
-    const user = AuthService.getCurrentUser()
     const h: Record<string,string> = { 'Content-Type': 'application/json' }
-    if (user?.tenant_id) h['x-tenant-id'] = user.tenant_id
     return h
   }
 

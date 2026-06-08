@@ -141,12 +141,8 @@ export default function NewEmployee() {
 
     setIsLoading(true)
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.tenant_id) {
-        headers['x-tenant-id'] = user.tenant_id
       }
 
       const response = await fetch('/api/employees', {

@@ -136,9 +136,7 @@ export default function ShiftApprovalsPage() {
   const loadApprovals = async () => {
     try {
       setIsLoading(true)
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (user?.tenant_id) headers['x-tenant-id'] = user.tenant_id
 
       const response = await fetch(`/api/admin/shift-approvals?status=${selectedStatus}`, { headers })
       const data = await response.json()
@@ -175,9 +173,7 @@ export default function ShiftApprovalsPage() {
         }
       }
 
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (user?.tenant_id) headers['x-tenant-id'] = user.tenant_id
 
       const response = await fetch(`/api/admin/shift-approvals/${selectedApproval.id}`, {
         method: 'PATCH',

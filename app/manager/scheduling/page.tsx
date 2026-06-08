@@ -87,14 +87,8 @@ export default function ManagerSchedulingPage() {
 
   const loadManagerLocations = async () => {
     try {
-      const user = AuthService.getCurrentUser()
-      if (!user) return
-
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.tenant_id) {
-        headers['x-tenant-id'] = user.tenant_id
       }
 
       const response = await fetch('/api/manager/dashboard', { headers })

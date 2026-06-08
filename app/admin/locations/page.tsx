@@ -23,7 +23,6 @@ import {
   Search,
   Settings
 } from "lucide-react"
-import { AuthService } from "@/lib/auth"
 import { toast } from "sonner"
 
 interface Location { 
@@ -83,9 +82,7 @@ export default function LocationsAdmin() {
   const [selectedEmployeeLocation, setSelectedEmployeeLocation] = useState<string>("")
 
   const headers = () => {
-    const user = AuthService.getCurrentUser()
     const h: Record<string,string> = { 'Content-Type': 'application/json' }
-    if (user?.tenant_id) h['x-tenant-id'] = user.tenant_id
     return h
   }
 

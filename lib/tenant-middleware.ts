@@ -61,26 +61,6 @@ export function checkFeatureAccess(subscriptionPlan: string, feature: string): b
   return planFeatures.includes(feature)
 }
 
-// Middleware function to extract tenant context from request
-export function extractTenantFromRequest(request: NextRequest): string | null {
-  // Try to get tenant from headers first
-  const tenantHeader = request.headers.get('x-tenant-id')
-  if (tenantHeader) {
-    return tenantHeader
-  }
-
-  // Try to get from URL params
-  const url = new URL(request.url)
-  const tenantParam = url.searchParams.get('tenant_id')
-  if (tenantParam) {
-    return tenantParam
-  }
-
-  // Try to get from request body (for POST requests)
-  // Note: This would need to be handled in the route handler since we can't read body twice
-  return null
-}
-
 // Helper function to create tenant-aware response
 export function createTenantResponse(data: any, tenantContext: TenantContext) {
   return {

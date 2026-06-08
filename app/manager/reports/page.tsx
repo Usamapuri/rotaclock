@@ -121,9 +121,6 @@ export default function ManagerReports() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (currentUser?.tenant_id) {
-        headers['x-tenant-id'] = currentUser.tenant_id
-      }
 
       // Build query parameters
       const locationParam = selectedLocationId ? `&location_id=${selectedLocationId}` : ''

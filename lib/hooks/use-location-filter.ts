@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { AuthService } from '@/lib/auth'
 
 interface Location {
   id: string
@@ -28,12 +27,9 @@ export function useLocationFilter(): UseLocationFilterReturn {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const headers = useCallback(() => {
-    const user = AuthService.getCurrentUser()
-    const h: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (user?.id) h['authorization'] = `Bearer ${user.id}`
-    if (user?.tenant_id) h['x-tenant-id'] = user.tenant_id
-    return h
+  const headers = useCallback((): Record<string, string> => {
+    // Auth + tenant come from the httpOnly session cookie (same-origin); no headers needed.
+    return { 'Content-Type': 'application/json' }
   }, [])
 
   const loadLocations = useCallback(async () => {

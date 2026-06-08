@@ -108,9 +108,6 @@ export default function ManagerApprovals() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (currentUser?.tenant_id) {
-        headers['x-tenant-id'] = currentUser.tenant_id
-      }
 
       const params = new URLSearchParams()
       if (selectedLocationId) {
@@ -160,9 +157,6 @@ export default function ManagerApprovals() {
       setIsProcessing(true)
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (currentUser?.tenant_id) {
-        headers['x-tenant-id'] = currentUser.tenant_id
       }
 
       let url = ''

@@ -66,9 +66,6 @@ export default function ManagerEmployees() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (currentUser?.tenant_id) {
-        headers['x-tenant-id'] = currentUser.tenant_id
-      }
 
       const params = new URLSearchParams()
       if (selectedLocationId) {

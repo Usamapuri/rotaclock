@@ -83,9 +83,6 @@ export default function ManagerSettings() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (currentUser?.tenant_id) {
-        headers['x-tenant-id'] = currentUser.tenant_id
-      }
 
       const response = await fetch('/api/manager/settings', {
         headers
@@ -122,9 +119,6 @@ export default function ManagerSettings() {
       setIsSaving(true)
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (currentUser?.tenant_id) {
-        headers['x-tenant-id'] = currentUser.tenant_id
       }
 
       const response = await fetch('/api/manager/settings', {

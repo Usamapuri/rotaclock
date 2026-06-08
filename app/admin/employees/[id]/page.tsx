@@ -206,12 +206,8 @@ export default function EmployeeDetailPage() {
     setIsLoading(true)
     setEmployee(null)
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.tenant_id) {
-        headers['x-tenant-id'] = user.tenant_id
       }
 
       let loadedEmployee: Employee | null = null
@@ -374,12 +370,8 @@ export default function EmployeeDetailPage() {
     if (!employee) return
 
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.tenant_id) {
-        headers['x-tenant-id'] = user.tenant_id
       }
 
       const response = await fetch(`/api/employees/${employee.id}`, {
@@ -409,12 +401,8 @@ export default function EmployeeDetailPage() {
     if (!employee) return
 
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.tenant_id) {
-        headers['x-tenant-id'] = user.tenant_id
       }
 
       const response = await fetch(`/api/admin/employees/${employee.id}/reset-password`, {
@@ -439,11 +427,7 @@ export default function EmployeeDetailPage() {
     if (!employee) return
 
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {}
-      if (user?.tenant_id) {
-        headers['x-tenant-id'] = user.tenant_id
-      }
 
       const response = await fetch(`/api/admin/employees/${employee.id}/export-attendance`, {
         method: 'GET',
@@ -474,12 +458,8 @@ export default function EmployeeDetailPage() {
     if (!employee || !selectedProject) return
 
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.tenant_id) {
-        headers['x-tenant-id'] = user.tenant_id
       }
 
       const response = await fetch('/api/admin/projects/assign-manager', {
@@ -509,12 +489,8 @@ export default function EmployeeDetailPage() {
     if (!employee || !selectedTeam) return
 
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.tenant_id) {
-        headers['x-tenant-id'] = user.tenant_id
       }
 
       const response = await fetch(`/api/admin/teams/${selectedTeam}/assign-lead`, {
@@ -543,12 +519,8 @@ export default function EmployeeDetailPage() {
     if (!employee || !selectedRole) return
 
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.tenant_id) {
-        headers['x-tenant-id'] = user.tenant_id
       }
 
       const response = await fetch(`/api/admin/employees/${employee.id}/role`, {
