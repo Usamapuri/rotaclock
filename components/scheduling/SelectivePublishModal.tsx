@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, Clock, Users, Send, X } from 'lucide-react'
-import { AuthService } from '@/lib/auth'
 import { toast } from 'sonner'
 
 interface Employee {
@@ -128,8 +127,6 @@ export default function SelectivePublishModal({
     setIsPublishing(true)
 
     try {
-      const user = AuthService.getCurrentUser()
-      
       let requestBody: any = {}
       
       if (publishMode === 'shifts') {
@@ -151,8 +148,7 @@ export default function SelectivePublishModal({
       const res = await fetch('/api/scheduling/publish', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {})
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestBody)
       })

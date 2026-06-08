@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Palette, Settings } from 'lucide-react'
-import { AuthService } from '@/lib/auth'
 
 interface ShiftTemplate {
   id: string
@@ -144,8 +143,7 @@ export default function ShiftTemplateModal({
       const response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
-          ...(AuthService.getCurrentUser()?.id ? { authorization: `Bearer ${AuthService.getCurrentUser()!.id}` } : {}),
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(templateData)
       })

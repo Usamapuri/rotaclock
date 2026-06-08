@@ -222,12 +222,8 @@ export default function AdminTimesheet() {
       const startDate = getMonthStart(selectedMonth)
       const endDate = getMonthEnd(selectedMonth)
 
-      const user = AuthService.getCurrentUser()
-      const headers: Record<string, string> = {}
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
-
       // Load timesheet entries with discrepancy detection
-      const response = await fetch(`/api/admin/timesheet?start_date=${startDate}&end_date=${endDate}`, { headers })
+      const response = await fetch(`/api/admin/timesheet?start_date=${startDate}&end_date=${endDate}`)
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
@@ -368,11 +364,9 @@ export default function AdminTimesheet() {
     if (!editingEntry) return
 
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
 
       const response = await fetch(`/api/admin/timesheet/${editingEntry.id}`, {
         method: 'PATCH',
@@ -410,11 +404,9 @@ export default function AdminTimesheet() {
     }
 
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
 
       const response = await fetch('/api/admin/timesheet/bulk-approve', {
         method: 'POST',

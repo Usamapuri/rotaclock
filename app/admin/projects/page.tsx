@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Edit, Trash2, Users, Briefcase } from "lucide-react"
-import { AuthService } from "@/lib/auth"
 import { toast } from "sonner"
 
 interface Project {
@@ -61,24 +60,17 @@ export default function AdminProjectsPage() {
   async function loadData() {
     try {
       setLoading(true)
-      const user = AuthService.getCurrentUser()
-      
+
       // Load projects
-      const projectsRes = await fetch('/api/admin/projects', {
-        headers: { 'authorization': `Bearer ${user?.id || ''}` }
-      })
+      const projectsRes = await fetch('/api/admin/projects')
       const projectsData = await projectsRes.json()
-      
+
       // Load employees (project managers)
-      const employeesRes = await fetch('/api/employees', {
-        headers: { 'authorization': `Bearer ${user?.id || ''}` }
-      })
+      const employeesRes = await fetch('/api/employees')
       const employeesData = await employeesRes.json()
-      
+
       // Load teams
-      const teamsRes = await fetch('/api/admin/teams', {
-        headers: { 'authorization': `Bearer ${user?.id || ''}` }
-      })
+      const teamsRes = await fetch('/api/admin/teams')
       const teamsData = await teamsRes.json()
 
       setProjects(projectsData?.data || [])
@@ -94,12 +86,10 @@ export default function AdminProjectsPage() {
 
   async function createProject() {
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch('/api/admin/projects', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'authorization': `Bearer ${user?.id || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(formData)
       })
@@ -123,12 +113,10 @@ export default function AdminProjectsPage() {
     if (!selectedProject) return
     
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch(`/api/admin/projects/${selectedProject.id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'authorization': `Bearer ${user?.id || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(formData)
       })
@@ -153,10 +141,8 @@ export default function AdminProjectsPage() {
     if (!confirm('Are you sure you want to delete this project?')) return
     
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch(`/api/admin/projects/${projectId}`, {
-        method: 'DELETE',
-        headers: { 'authorization': `Bearer ${user?.id || ''}` }
+        method: 'DELETE'
       })
 
       if (res.ok) {
@@ -174,12 +160,10 @@ export default function AdminProjectsPage() {
 
   async function assignManager(projectId: string, managerId: string) {
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch('/api/admin/projects/assign-manager', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'authorization': `Bearer ${user?.id || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ project_id: projectId, manager_id: managerId })
       })
@@ -200,12 +184,10 @@ export default function AdminProjectsPage() {
 
   async function assignTeam(projectId: string, teamId: string) {
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch('/api/admin/projects/assign-team', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'authorization': `Bearer ${user?.id || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ project_id: projectId, team_id: teamId })
       })

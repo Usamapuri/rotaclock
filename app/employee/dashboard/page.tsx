@@ -391,14 +391,14 @@ export default function EmployeeDashboard() {
     if (!user) return
 
     // Load current shift log
-    const shiftLogsResponse = await fetch(`/api/shift-logs?employee_id=${user.id}&status=active`, { headers: { authorization: `Bearer ${user.id}` } })
+    const shiftLogsResponse = await fetch(`/api/shift-logs?employee_id=${user.id}&status=active`)
     if (shiftLogsResponse.ok) {
       const shiftLogsData = await shiftLogsResponse.json()
       if (shiftLogsData.success && shiftLogsData.data.length > 0) {
         setCurrentShiftLog(shiftLogsData.data[0])
         
         // Check for active break
-        const breakResponse = await fetch(`/api/time/break-status?employee_id=${user.id}`, { headers: { authorization: `Bearer ${user.id}` } })
+        const breakResponse = await fetch(`/api/time/break-status?employee_id=${user.id}`)
         if (breakResponse.ok) {
           const breakData = await breakResponse.json()
           if (breakData.success && breakData.data) {
@@ -425,8 +425,7 @@ export default function EmployeeDashboard() {
   const loadTodayShifts = async (userId: string) => {
     const today = localTodayYmd()
     try {
-      const user = AuthService.getCurrentUser()
-      const res = await fetch(`/api/scheduling/week/${today}?employee_id=${userId}&published_only=true`, { headers: user?.id ? { authorization: `Bearer ${user.id}` } : {} })
+      const res = await fetch(`/api/scheduling/week/${today}?employee_id=${userId}&published_only=true`)
       if (!res.ok) {
         setTodayShifts([])
         return
@@ -479,8 +478,7 @@ export default function EmployeeDashboard() {
     // Load weekly hours from shift logs (more accurate)
     const weekStart = getWeekStart()
     const weekEnd = getWeekEnd()
-    const user = AuthService.getCurrentUser()
-    const weeklyShiftLogsResponse = await fetch(`/api/shift-logs?employee_id=${userId}&start_date=${weekStart}&end_date=${weekEnd}`, { headers: user?.id ? { authorization: `Bearer ${user.id}` } : {} })
+    const weeklyShiftLogsResponse = await fetch(`/api/shift-logs?employee_id=${userId}&start_date=${weekStart}&end_date=${weekEnd}`)
     if (weeklyShiftLogsResponse.ok) {
       const weeklyShiftLogsData = await weeklyShiftLogsResponse.json()
       if (weeklyShiftLogsData.success && weeklyShiftLogsData.data) {
@@ -507,11 +505,7 @@ export default function EmployeeDashboard() {
 
   const loadLeaveRequests = async (userId: string) => {
     try {
-      const user = AuthService.getCurrentUser()
-      const headers: Record<string, string> = {}
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
-
-      const response = await fetch(`/api/leave-requests?employee_id=${userId}`, { headers })
+      const response = await fetch(`/api/leave-requests?employee_id=${userId}`)
       if (response.ok) {
         const data = await response.json()
         if (data.data) {
@@ -561,7 +555,6 @@ export default function EmployeeDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          authorization: `Bearer ${user.id}`,
         },
         body: JSON.stringify({ employee_id: user.id }),
       })
@@ -598,9 +591,8 @@ export default function EmployeeDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          authorization: `Bearer ${user.id}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           employee_id: user.id,
           ...remarksData
         }),
@@ -641,7 +633,6 @@ export default function EmployeeDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          authorization: `Bearer ${user.id}`,
         },
         body: JSON.stringify({ employee_id: user.id }),
       })
@@ -673,7 +664,6 @@ export default function EmployeeDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          authorization: `Bearer ${user.id}`,
         },
         body: JSON.stringify({ employee_id: user.id }),
       })
@@ -738,14 +728,11 @@ export default function EmployeeDashboard() {
         reason: leaveForm.reason
       }
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
-
       const response = await fetch('/api/leave-requests', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(requestData)
       })
 

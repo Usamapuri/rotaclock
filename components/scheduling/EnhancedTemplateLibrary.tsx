@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Clock, Palette, Settings, Plus, Search, Filter, Edit, Trash2, Copy, MoreHorizontal, Star, Zap, Users } from 'lucide-react'
-import { AuthService } from '@/lib/auth'
 import { toast } from 'sonner'
 
 interface ShiftTemplate {
@@ -227,14 +226,12 @@ export default function EnhancedTemplateLibrary({ templates, onTemplateEdit, onT
   const applyPattern = async (pattern: TemplatePattern) => {
     try {
       setIsApplyingPattern(true)
-      const user = AuthService.getCurrentUser()
-      
+
       for (const templateData of pattern.templates) {
         const response = await fetch('/api/scheduling/templates', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            authorization: `Bearer ${user?.id}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(templateData)
         })
@@ -258,12 +255,10 @@ export default function EnhancedTemplateLibrary({ templates, onTemplateEdit, onT
 
   const toggleFavorite = async (template: ShiftTemplate) => {
     try {
-      const user = AuthService.getCurrentUser()
       const response = await fetch(`/api/scheduling/templates/${template.id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          authorization: `Bearer ${user?.id}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           ...template,
@@ -283,19 +278,17 @@ export default function EnhancedTemplateLibrary({ templates, onTemplateEdit, onT
 
   const duplicateTemplate = async (template: ShiftTemplate) => {
     try {
-      const user = AuthService.getCurrentUser()
       const duplicatedTemplate = {
         ...template,
         name: `${template.name} (Copy)`,
         id: undefined
       }
       delete duplicatedTemplate.id
-      
+
       const response = await fetch('/api/scheduling/templates', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          authorization: `Bearer ${user?.id}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(duplicatedTemplate)
       })

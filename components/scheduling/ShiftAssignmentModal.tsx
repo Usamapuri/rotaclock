@@ -128,7 +128,7 @@ export default function ShiftAssignmentModal({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(user?.id ? { authorization: `Bearer ${user.id}`, 'x-employee-id': user.id } : {}),
+            ...(user?.id ? { 'x-employee-id': user.id } : {}),
           },
           body: JSON.stringify({
             employee_id: employee.id,

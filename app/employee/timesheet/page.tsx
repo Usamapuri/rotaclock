@@ -148,11 +148,8 @@ export default function EmployeeTimesheet() {
       const startDate = getMonthStart(selectedMonth)
       const endDate = getMonthEnd(selectedMonth)
 
-      const headers: Record<string, string> = {}
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
-
       // Load employee timesheet data
-      const response = await fetch(`/api/employee/timesheet?start_date=${startDate}&end_date=${endDate}`, { headers })
+      const response = await fetch(`/api/employee/timesheet?start_date=${startDate}&end_date=${endDate}`)
       if (response.ok) {
         const data = await response.json()
         if (data.success) {

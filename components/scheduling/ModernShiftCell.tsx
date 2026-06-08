@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Plus, MoreHorizontal, Clock, X } from 'lucide-react'
-import { AuthService } from '@/lib/auth'
 
 interface Employee {
   id: string
@@ -93,12 +92,8 @@ export default function ModernShiftCell({
 
   const handleRemoveAssignment = async (assignmentId: string) => {
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch(`/api/scheduling/assign?id=${assignmentId}`, {
-        method: 'DELETE',
-        headers: {
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
-        }
+        method: 'DELETE'
       })
       
       if (res.ok) {

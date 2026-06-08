@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ChevronRight, Eye, Users, Clock, Calendar } from 'lucide-react'
-import { AuthService } from '@/lib/auth'
 
 interface Employee {
   id: string
@@ -52,12 +51,9 @@ export default function CurrentWeekView({ selectedDate, onDateChange }: CurrentW
   const loadCurrentWeek = async () => {
     try {
       setIsLoading(true)
-      const user = AuthService.getCurrentUser()
-      
+
       // Load only published shifts for the current week
-      const res = await fetch(`/api/scheduling/week/${selectedDate}?published_only=true`, {
-        headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
-      })
+      const res = await fetch(`/api/scheduling/week/${selectedDate}?published_only=true`)
       const data = await res.json()
       
       if (data.success) {

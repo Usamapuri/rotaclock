@@ -98,18 +98,14 @@ export default function SchedulingPage() {
   }
 
   const loadTemplates = async () => {
-    const user = AuthService.getCurrentUser()
-    const res = await fetch('/api/scheduling/templates', {
-      headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
-    })
+    const res = await fetch('/api/scheduling/templates')
     const data = await res.json()
     if (data.success) setTemplates(data.data)
   }
 
   const loadWeek = async (dateOverride?: string, rotaId?: string | null) => {
     const dateToLoad = dateOverride || selectedDate
-    const user = AuthService.getCurrentUser()
-    
+
     // Build URL with rota filter if specified
     let url = `/api/scheduling/week/${dateToLoad}`
     const params = new URLSearchParams()
@@ -122,9 +118,7 @@ export default function SchedulingPage() {
       url += `?${params.toString()}`
     }
 
-    const res = await fetch(url, {
-      headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
-    })
+    const res = await fetch(url)
     const data = await res.json()
     if (!data.success) {
       console.error('Failed to load week data:', data.error)
@@ -160,12 +154,10 @@ export default function SchedulingPage() {
   }
 
   const handleCreateRota = async (name: string, weekStart: string) => {
-    const user = AuthService.getCurrentUser()
     const res = await fetch('/api/rotas', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        ...(user?.id ? { authorization: `Bearer ${user.id}` } : {})
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         name,
@@ -189,12 +181,10 @@ export default function SchedulingPage() {
   }
 
   const handlePublishRota = async (rotaId: string) => {
-    const user = AuthService.getCurrentUser()
     const res = await fetch(`/api/rotas/${rotaId}/publish`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        ...(user?.id ? { authorization: `Bearer ${user.id}` } : {})
+        'Content-Type': 'application/json'
       }
     })
 
@@ -209,8 +199,6 @@ export default function SchedulingPage() {
 
   const handlePublishShifts = async () => {
     try {
-      const user = AuthService.getCurrentUser()
-      
       // Monday–Sunday week (matches GET /api/scheduling/week/[date])
       const selectedDateObj = new Date(`${selectedDate}T12:00:00`)
       const dayOfWeek = selectedDateObj.getDay()
@@ -226,8 +214,7 @@ export default function SchedulingPage() {
       const res = await fetch('/api/scheduling/publish', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {})
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           start_date: startDate,
@@ -309,12 +296,10 @@ export default function SchedulingPage() {
 
   const handleDragDrop = async (employeeId: string, date: string, templateId: string) => {
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch('/api/scheduling/assign', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
         },
         body: JSON.stringify({
           employee_id: employeeId,

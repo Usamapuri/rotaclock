@@ -77,10 +77,7 @@ export default function NewEmployee() {
 
   useEffect(() => {
     const loadLocations = async () => {
-      const user = AuthService.getCurrentUser()
-      const headers: Record<string,string> = {}
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
-      const res = await fetch('/api/locations', { headers })
+      const res = await fetch('/api/locations')
       if (res.ok) {
         const data = await res.json()
         setLocations((data.data||[]) as any)
@@ -147,9 +144,6 @@ export default function NewEmployee() {
       const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.id) {
-        headers['authorization'] = `Bearer ${user.id}`
       }
       if (user?.tenant_id) {
         headers['x-tenant-id'] = user.tenant_id

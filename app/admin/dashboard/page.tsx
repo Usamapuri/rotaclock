@@ -249,11 +249,9 @@ export default function AdminDashboard() {
     setIsLoadingData(true)
     try {
       console.log('🔄 Loading admin dashboard data...')
-      const user = AuthService.getCurrentUser()
-      const authHeaders = user?.id ? { authorization: `Bearer ${user.id}` } : {}
-      
+
       // Load employees
-      const employeesResponse = await fetch('/api/employees', { headers: authHeaders })
+      const employeesResponse = await fetch('/api/employees')
       let employeesData: Employee[] = []
       if (employeesResponse.ok) {
         const data = await employeesResponse.json()
@@ -265,7 +263,7 @@ export default function AdminDashboard() {
       }
 
       // Load shifts
-      const shiftsResponse = await fetch('/api/shifts', { headers: authHeaders })
+      const shiftsResponse = await fetch('/api/shifts')
       let shiftsData: Shift[] = []
       if (shiftsResponse.ok) {
         const data = await shiftsResponse.json()
@@ -277,7 +275,7 @@ export default function AdminDashboard() {
       }
 
       // Load shift swap requests
-      const swapResponse = await fetch('/api/shifts/swap-requests', { headers: authHeaders })
+      const swapResponse = await fetch('/api/shifts/swap-requests')
       let swapRequestsData: SwapRequest[] = []
       if (swapResponse.ok) {
         const data = await swapResponse.json()
@@ -289,7 +287,7 @@ export default function AdminDashboard() {
       }
 
       // Load leave requests
-      const leaveResponse = await fetch('/api/leave-requests', { headers: authHeaders })
+      const leaveResponse = await fetch('/api/leave-requests')
       let leaveRequestsData: LeaveRequest[] = []
       if (leaveResponse.ok) {
         const data = await leaveResponse.json()
@@ -301,7 +299,7 @@ export default function AdminDashboard() {
       }
 
       // Load approvals stats (timesheet summary)
-      const approvalsResponse = await fetch('/api/admin/shift-approvals?status=all&limit=1', { headers: authHeaders })
+      const approvalsResponse = await fetch('/api/admin/shift-approvals?status=all&limit=1')
       if (approvalsResponse.ok) {
         const data = await approvalsResponse.json()
         if (data?.data?.stats) {
@@ -317,7 +315,7 @@ export default function AdminDashboard() {
 
       // Load time entries for attendance tracking (legacy)
       const today = new Date().toISOString().split('T')[0]
-      const timeResponse = await fetch(`/api/time/entries?start_date=${today}&end_date=${today}`, { headers: authHeaders })
+      const timeResponse = await fetch(`/api/time/entries?start_date=${today}&end_date=${today}`)
       if (timeResponse.ok) {
         const data = await timeResponse.json()
         if (data.data) {
@@ -329,7 +327,7 @@ export default function AdminDashboard() {
 
       // Load shift logs for current attendance (new system)
       console.log('🔄 Loading active shift logs...')
-      const shiftLogsResponse = await fetch(`/api/shift-logs?status=active`, { headers: authHeaders })
+      const shiftLogsResponse = await fetch(`/api/shift-logs?status=active`)
       let shiftLogsWithEmployees: any[] = []
       
       if (shiftLogsResponse.ok) {
@@ -363,7 +361,7 @@ export default function AdminDashboard() {
       const weekEnd = new Date(weekStart)
       weekEnd.setDate(weekEnd.getDate() + 6) // Sunday
       
-      const assignmentsResponse = await fetch(`/api/shifts/assignments?start_date=${weekStart.toISOString().split('T')[0]}&end_date=${weekEnd.toISOString().split('T')[0]}` , { headers: authHeaders })
+      const assignmentsResponse = await fetch(`/api/shifts/assignments?start_date=${weekStart.toISOString().split('T')[0]}&end_date=${weekEnd.toISOString().split('T')[0]}`)
       let shiftAssignmentsData: any[] = []
       let totalShifts = 0
       let completedShifts = 0
@@ -696,9 +694,7 @@ export default function AdminDashboard() {
       // Check if on break using break_logs table
       // We need to check if there's an active break for this employee
       try {
-        const user = AuthService.getCurrentUser()
-        const authHeaders = user?.id ? { authorization: `Bearer ${user.id}` } : {}
-        const breakResponse = await fetch(`/api/time/break-status?employee_id=${employeeId}`, { headers: authHeaders })
+        const breakResponse = await fetch(`/api/time/break-status?employee_id=${employeeId}`)
         if (breakResponse.ok) {
           const breakData = await breakResponse.json()
           if (breakData.data && breakData.data.status === 'active') {
@@ -776,12 +772,10 @@ export default function AdminDashboard() {
   const handleStartImpersonation = async (employee: Employee) => {
     try {
       console.log('🔄 Starting impersonation for:', employee.email)
-      const user = AuthService.getCurrentUser()
       const response = await fetch('/api/admin/impersonation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
         },
         body: JSON.stringify({ targetUserId: employee.id }),
       })

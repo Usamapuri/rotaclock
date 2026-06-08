@@ -110,12 +110,7 @@ export default function AdminEmployees() {
   const loadEmployees = async () => {
     setIsLoading(true)
     try {
-      const user = AuthService.getCurrentUser()
-      const response = await fetch('/api/admin/employees', {
-        headers: {
-          'authorization': user?.id ? `Bearer ${user.id}` : ''
-        }
-      })
+      const response = await fetch('/api/admin/employees')
       if (response.ok) {
         const data = await response.json()
         setEmployees(data.employees || [])
@@ -218,12 +213,10 @@ export default function AdminEmployees() {
   const handleStartImpersonation = async (employee: any) => {
     try {
       console.log('🔄 Starting impersonation for:', employee.email)
-      const user = AuthService.getCurrentUser()
       const response = await fetch('/api/admin/impersonation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
         },
         body: JSON.stringify({ targetUserId: employee.id }),
       })

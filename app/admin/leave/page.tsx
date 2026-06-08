@@ -111,12 +111,9 @@ export default function AdminLeavePage() {
   const loadLeaveData = async () => {
     try {
       setIsLoading(true)
-      const user = AuthService.getCurrentUser()
-      const headers: Record<string, string> = {}
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
 
       // Load leave requests
-      const response = await fetch('/api/leave-requests', { headers })
+      const response = await fetch('/api/leave-requests')
       if (response.ok) {
         const data = await response.json()
         setLeaveRequests(data.data || [])
@@ -172,11 +169,9 @@ export default function AdminLeavePage() {
 
   const handleApproval = async (requestId: string, action: 'approve' | 'reject') => {
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
 
       const response = await fetch(`/api/leave-requests/${requestId}`, {
         method: 'PATCH',

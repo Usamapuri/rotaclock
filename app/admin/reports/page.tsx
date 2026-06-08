@@ -137,7 +137,6 @@ export default function AdminReports() {
       // Get user and build headers
       const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
       if (user?.tenant_id) headers['x-tenant-id'] = user.tenant_id
 
       // Load overview report

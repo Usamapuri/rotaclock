@@ -138,9 +138,8 @@ export default function ShiftApprovalsPage() {
       setIsLoading(true)
       const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
       if (user?.tenant_id) headers['x-tenant-id'] = user.tenant_id
-      
+
       const response = await fetch(`/api/admin/shift-approvals?status=${selectedStatus}`, { headers })
       const data = await response.json()
       
@@ -178,9 +177,8 @@ export default function ShiftApprovalsPage() {
 
       const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
       if (user?.tenant_id) headers['x-tenant-id'] = user.tenant_id
-      
+
       const response = await fetch(`/api/admin/shift-approvals/${selectedApproval.id}`, {
         method: 'PATCH',
         headers,
@@ -245,9 +243,7 @@ export default function ShiftApprovalsPage() {
   const handleBulkApprove = async () => {
     if (!startDate || !endDate) return toast.error('Select a date range')
     try {
-      const user = AuthService.getCurrentUser()
       const headers: Record<string,string> = { 'Content-Type':'application/json' }
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
       const res = await fetch('/api/admin/shift-approvals/bulk', { method:'POST', headers, body: JSON.stringify({ start_date: startDate, end_date: endDate }) })
       const data = await res.json()
       if (res.ok) {
@@ -267,10 +263,7 @@ export default function ShiftApprovalsPage() {
     if (!bulkOpen) return
     ;(async () => {
       try {
-        const user = AuthService.getCurrentUser()
-        const headers: Record<string,string> = {}
-        if (user?.id) headers['authorization'] = `Bearer ${user.id}`
-        const res = await fetch('/api/admin/settings/approvals', { headers })
+        const res = await fetch('/api/admin/settings/approvals')
         if (res.ok) {
           const data = await res.json()
           setTenantSettings(data.data)
@@ -329,9 +322,7 @@ export default function ShiftApprovalsPage() {
 
     try {
       setIsLockingPeriod(true)
-      const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
 
       const response = await fetch('/api/admin/pay-periods', {
         method: 'POST',
@@ -364,13 +355,9 @@ export default function ShiftApprovalsPage() {
 
     try {
       setIsExporting(true)
-      const user = AuthService.getCurrentUser()
-      const headers: Record<string, string> = {}
-      if (user?.id) headers['authorization'] = `Bearer ${user.id}`
 
       const response = await fetch(
-        `/api/admin/payroll/export?start_date=${payrollStartDate}&end_date=${payrollEndDate}`,
-        { headers }
+        `/api/admin/payroll/export?start_date=${payrollStartDate}&end_date=${payrollEndDate}`
       )
 
       if (response.ok) {

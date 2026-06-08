@@ -85,7 +85,6 @@ export default function LocationsAdmin() {
   const headers = () => {
     const user = AuthService.getCurrentUser()
     const h: Record<string,string> = { 'Content-Type': 'application/json' }
-    if (user?.id) h['authorization'] = `Bearer ${user.id}`
     if (user?.tenant_id) h['x-tenant-id'] = user.tenant_id
     return h
   }

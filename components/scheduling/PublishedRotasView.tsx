@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, Users, Clock, Eye } from 'lucide-react'
-import { AuthService } from '@/lib/auth'
 
 interface PublishedRota {
   id: string
@@ -34,10 +33,7 @@ export default function PublishedRotasView({ onViewRota }: PublishedRotasViewPro
   const loadPublishedRotas = async () => {
     try {
       setIsLoading(true)
-      const user = AuthService.getCurrentUser()
-      const res = await fetch('/api/rotas?status=published', {
-        headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
-      })
+      const res = await fetch('/api/rotas?status=published')
       const data = await res.json()
       if (data.success) {
         setPublishedRotas(data.data)

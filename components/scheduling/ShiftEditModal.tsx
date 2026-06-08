@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Clock, User, Calendar, Trash2, AlertTriangle } from 'lucide-react'
-import { AuthService } from '@/lib/auth'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -166,7 +165,6 @@ export default function ShiftEditModal({
         return
       }
 
-      const user = AuthService.getCurrentUser()
       const updateData: any = {
         id: assignment.id,
         status: status,
@@ -193,8 +191,7 @@ export default function ShiftEditModal({
       const res = await fetch('/api/scheduling/assign', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(updateData)
       })
@@ -232,12 +229,8 @@ export default function ShiftEditModal({
     setIsLoading(true)
 
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch(`/api/scheduling/assign?id=${assignment.id}`, {
-        method: 'DELETE',
-        headers: {
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
-        }
+        method: 'DELETE'
       })
 
       if (!res.ok) {

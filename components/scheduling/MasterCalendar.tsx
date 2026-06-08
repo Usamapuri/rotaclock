@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Users, Clock, Calendar, TrendingUp } from 'lucide-react'
-import { AuthService } from '@/lib/auth'
 
 interface TimeSlot {
   time: string
@@ -63,12 +62,9 @@ export default function MasterCalendar({ selectedDate, onDateChange }: MasterCal
   const loadCoverageAnalysis = async () => {
     try {
       setIsLoading(true)
-      const user = AuthService.getCurrentUser()
-      
+
       // Load all shifts for the week (both draft and published for coverage analysis)
-      const res = await fetch(`/api/scheduling/week/${selectedDate}`, {
-        headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
-      })
+      const res = await fetch(`/api/scheduling/week/${selectedDate}`)
       const data = await res.json()
       
       if (data.success) {

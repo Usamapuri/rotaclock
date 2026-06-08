@@ -93,9 +93,6 @@ export default function ManagerSchedulingPage() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (user?.id) {
-        headers['authorization'] = `Bearer ${user.id}`
-      }
       if (user?.tenant_id) {
         headers['x-tenant-id'] = user.tenant_id
       }
@@ -130,10 +127,7 @@ export default function ManagerSchedulingPage() {
   }
 
   const loadTemplates = async () => {
-    const user = AuthService.getCurrentUser()
-    const res = await fetch('/api/scheduling/templates', {
-      headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
-    })
+    const res = await fetch('/api/scheduling/templates')
     const data = await res.json()
     if (data.success) setTemplates(data.data)
   }
@@ -142,8 +136,7 @@ export default function ManagerSchedulingPage() {
     if (!selectedLocationId) return // Don't load if no location selected
     
     const dateToLoad = dateOverride || selectedDate
-    const user = AuthService.getCurrentUser()
-    
+
     // Build URL with rota filter and location scope
     let url = `/api/scheduling/week/${dateToLoad}`
     const params = new URLSearchParams()
@@ -156,9 +149,7 @@ export default function ManagerSchedulingPage() {
       url += `?${params.toString()}`
     }
 
-    const res = await fetch(url, {
-      headers: user?.id ? { authorization: `Bearer ${user.id}` } : {}
-    })
+    const res = await fetch(url)
     const data = await res.json()
     if (!data.success) {
       console.error('Failed to load week data:', data.error)
@@ -235,12 +226,10 @@ export default function ManagerSchedulingPage() {
 
   const handlePublishRota = async (rotaId: string) => {
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch(`/api/rotas/${rotaId}/publish`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
         },
       })
       if (!res.ok) {
@@ -257,7 +246,6 @@ export default function ManagerSchedulingPage() {
 
   const handlePublishShifts = async () => {
     try {
-      const user = AuthService.getCurrentUser()
       const selectedDateObj = new Date(`${selectedDate}T12:00:00`)
       const dayOfWeek = selectedDateObj.getDay()
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
@@ -272,7 +260,6 @@ export default function ManagerSchedulingPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(user?.id ? { authorization: `Bearer ${user.id}` } : {}),
         },
         body: JSON.stringify({ start_date: startDate, end_date: endDate }),
       })

@@ -9,10 +9,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 
 function authHeaders(): HeadersInit {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const u = AuthService.getCurrentUser()
-  if (u?.id) headers['authorization'] = `Bearer ${u.id}`
-  return headers
+  return { 'Content-Type': 'application/json' }
 }
 
 export default function SuperAdminSettingsPage() {

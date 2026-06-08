@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AuthService } from '@/lib/auth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -11,9 +10,8 @@ export default function SuperAdminOverviewPage() {
   const [tenants, setTenants] = useState<number | null>(null)
 
   useEffect(() => {
+    // Auth travels via the httpOnly session cookie (same-origin); no header needed.
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    const u = AuthService.getCurrentUser()
-    if (u?.id) headers['authorization'] = `Bearer ${u.id}`
 
     ;(async () => {
       try {

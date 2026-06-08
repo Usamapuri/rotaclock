@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AuthService } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -46,10 +45,7 @@ type Tenant = {
 }
 
 function authHeaders(): HeadersInit {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const u = AuthService.getCurrentUser()
-  if (u?.id) headers['authorization'] = `Bearer ${u.id}`
-  return headers
+  return { 'Content-Type': 'application/json' }
 }
 
 export default function SuperAdminTenantsPage() {

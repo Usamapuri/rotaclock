@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Copy, Clipboard, Calendar, Users, Clock } from 'lucide-react'
-import { AuthService } from '@/lib/auth'
 import { toast } from 'sonner'
 
 interface Assignment {
@@ -107,7 +106,6 @@ export default function ShiftCopyPaste({
 
     try {
       setIsPasting(true)
-      const user = AuthService.getCurrentUser()
       let successCount = 0
       let errorCount = 0
 
@@ -131,8 +129,7 @@ export default function ShiftCopyPaste({
             const response = await fetch('/api/scheduling/assign', {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/json',
-                authorization: `Bearer ${user?.id}`
+                'Content-Type': 'application/json'
               },
               body: JSON.stringify(assignmentData)
             })

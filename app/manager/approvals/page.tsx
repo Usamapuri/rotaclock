@@ -108,9 +108,6 @@ export default function ManagerApprovals() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (currentUser?.id) {
-        headers['authorization'] = `Bearer ${currentUser.id}`
-      }
       if (currentUser?.tenant_id) {
         headers['x-tenant-id'] = currentUser.tenant_id
       }
@@ -163,9 +160,6 @@ export default function ManagerApprovals() {
       setIsProcessing(true)
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (currentUser?.id) {
-        headers['authorization'] = `Bearer ${currentUser.id}`
       }
       if (currentUser?.tenant_id) {
         headers['x-tenant-id'] = currentUser.tenant_id

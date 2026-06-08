@@ -112,11 +112,7 @@ export default function EmployeeSchedulingPage() {
   }, [currentUser, selectedDate])
 
   const loadEmployees = async () => {
-    const user = AuthService.getCurrentUser()
-    const headers: Record<string, string> = {}
-    if (user?.id) headers['authorization'] = `Bearer ${user.id}`
-    
-    const res = await fetch('/api/scheduling/employees', { headers })
+    const res = await fetch('/api/scheduling/employees')
     const data = await res.json()
     if (data.success) {
       setEmployees(data.data)
@@ -124,11 +120,7 @@ export default function EmployeeSchedulingPage() {
   }
 
   const loadWeek = async (employeeId: string, date: string) => {
-    const user = AuthService.getCurrentUser()
-    const headers: Record<string, string> = {}
-    if (user?.id) headers['authorization'] = `Bearer ${user.id}`
-    
-    const res = await fetch(`/api/scheduling/week/${date}?employee_id=${employeeId}&published_only=true`, { headers })
+    const res = await fetch(`/api/scheduling/week/${date}?employee_id=${employeeId}&published_only=true`)
     if (!res.ok) {
       console.error('Failed to load week data:', res.status, res.statusText)
       return
@@ -189,8 +181,7 @@ export default function EmployeeSchedulingPage() {
       const res = await fetch('/api/leave-requests', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentUser.id}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           employee_id: currentUser.id,
@@ -228,8 +219,7 @@ export default function EmployeeSchedulingPage() {
       const res = await fetch('/api/shifts/swap-request', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentUser.id}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           target_employee_id: swapTargetEmployeeId,

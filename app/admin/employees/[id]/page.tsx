@@ -210,9 +210,6 @@ export default function EmployeeDetailPage() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (user?.id) {
-        headers['authorization'] = `Bearer ${user.id}`
-      }
       if (user?.tenant_id) {
         headers['x-tenant-id'] = user.tenant_id
       }
@@ -381,9 +378,6 @@ export default function EmployeeDetailPage() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (user?.id) {
-        headers['authorization'] = `Bearer ${user.id}`
-      }
       if (user?.tenant_id) {
         headers['x-tenant-id'] = user.tenant_id
       }
@@ -419,9 +413,6 @@ export default function EmployeeDetailPage() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (user?.id) {
-        headers['authorization'] = `Bearer ${user.id}`
-      }
       if (user?.tenant_id) {
         headers['x-tenant-id'] = user.tenant_id
       }
@@ -450,9 +441,6 @@ export default function EmployeeDetailPage() {
     try {
       const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {}
-      if (user?.id) {
-        headers['authorization'] = `Bearer ${user.id}`
-      }
       if (user?.tenant_id) {
         headers['x-tenant-id'] = user.tenant_id
       }
@@ -490,9 +478,6 @@ export default function EmployeeDetailPage() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (user?.id) {
-        headers['authorization'] = `Bearer ${user.id}`
-      }
       if (user?.tenant_id) {
         headers['x-tenant-id'] = user.tenant_id
       }
@@ -528,9 +513,6 @@ export default function EmployeeDetailPage() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (user?.id) {
-        headers['authorization'] = `Bearer ${user.id}`
-      }
       if (user?.tenant_id) {
         headers['x-tenant-id'] = user.tenant_id
       }
@@ -564,9 +546,6 @@ export default function EmployeeDetailPage() {
       const user = AuthService.getCurrentUser()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-      }
-      if (user?.id) {
-        headers['authorization'] = `Bearer ${user.id}`
       }
       if (user?.tenant_id) {
         headers['x-tenant-id'] = user.tenant_id

@@ -144,24 +144,17 @@ export default function EditTeamPage() {
   const loadTeamData = async () => {
     try {
       setIsLoading(true)
-      const user = AuthService.getCurrentUser()
-      
+
       // Load team details
-      const teamRes = await fetch(`/api/admin/teams/${teamId}`, {
-        headers: { 'authorization': `Bearer ${user?.id || ''}` }
-      })
+      const teamRes = await fetch(`/api/admin/teams/${teamId}`)
       const teamData = await teamRes.json()
-      
+
       // Load team members
-      const membersRes = await fetch(`/api/admin/teams/${teamId}/members`, {
-        headers: { 'authorization': `Bearer ${user?.id || ''}` }
-      })
+      const membersRes = await fetch(`/api/admin/teams/${teamId}/members`)
       const membersData = await membersRes.json()
-      
+
              // Load all employees (including those already in teams)
-       const employeesRes = await fetch('/api/employees', {
-         headers: { 'authorization': `Bearer ${user?.id || ''}` }
-       })
+       const employeesRes = await fetch('/api/employees')
        const employeesData = await employeesRes.json()
        
        setTeam(teamData.data)
@@ -188,13 +181,11 @@ export default function EditTeamPage() {
   const handleSaveTeam = async () => {
     try {
       setIsSaving(true)
-      const user = AuthService.getCurrentUser()
-      
+
       const res = await fetch(`/api/admin/teams/${teamId}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'authorization': `Bearer ${user?.id || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(teamData)
       })
@@ -218,12 +209,10 @@ export default function EditTeamPage() {
     if (!selectedEmployee) return
     
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch(`/api/admin/teams/${teamId}/members`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'authorization': `Bearer ${user?.id || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ employee_id: selectedEmployee })
       })
@@ -248,10 +237,8 @@ export default function EditTeamPage() {
     if (!selectedMember) return
     
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch(`/api/admin/teams/${teamId}/members/${selectedMember.id}`, {
-        method: 'DELETE',
-        headers: { 'authorization': `Bearer ${user?.id || ''}` }
+        method: 'DELETE'
       })
 
       if (res.ok) {
@@ -273,12 +260,10 @@ export default function EditTeamPage() {
     if (!newTeamLead) return
     
     try {
-      const user = AuthService.getCurrentUser()
       const res = await fetch(`/api/admin/teams/${teamId}/change-lead`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'authorization': `Bearer ${user?.id || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ new_team_lead_id: newTeamLead })
       })

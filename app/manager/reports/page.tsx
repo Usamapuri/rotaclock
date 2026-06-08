@@ -121,9 +121,6 @@ export default function ManagerReports() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-      if (currentUser?.id) {
-        headers['authorization'] = `Bearer ${currentUser.id}`
-      }
       if (currentUser?.tenant_id) {
         headers['x-tenant-id'] = currentUser.tenant_id
       }
